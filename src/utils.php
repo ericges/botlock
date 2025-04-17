@@ -51,6 +51,14 @@ function abort(int $errorCode): never
     exit;
 }
 
+function sendJson(int $statusCode, array $data): never
+{
+    header('Content-Type: application/json');
+    http_response_code($statusCode);
+    echo json_encode($data);
+    exit;
+}
+
 function randStr($length, ?string $chars = null): string
 {
     $chars ??= '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -79,4 +87,36 @@ function base64url_encode(string $data): string
 {
     $b64 = \strtr(\base64_encode($data), '+/', '-_');
     return rtrim($b64, '=');
+}
+
+function getUserFingerprint(): string
+{
+    // 1. collect IPs
+    $sources = [
+        $_SERVER['HTTP_CLIENT_IP']        ?? '',
+        $_SERVER['HTTP_X_FORWARDED_FOR']  ?? '',
+        $_SERVER['REMOTE_ADDR']           ?? '',
+    ];
+
+    // 2. extract valid IPs
+    $ips = [];
+    foreach ($sources as $entry) {
+        foreach (explode(',', $entry) as $ip) {
+            $ip = trim($ip);
+            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+                $ips[] = $ip;
+            }
+        }
+    }
+
+    // 3. remove duplicates and sort
+    $ips = array_unique($ips);
+    sort($ips, SORT_STRING);
+
+    // 4. add user agent
+    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+
+    // 5. create hash
+    $payload = $userAgent . '|' . implode(',', $ips);
+    return hash('sha256', $payload);
 }

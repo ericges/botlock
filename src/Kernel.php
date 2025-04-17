@@ -60,13 +60,20 @@ class Kernel
         $challenge = new Challenge($this->config);
         $data = $challenge->create();
 
-        \header('Content-Type: application/json');
-        exit(\json_encode($data));
+        $this->session->set('fingerprint', getUserFingerprint());
+        $this->session->write();
+
+        sendJson(200, $data);
     }
 
     public function handlePostChallengeRequest(): never
     {
         $statusCode = 401;
+
+        if ($this->session->get('fingerprint') !== getUserFingerprint()) {
+            \http_response_code($statusCode);
+            exit(\json_encode(['ok' => false]));
+        }
 
         $data = \json_decode(\file_get_contents('php://input'), true);
 
@@ -78,13 +85,14 @@ class Kernel
             $statusCode = 200;
         }
 
-        \http_response_code($statusCode);
-        exit(\json_encode(['ok' => $ok]));
+        sendJson($statusCode, ['ok' => $ok]);
     }
 
     public function handleAnyRequest(): void
     {
-        if ($this->session->get('access_granted', false)) {
+        if ($this->session->get('access_granted', false)
+            && $this->session->get('fingerprint') === getUserFingerprint())
+        {
             return;
         }
 
