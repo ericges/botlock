@@ -18,6 +18,20 @@ function env(string $name, $default = null): mixed
     return $value;
 }
 
+function envArray(string $name): array {
+    if (!$value = env($name, '')) {
+        return [];
+    }
+    if (!\is_string($value)) {
+        return [];
+    }
+    if ($value[0] !== '[' || $value[-1] !== ']') {
+        return \explode(',', $value);
+    }
+    $data = \json_decode($value, true) ?: [];
+    return \array_values(\array_filter($data, 'is_string'));
+}
+
 function isRequestHttps(): bool
 {
     return ($_SERVER['HTTPS'] ?? 'off') !== 'off' || (string) ($_SERVER['SERVER_PORT'] ?? '') == "443";
@@ -40,14 +54,15 @@ function getRequestUrl(): string
 function abort(int $errorCode): never
 {
     http_response_code($errorCode);
-    echo [
+    echo match ($errorCode) {
         400 => '400 Bad Request',
         401 => '401 Unauthorized',
         403 => '403 Forbidden',
         404 => '404 Not Found',
         405 => '405 Method Not Allowed',
         500 => '500 Internal Server Error',
-    ][$errorCode] ?? ($errorCode . ' An error occurred');
+        default => "$errorCode An error occurred",
+    };
     exit;
 }
 

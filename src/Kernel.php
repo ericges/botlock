@@ -24,15 +24,49 @@ class Kernel
     }
     public function handleRequest(): void
     {
+        if ($this->isWhitelisted()) {
+            return;
+        }
+
         try
         {
             $this->route();
         }
         catch (\Throwable $e)
         {
-            \http_response_code(500);
-            exit(\json_encode(['error' => $e->getMessage()]));
+            sendJson(500, [
+                'ok' => false,
+                'error' => $e->getMessage(),
+            ]);
         }
+    }
+
+    private function isWhitelisted(): bool
+    {
+        $ignoreIps = $this->config->getIgnoreIps();
+        $ignoreUserAgents = $this->config->getIgnoreUserAgents();
+        $ignoreUrls = $this->config->getIgnoreUrls();
+
+        if (!empty($i))
+        $ip = $_SERVER['SERVER_ADDR'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
+        if ($ip && \in_array($ip, $ignoreIps)) {
+            return true;
+        }
+
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+        if ($userAgent && \in_array($userAgent, $ignoreUserAgents)) {
+            return true;
+        }
+
+        $url = getRequestUrl();
+        foreach ($ignoreUrls as $w) {
+            $w = \trim($w);
+            if (\strlen($w) > 0 && \str_starts_with($url, $w)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function route(): void

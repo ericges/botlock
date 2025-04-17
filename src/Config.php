@@ -12,6 +12,9 @@ class Config
     private readonly string $secret;
     private readonly string $issuer;
     private readonly string $instanceId;
+    private readonly ?array $ignoreIps;
+    private readonly ?array $ignoreUserAgents;
+    private readonly ?array $ignoreUrls;
 
     public function __construct(
         ?int $expire = null,
@@ -20,18 +23,23 @@ class Config
         ?string $secret = null,
         ?string $audience = null,
         ?string $instanceId = null,
+        ?array $ignoreIps = null,
+        ?array $ignoreUserAgents = null,
+        ?array $ignoreUrls = null,
     ) {
-        $this->instanceId = $instanceId ?: env('INSTANCE_ID') ?: \md5(__DIR__);
-
         $this->algorithm = \strtolower($algorithm ?? env('ALGORITHM', '')) ?: 'sha256';
         if (!in_array($this->algorithm, self::ALLOWED_ALGORITHMS)) {
             throw new \Exception('Invalid algorithm provided');
         }
 
+        $this->instanceId = $instanceId ?: env('INSTANCE_ID') ?: \md5(__DIR__);
         $this->secret = \trim($secret ?: $this->loadSecret());
         $this->issuer = \trim($audience ?? $this->loadIssuer());
         $this->expire = $expire ?? (int) (env('EXPIRE') ?: 60);
         $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 200000);
+        $this->ignoreIps = $ignoreIps ?: $this->loadIgnoreIps();
+        $this->ignoreUserAgents = $ignoreUserAgents ?: $this->loadIgnoreUserAgents();
+        $this->ignoreUrls = $ignoreUrls ?: $this->loadIgnoreUrls();
     }
 
     public function getAlgorithm(): string
@@ -57,6 +65,26 @@ class Config
     public function getMaxNumber(): int
     {
         return $this->maxNumber;
+    }
+
+    public function getInstanceId(): string
+    {
+        return $this->instanceId;
+    }
+
+    public function getIgnoreIps(): ?array
+    {
+        return $this->ignoreIps;
+    }
+
+    public function getIgnoreUserAgents(): ?array
+    {
+        return $this->ignoreUserAgents;
+    }
+
+    public function getIgnoreUrls(): ?array
+    {
+        return $this->ignoreUrls;
     }
 
     private function loadIssuer(): string
@@ -93,7 +121,7 @@ class Config
             throw new \Exception('TMPDIR does not exist and could not be created');
         }
 
-        $secretFilename = 'botlock_secret_' . $this->instanceId;
+        $secretFilename = 'botlock_secret_' . $this->getInstanceId();
         $secretFile = $tmpdir . DIRECTORY_SEPARATOR . $secretFilename;
 
         if (@\file_exists($secretFile)) {
@@ -116,5 +144,35 @@ class Config
         }
 
         return $secret;
+    }
+
+    private function loadIgnoreIps(): ?array
+    {
+        if ($ignoreIps = envArray('IGNORE_IPS')) {
+            $ignoreIps = \array_unique(\array_map('trim', $ignoreIps));
+            return empty($ignoreIps) ? null : $ignoreIps;
+        }
+
+        return null;
+    }
+
+    private function loadIgnoreUserAgents(): ?array
+    {
+        if ($ignoreUserAgents = envArray('IGNORE_USER_AGENTS')) {
+            $ignoreUserAgents = \array_unique(\array_map('trim', $ignoreUserAgents));
+            return empty($ignoreUserAgents) ? null : $ignoreUserAgents;
+        }
+
+        return null;
+    }
+
+    private function loadIgnoreUrls(): ?array
+    {
+        if ($ignoreUrls = envArray('IGNORE_URLS')) {
+            $ignoreUrls = \array_unique(\array_map('trim', $ignoreUrls));
+            return empty($ignoreUrls) ? null : $ignoreUrls;
+        }
+
+        return null;
     }
 }
