@@ -24,14 +24,14 @@ class Kernel
     }
     public function handleRequest(): void
     {
-        try {
+        try
+        {
             $this->route();
         }
         catch (\Throwable $e)
         {
             \http_response_code(500);
-            echo \json_encode(['error' => $e->getMessage()]);
-            exit;
+            exit(\json_encode(['error' => $e->getMessage()]));
         }
     }
 
@@ -61,9 +61,7 @@ class Kernel
         $data = $challenge->create();
 
         \header('Content-Type: application/json');
-        echo \json_encode($data);
-
-        exit;
+        exit(\json_encode($data));
     }
 
     public function handlePostChallengeRequest(): never
@@ -76,12 +74,12 @@ class Kernel
         if ($ok = $challenge->verify($data))
         {
             $this->session->set('access_granted', true);
+            $this->session->write();
             $statusCode = 200;
         }
 
         \http_response_code($statusCode);
-        echo \json_encode(['ok' => $ok]);
-        exit;
+        exit(\json_encode(['ok' => $ok]));
     }
 
     public function handleAnyRequest(): void
@@ -89,5 +87,19 @@ class Kernel
         if ($this->session->get('access_granted', false)) {
             return;
         }
+
+        $this->session->write();
+        \http_response_code(401);
+
+        if ($fp = \fopen(__DIR__ . '/../challenge.html', 'r'))
+        {
+            while (($buffer = \fgets($fp, 4096)) !== false)
+            {
+                echo $buffer;
+            }
+            \fclose($fp);
+        }
+
+        exit;
     }
 }

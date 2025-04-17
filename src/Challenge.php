@@ -8,7 +8,8 @@ class Challenge
 
     public function create(): array
     {
-        $number = \random_int(1, $this->config->getMaxNumber());
+        $min = \floor($this->config->getMaxNumber() / 10);
+        $number = \random_int($min, $this->config->getMaxNumber());
         $salt = randStr(15);
         $expire = $this->config->getExpire();
         $expire = $expire > 0 ? time() + $this->config->getExpire() : 0;
@@ -21,11 +22,11 @@ class Challenge
 
         return [
             'alg' => $this->config->getAlgorithm(),
-            'try' => $challenge,
-            'ver' => $verify,
-            'slt' => $salt,
             'exp' => $expire,
             'max' => $this->config->getMaxNumber(),
+            'slt' => $salt,
+            'try' => $challenge,
+            'ver' => $verify,
         ];
     }
 
@@ -45,7 +46,7 @@ class Challenge
             return false;
         }
 
-        if ($expire !== $this->config->getExpire() || $expire > 0 && $expire < time()) {
+        if (!$expire || $expire > 0 && $expire < time()) {
             return false;
         }
 
@@ -64,6 +65,6 @@ class Challenge
             return null;
         }
 
-        return \hash($algorithm, $number . $salt . $expire);
+        return \hash($algorithm, $number . ':' . $salt . ':' . $expire);
     }
 }

@@ -13,26 +13,28 @@ class Session
         private readonly Config $config,
         private readonly JWT $jwt,
     ) {
+        $id = null;
+
         if (isset($_COOKIE[self::COOKIE_NAME]))
         {
-            $this->id = null;
-
             $payload = $this->jwt->tryGetPayload($_COOKIE[self::COOKIE_NAME], $this->config->getSecret());
 
             if ($payload)
             {
-                $this->id = $payload['sub'] ?? null;
+                $id = $payload['sub'] ?? null;
                 $this->data = $payload['data'] ?? [];
             }
         }
 
-        if (!isset($this->id))
+        if (isset($id))
+        {
+            $this->id = $id;
+        }
+        else
         {
             $this->id = randStr(64);
             $this->data = [];
         }
-
-        $this->write();
     }
 
     public function getId(): string
@@ -78,7 +80,7 @@ class Session
             'expires' => 0,
             'path' => '/',
             'domain' => $_SERVER['HTTP_HOST'] ?? '',
-            'secure' => true,
+            'secure' => isRequestHttps(),
             'httponly' => true,
             'samesite' => 'Strict',
         ]);

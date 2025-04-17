@@ -4,7 +4,7 @@ namespace GES\Botlock;
 
 function env(string $name, $default = null): mixed
 {
-    $name = 'GES_BOTLOCK_' . \strtoupper($name);
+    $name = 'BOTLOCK_' . \strtoupper($name);
     $value = \getenv($name);
 
     if ($value === false) {
@@ -18,9 +18,14 @@ function env(string $name, $default = null): mixed
     return $value;
 }
 
+function isRequestHttps(): bool
+{
+    return ($_SERVER['HTTPS'] ?? 'off') !== 'off' || (string) ($_SERVER['SERVER_PORT'] ?? '') == "443";
+}
+
 function getRequestUrl(): string
 {
-    $scheme = (($_SERVER['HTTPS'] ?? 'off') !== 'off' || (string) ($_SERVER['SERVER_PORT'] ?? '') == "443") ? 'https' : 'http';
+    $scheme = isRequestHttps() ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'];
     $port = (string) $_SERVER['SERVER_PORT'] ?? null;
     $path = $_SERVER['REQUEST_URI'] ?? '/';
@@ -68,4 +73,10 @@ function base64url_decode(string $data): string|false
     }
 
     return base64_decode($b64);
+}
+
+function base64url_encode(string $data): string
+{
+    $b64 = \strtr(\base64_encode($data), '+/', '-_');
+    return rtrim($b64, '=');
 }

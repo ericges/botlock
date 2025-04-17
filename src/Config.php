@@ -11,7 +11,7 @@ class Config
     private readonly string $algorithm;
     private readonly string $secret;
     private readonly string $issuer;
-    private readonly string $agent;
+    private readonly string $instanceId;
 
     public function __construct(
         ?int $expire = null,
@@ -19,8 +19,11 @@ class Config
         ?string $algorithm = null,
         ?string $secret = null,
         ?string $audience = null,
+        ?string $instanceId = null,
     ) {
-        $this->algorithm = \strtolower($algorithm ?? env('ALGORITHM')) ?: 'sha256';
+        $this->instanceId = $instanceId ?: env('INSTANCE_ID') ?: \md5(__DIR__);
+
+        $this->algorithm = \strtolower($algorithm ?? env('ALGORITHM', '')) ?: 'sha256';
         if (!in_array($this->algorithm, self::ALLOWED_ALGORITHMS)) {
             throw new \Exception('Invalid algorithm provided');
         }
@@ -28,7 +31,7 @@ class Config
         $this->secret = \trim($secret ?: $this->loadSecret());
         $this->issuer = \trim($audience ?? $this->loadIssuer());
         $this->expire = $expire ?? (int) (env('EXPIRE') ?: 60);
-        $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 100000);
+        $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 200000);
     }
 
     public function getAlgorithm(): string
@@ -84,17 +87,17 @@ class Config
             return $secret;
         }
 
-        $tmpdir = sys_get_temp_dir();
+        $tmpdir = \sys_get_temp_dir();
 
-        if (!@file_exists($tmpdir) && !@is_dir($tmpdir) && !@mkdir($tmpdir)) {
+        if (!@\file_exists($tmpdir) && !@\is_dir($tmpdir) && !@\mkdir($tmpdir)) {
             throw new \Exception('TMPDIR does not exist and could not be created');
         }
 
-        $secretFilename = 'ges_botlock_secret';
+        $secretFilename = 'botlock_secret_' . $this->instanceId;
         $secretFile = $tmpdir . DIRECTORY_SEPARATOR . $secretFilename;
 
-        if (@file_exists($secretFile)) {
-            if (!$secret = file_get_contents($secretFile))
+        if (@\file_exists($secretFile)) {
+            if (!$secret = \file_get_contents($secretFile))
             {
                 throw new \Exception('Could not read contents of "' . $secretFile . '"');
             }
@@ -102,13 +105,13 @@ class Config
             return $secret;
         }
 
-        if (!@is_writable($tmpdir) && !@chmod($tmpdir, '0755')) {
+        if (!@\is_writable($tmpdir) && !@\chmod($tmpdir, '0755')) {
             throw new \Exception('TMPDIR is not writable and could not be chmoded');
         }
 
         $secret = randStr(32);
 
-        if (!file_put_contents($secretFile, $secret)) {
+        if (!\file_put_contents($secretFile, $secret)) {
             throw new \Exception('Could not write secret to file "' . $secretFile . '"');
         }
 

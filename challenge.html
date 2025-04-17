@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Security Check</title>
+    <style>
+        :root {
+            --body-bg: #f0f0f0;
+            --card-bg: #fff;
+            --title-color: #867d7d;
+            --text-color: #686868;
+            --icon-color: #333;
+            --spinner-color: var(--title-color);
+            --spinner-bg: rgba(0, 0, 0, 0.1);
+            --noscript-bg: rgba(216, 0, 12, .06);
+            --noscript-color: #d8000c;
+            --error-color: #d8000c;
+            --success-color: #28a745;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --body-bg: #141517;
+                --card-bg: #202124;
+                --title-color: #f8faff;
+                --text-color: #b0b2ba;
+                --icon-color: #757580;
+                --spinner-color: var(--title-color);
+                --spinner-bg: rgba(255, 255, 255, 0.1);
+                --noscript-color: #ff7076;
+                --error-color: #ff7076;
+                --success-color: #5cb85c;
+            }
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background-color: var(--body-bg);
+            margin: 0;
+            color: var(--title-color);
+            hanging-punctuation: none;
+            text-wrap: pretty;
+        }
+
+        #security {
+            background-color: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: .125rem;
+            box-shadow: 0 1rem 1.5rem -.5rem rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 60ch;
+            width: 90%;
+        }
+
+        h1 {
+            color: var(--title-color);
+            margin-bottom: 1rem;
+            font-size: 1.8em;
+        }
+
+        p {
+            color: var(--text-color);
+            margin-bottom: 2rem;
+            line-height: 1.7;
+        }
+
+        #bot-check-widget {
+            min-height: 3rem;
+            margin-bottom: 2rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .spinner {
+            border: 4px solid var(--spinner-bg);
+            width: 2rem;
+            height: 2rem;
+            border-radius: 50%;
+            border-left-color: var(--spinner-color);
+            animation: spin 1s ease infinite;
+            margin: 1rem auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .noscript-warning {
+            color: var(--noscript-color);
+            background: var(--noscript-bg);
+            border: 2px solid var(--noscript-color);
+            padding: 1rem;
+            margin-top: 1rem;
+            border-radius: .25rem;
+            text-align: left;
+        }
+
+        .noscript-warning > * {
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .status-icon {
+            width: 6rem;
+            height: 6rem;
+            color: var(--icon-color);
+        }
+
+        .icon-wrapper {
+            display: none;
+        }
+
+        .status-message {
+            font-size: 1.2em;
+            color: var(--text-color);
+            margin-top: 1rem;
+        }
+
+        .status-fail h1,
+        .status-fail .status-message {
+            color: var(--error-color);
+        }
+
+        .status-success h1,
+        .status-success .status-message {
+            color: var(--success-color);
+        }
+
+    </style>
+</head>
+<body>
+
+<div id="security">
+    <h1 id="main-heading"></h1>
+    <p id="info-paragraph"></p>
+
+    <div id="bot-check-widget">
+        <div class="spinner"></div>
+    </div>
+
+    <noscript>
+        <div class="noscript-warning">
+            <strong class="lang-en">JavaScript is required for the security check.</strong>
+            <span class="lang-en">Please enable JavaScript in your browser settings and refresh the page.</span>
+            <br>
+            <strong class="lang-de">JavaScript wird für die Sicherheitsüberprüfung benötigt.</strong>
+            <span class="lang-de">Bitte aktivieren Sie JavaScript in Ihren Browsereinstellungen und aktualisieren Sie die Seite.</span>
+        </div>
+    </noscript>
+
+    <p id="footer-note" style="font-size: 0.8em; color: #8a919c;"></p>
+</div>
+
+<svg class="icon-wrapper" style="display: none;">
+    <symbol id="icon-bot">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16" stroke-width="1">
+            <path d="M6 12.5a0.5 0.5 0 0 1 0.5 -0.5h3a0.5 0.5 0 0 1 0 1h-3a0.5 0.5 0 0 1 -0.5 -0.5M3 8.062C3 6.76 4.235 5.765 5.53 5.886a26.6 26.6 0 0 0 4.94 0C11.765 5.765 13 6.76 13 8.062v1.157a0.93 0.93 0 0 1 -0.765 0.935c-0.845 0.147 -2.34 0.346 -4.235 0.346s-3.39 -0.2 -4.235 -0.346A0.93 0.93 0 0 1 3 9.219zm4.542 -0.827a0.25 0.25 0 0 0 -0.217 0.068l-0.92 0.9a25 25 0 0 1 -1.871 -0.183 0.25 0.25 0 0 0 -0.068 0.495c0.55 0.076 1.232 0.149 2.02 0.193a0.25 0.25 0 0 0 0.189 -0.071l0.754 -0.736 0.847 1.71a0.25 0.25 0 0 0 0.404 0.062l0.932 -0.97a25 25 0 0 0 1.922 -0.188 0.25 0.25 0 0 0 -0.068 -0.495c-0.538 0.074 -1.207 0.145 -1.98 0.189a0.25 0.25 0 0 0 -0.166 0.076l-0.754 0.785 -0.842 -1.7a0.25 0.25 0 0 0 -0.182 -0.135"></path>
+            <path d="M8.5 1.866a1 1 0 1 0 -1 0V3h-2A4.5 4.5 0 0 0 1 7.5V8a1 1 0 0 0 -1 1v2a1 1 0 0 0 1 1v1a2 2 0 0 0 2 2h10a2 2 0 0 0 2 -2v-1a1 1 0 0 0 1 -1V9a1 1 0 0 0 -1 -1v-0.5A4.5 4.5 0 0 0 10.5 3h-2zM14 7.5V13a1 1 0 0 1 -1 1H3a1 1 0 0 1 -1 -1V7.5A3.5 3.5 0 0 1 5.5 4h5A3.5 3.5 0 0 1 14 7.5"></path>
+        </svg>
+    </symbol>
+    <symbol id="icon-shield">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M5.338 1.59a61 61 0 0 0-2.837.856.48.48 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.7 10.7 0 0 0 2.287 2.233c.346.244.652.42.893.533q.18.085.293.118a1 1 0 0 0 .101.025 1 1 0 0 0 .1-.025q.114-.034.294-.118c.24-.113.547-.29.893-.533a10.7 10.7 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.8 11.8 0 0 1-2.517 2.453 7 7 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7 7 0 0 1-1.048-.625 11.8 11.8 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 63 63 0 0 1 5.072.56"/>
+            <path d="M10.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 1 1 .708-.708L7.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0"/>
+        </svg>
+    </symbol>
+    <symbol id="icon-user-check">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M15.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L12.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0"/>
+            <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/>
+        </svg>
+    </symbol>
+</svg>
+
+<script>
+    const i18n = {
+        en: {
+            pageTitle: "Security Check",
+            mainHeading: "Verifying you are human…",
+            infoParagraph: "Please wait while we perform a quick security check. This helps protect our service from bad bots.",
+            footerNote: "This check is automated and should only take a moment.",
+            // Error messages
+            errorHeading: "Verification Failed",
+            errorMessage: "We couldn't verify your request at this time. This might be a temporary issue.",
+            errorWidget: "An error occurred",
+            errorFooter: "Please try refreshing the page or contact support if the problem persists.",
+            // Success messages
+            successHeading: "Verification Successful",
+            successMessage: "Thank you. You've passed the security check.",
+            successFooter: "You will be redirected shortly…"
+        },
+        de: {
+            pageTitle: "Sicherheitsüberprüfung",
+            mainHeading: "Überprüfe, ob Sie ein Mensch sind …",
+            infoParagraph: "Bitte warten Sie, während wir eine kurze Sicherheitsüberprüfung durchführen. Dies schützt unseren Dienst vor bösartigen Bots.",
+            footerNote: "Diese Überprüfung ist automatisiert und sollte nur einen Moment dauern.",
+            // Fehlermeldungen
+            errorHeading: "Überprüfung Fehlgeschlagen",
+            errorMessage: "Wir konnten Ihre Anfrage derzeit nicht überprüfen. Dies könnte ein vorübergehendes Problem sein.",
+            errorWidget: "Ein Fehler ist aufgetreten",
+            errorFooter: "Bitte versuchen Sie, die Seite neu zu laden oder kontaktieren Sie den Support, falls das Problem weiterhin besteht.",
+            // Erfolgsmeldungen
+            successHeading: "Überprüfung Erfolgreich",
+            successMessage: "Vielen Dank. Sie haben die Sicherheitsüberprüfung bestanden.",
+            successFooter: "Sie werden in Kürze weitergeleitet …"
+        }
+    };
+
+    window.trans = {};
+
+    function setLanguage() {
+        const userLang = navigator.language || navigator.userLanguage;
+        const primaryLang = userLang.split('-')[0].toLowerCase();
+        const langCode = i18n[primaryLang] ? primaryLang : 'en';
+        window.trans = i18n[langCode]; // Store translations globally
+
+        // Set the HTML lang attribute
+        document.documentElement.lang = langCode;
+
+        // Update page content initially
+        document.title = trans.pageTitle;
+        document.getElementById('main-heading').textContent = trans.mainHeading;
+        document.getElementById('info-paragraph').textContent = trans.infoParagraph;
+        document.getElementById('footer-note').textContent = trans.footerNote;
+
+        // Hide non-relevant language warnings in noscript
+        const otherLang = langCode === 'en' ? 'de' : 'en';
+        document.querySelectorAll(`.noscript-warning .lang-${otherLang}`).forEach(el => el.style.display = 'none');
+        document.querySelectorAll(`.noscript-warning .lang-${langCode}`).forEach(el => el.style.display = 'block');
+    }
+
+    document.addEventListener('DOMContentLoaded', setLanguage);
+</script>
+
+<script>
+    const security = document.getElementById('security');
+    const headingElement = document.getElementById('main-heading');
+    const infoElement = document.getElementById('info-paragraph');
+    const widgetElement = document.getElementById('bot-check-widget');
+    const footerElement = document.getElementById('footer-note');
+
+    async function sha(text, algo = 'SHA-256') {
+        const encoder = new TextEncoder();
+        const data = encoder.encode(text);
+        const hashBuffer = await crypto.subtle.digest(algo, data);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function showError() {
+        security.classList.add('status-fail');
+        headingElement.textContent = trans.errorHeading;
+        infoElement.textContent = trans.errorMessage;
+        widgetElement.innerHTML = `
+            <svg class="status-icon" aria-hidden="true" focusable="false" data-prefix="fas" role="img" xmlns="http://www.w3.org/2000/svg">
+                <use xlink:href="#icon-bot"></use>
+            </svg>
+        `;  // <span class="status-message">${currentTranslations.errorWidget}</span>
+        footerElement.textContent = trans.errorFooter;
+    }
+
+    function showSuccess() {
+        security.classList.add('status-success');
+        headingElement.textContent = trans.successHeading;
+        infoElement.textContent = trans.successMessage;
+        widgetElement.innerHTML = `
+            <svg class="status-icon" aria-hidden="true" focusable="false" data-prefix="fas" role="img" xmlns="http://www.w3.org/2000/svg">
+                <use xlink:href="#icon-user-check"></use>
+            </svg>
+        `;  // <span class="status-message">${currentTranslations.successWidget}</span>
+        footerElement.textContent = trans.successFooter;
+    }
+
+    async function getChallenge() {
+        try {
+            const response = await fetch("?_botlock=challenge", {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Accept": "application/json"
+                }
+            });
+            if (!response.ok) {
+                return null;
+            }
+            return await response.json()
+        } catch (error) {
+            console.error(error.message);
+            return null;
+        }
+    }
+
+    async function solveChallenge({
+        'alg': alg,
+        'exp': exp,
+        'max': max = 0,
+        'slt': slt,
+        'try': challenge,
+        'ver': ver,
+    }) {
+        const hashAlgo = {
+            'sha256': 'SHA-256',
+            'sha384': 'SHA-384',
+            'sha512': 'SHA-512',
+        }[alg] || null;
+
+        if (!hashAlgo) {
+            return null;
+        }
+
+        let num = null;
+
+        for (let i = 1; i <= max; i++)
+        {
+            const hash = await sha(`${i}:${slt}:${exp}`, hashAlgo);
+
+            if (hash === challenge) {
+                num = i;
+                break;
+            }
+        }
+
+        if (num === null) {
+            console.error("No match found.");
+            return null;
+        }
+
+        return { num, ver, slt, exp, alg };
+    }
+
+    async function sendResult(result) {
+        const response = await fetch("?_botlock=verify", {
+            method: "POST",
+            body: JSON.stringify(result),
+            headers: {
+                "Content-Type": "application/json"
+            }
+        })
+
+        return response.ok;
+    }
+
+    async function loadI18n() {
+        if (Object.keys(trans).length > 0) {
+            return true;
+        }
+        console.error("Translations not loaded yet. Waiting briefly.");
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (Object.keys(trans).length === 0) {
+            alert("Error loading page language configuration.");
+            return false;
+        }
+        return true;
+    }
+
+    async function botlock() {
+        if (!window.crypto || !window.crypto.subtle) {
+            showError();
+            return;
+        }
+
+        if (!await loadI18n()) {
+            showError();
+            return;
+        }
+
+        const challenge = await getChallenge();
+        if (!challenge) {
+            showError();
+            return;
+        }
+
+        const res = await solveChallenge(challenge);
+        if (res === null) {
+            showError();
+            return;
+        }
+
+        const success = await sendResult(res);
+        if (!success) {
+            showError();
+            return;
+        }
+
+        showSuccess();
+
+        setTimeout(() => {
+            window.location.reload();
+        }, 600);
+    }
+
+    document.addEventListener('DOMContentLoaded', botlock);
+</script>
+
+</body>
+</html>

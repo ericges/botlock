@@ -1,4 +1,4 @@
-name: bot-block
+name: botlock
 type: php
 docroot: ""
 php_version: "8.3"

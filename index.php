@@ -1,8 +1,8 @@
 <?php
 
-putenv('GES_BOTLOCK_ENABLED=true');
+putenv('BOTLOCK_ENABLED=true');
 
-require __DIR__ . '/bot-blocker.php';
+require __DIR__ . '/botlock.php';
 
 ?>
 <!DOCTYPE html>
