@@ -91,7 +91,7 @@ class Kernel
         $this->session->write();
         \http_response_code(401);
 
-        if ($fp = \fopen(__DIR__ . '/../challenge.html', 'r'))
+        if ($fp = \fopen(__DIR__ . '/../assets/challenge.html', 'r'))
         {
             while (($buffer = \fgets($fp, 4096)) !== false)
             {
