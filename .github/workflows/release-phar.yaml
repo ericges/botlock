@@ -1,0 +1,66 @@
+name: Build and Release PHAR
+
+on:
+  release:
+    types: [created]
+
+permissions:
+  contents: write
+
+jobs:
+  build-phar:
+    name: Build PHAR and Upload to Release
+    runs-on: ubuntu-latest
+
+    env:
+      PROJECT_NAME: botlock
+      PHAR_FILENAME: {{ env.PROJECT_NAME }}.phar
+      PHP_VERSION: '8.2'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ env.PHP_VERSION }}
+          extensions: mbstring, zip, phar
+          tools: composer
+
+      - name: Get Composer Cache Directory
+        id: composer-cache
+        run: |
+          echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.composer-cache.outputs.dir }}
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
+
+      - name: Install Composer dependencies
+        run: composer install --no-progress --no-interaction --prefer-dist --no-dev --optimize-autoloader
+
+      - name: Build the PHAR archive
+        run: php build-phar.php
+
+      - name: Verify PHAR file exists
+        run: |
+          if [ ! -f "${{ env.PHAR_FILENAME }}" ]; then
+            echo "::error::PHAR file '${{ env.PHAR_FILENAME }}' not found after build!"
+            exit 1
+          fi
+          echo "PHAR file found: ${{ env.PHAR_FILENAME }}"
+
+      - name: Upload PHAR to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: ./${{ env.PHAR_FILENAME }}
+          asset_name: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.phar
+          asset_content_type: application/octet-stream

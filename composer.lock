@@ -4,9 +4,8 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ab1d8e8a9425264b108e144048f4a976",
-    "packages": [],
-    "packages-dev": [
+    "content-hash": "cc77829122dd83c8c27ad2e5f5734e9f",
+    "packages": [
         {
             "name": "jaybizzle/crawler-detect",
             "version": "v1.3.4",
@@ -60,6 +59,7 @@
             "time": "2025-03-05T23:12:10+00:00"
         }
     ],
+    "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
     "stability-flags": {},
