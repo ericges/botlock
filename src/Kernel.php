@@ -24,7 +24,7 @@ class Kernel
     }
     public function handleRequest(): void
     {
-        if ($this->isWhitelisted()) {
+        if ($this->isRequestWhitelisted()) {
             return;
         }
 
@@ -41,28 +41,32 @@ class Kernel
         }
     }
 
-    private function isWhitelisted(): bool
+    private function isRequestWhitelisted(): bool
     {
-        $ignoreIps = $this->config->getIgnoreIps();
-        $ignoreUserAgents = $this->config->getIgnoreUserAgents();
-        $ignoreUrls = $this->config->getIgnoreUrls();
-
-        if (!empty($i))
-        $ip = $_SERVER['SERVER_ADDR'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
-        if ($ip && \in_array($ip, $ignoreIps)) {
-            return true;
-        }
-
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-        if ($userAgent && \in_array($userAgent, $ignoreUserAgents)) {
-            return true;
-        }
-
-        $url = getRequestUrl();
-        foreach ($ignoreUrls as $w) {
-            $w = \trim($w);
-            if (\strlen($w) > 0 && \str_starts_with($url, $w)) {
+        if ($ignoreIps = $this->config->getIgnoreIps())
+        {
+            $ip = $_SERVER['SERVER_ADDR'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
+            if ($ip && \in_array($ip, $ignoreIps)) {
                 return true;
+            }
+        }
+
+        if ($ignoreUserAgents = $this->config->getIgnoreUserAgents())
+        {
+            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+            if ($userAgent && \in_array($userAgent, $ignoreUserAgents)) {
+                return true;
+            }
+        }
+
+        if ($ignoreUrls = $this->config->getIgnoreUrls())
+        {
+            $url = getRequestUrl();
+            foreach ($ignoreUrls as $w) {
+                $w = \trim($w);
+                if (\strlen($w) > 0 && \str_starts_with($url, $w)) {
+                    return true;
+                }
             }
         }
 
