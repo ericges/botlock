@@ -27,6 +27,7 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, zip, phar
           tools: composer
+          ini-values: phar.readonly=0
 
       - name: Get Composer Cache Directory
         id: composer-cache
