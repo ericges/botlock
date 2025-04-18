@@ -30,6 +30,7 @@ php_value auto_prepend_file "/path/to/botlock.phar"
 ```
 
 #### Using the PHAR file with Nginx
+
 In your Nginx configuration file, add the following lines to prepend the script to all requests:
 
 ```nginx
@@ -43,6 +44,10 @@ location / {
 ```
 
 #### Prepending the script in the php.ini file
+
+> [!NOTE]
+> In a shared hosting environment, you may not have access to the `php.ini` file.
+
 If you want to prepend the script to all requests without modifying your web server configuration, you can do so by adding the following line to your `php.ini` file or by using a `.user.ini` file in your website's root directory:
 
 ```ini
@@ -57,9 +62,6 @@ If you are using a custom PHP-FPM pool, you can also set the `auto_prepend_file`
 ```ini
 php_admin_value[auto_prepend_file] = "/path/to/botlock.phar"
 ```
-
-> [!NOTE]
-> In a shared hosting environment, you may not have access to the `php.ini` file.
 
 ### Using Composer
 
