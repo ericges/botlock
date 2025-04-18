@@ -1,10 +1,3 @@
-<?php
-
-putenv('BOTLOCK_ENABLED=true');
-
-require __DIR__ . '/botlock.php';
-
-?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
