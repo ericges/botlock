@@ -16,9 +16,10 @@ In any case, you must enable the script by setting the `BOTLOCK_ENABLED` environ
 This way, you can easily opt in or out of using BOTLOCK depending on the traffic your website receives.
 
 > [!NOTE]
-> Make sure to replace `/path/to/botlock.phar` with the actual path to the `botlock.phar` file on your server.
-> The path should be absolute and accessible by the web server user.
-> Make sure to set the correct permissions for the file so that it can be executed by the web server.
+> - Make sure to replace `/path/to/botlock.phar` with the actual path to the `botlock.phar` file on your server.
+> - The path should be absolute and accessible by the web server user.
+> - Make sure to set the correct permissions for the file so that it can be executed by the web server.
+> - Also, ensure that the `auto_prepend_file` directive is not overridden in your web server configuration or in any other `.htaccess` or `php.ini` files.
 
 #### Using the PHAR file with Apache
 In your website's `.htaccess` file, add the following lines to prepend the script to all requests:
@@ -42,7 +43,7 @@ location / {
 ```
 
 #### Prepending the script in the php.ini file
-If you want to prepend the script to all requests without modifying your web server configuration, you can do so by adding the following line to your `php.ini` file:
+If you want to prepend the script to all requests without modifying your web server configuration, you can do so by adding the following line to your `php.ini` file or by using a `.user.ini` file in your website's root directory:
 
 ```ini
 auto_prepend_file = "/path/to/botlock.phar"
@@ -58,7 +59,6 @@ php_admin_value[auto_prepend_file] = "/path/to/botlock.phar"
 ```
 
 > [!NOTE]
-> Also, ensure that the `auto_prepend_file` directive is not overridden in your web server configuration or in any other `.htaccess` or `php.ini` files.
 > In a shared hosting environment, you may not have access to the `php.ini` file.
 
 ### Using Composer
