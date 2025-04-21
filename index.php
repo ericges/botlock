@@ -12,8 +12,11 @@
             --color-text-heading: #2c3e50;
             --color-background-body: #f4f7f6;
             --color-background-container: #ffffff;
-            --color-accent: #4CAF50; /* Green for success/border */
+            --color-accent: #4CAF50;
             --color-shadow: rgba(0, 0, 0, 0.1);
+            --color-button: #eaeaea;
+            --color-button-hover: #dfdfdf;
+            --color-button-text: #444;
         }
 
         @media (prefers-color-scheme: dark) {
@@ -24,6 +27,9 @@
                 --color-background-body: #121212;
                 --color-background-container: #1e1e1e;
                 --color-shadow: rgba(0, 0, 0, 0.4);
+                --color-button: #333;
+                --color-button-hover: #444;
+                --color-button-text: #e0e0e0;
             }
         }
 
@@ -77,6 +83,24 @@
         .success-message {
             color: var(--color-accent);
             font-weight: 500;
+            margin-bottom: 2rem;
+        }
+
+        button {
+            background-color: var(--color-button);
+            color: var(--color-button-text);
+            border: none;
+            padding: 0.8rem 1.5rem;
+            font-size: 1em;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.22s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover {
+            background-color: var(--color-button-hover);
         }
 
         @media (max-width: 600px) {
