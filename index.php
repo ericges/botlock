@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Botlock - Verified</title>
     <style>
-        /* Define custom properties for colors in light mode (default) */
         :root {
             --color-text-primary: #333;
             --color-text-secondary: #555;
