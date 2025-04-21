@@ -56,7 +56,7 @@
             --border-width: 5px;
             background-color: var(--color-background-container);
             padding-inline: 1.5rem;
-            padding-block: 2rem calc(2rem + var(--border-width));
+            padding-block: 3rem 2.75rem;
             border-radius: 8px;
             box-shadow: 0 .5rem 1rem var(--color-shadow);
             text-align: center;
@@ -68,7 +68,7 @@
 
         h1 {
             color: var(--color-text-heading);
-            margin-bottom: 2rem;
+            margin-block: 0 2rem;
             font-size: 2.2em;
             font-weight: 600;
         }
@@ -104,7 +104,7 @@
 
         @media (max-width: 600px) {
             .container {
-                padding: 1.5rem 1rem;
+                padding: 2rem 1rem;
             }
             h1 {
                 font-size: 1.8em;
