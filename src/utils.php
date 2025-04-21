@@ -37,12 +37,13 @@ function isRequestHttps(): bool
     return ($_SERVER['HTTPS'] ?? 'off') !== 'off' || (string) ($_SERVER['SERVER_PORT'] ?? '') == "443";
 }
 
-function getRequestUrl(): string
+function getRequestUrl(?string $path = null): string
 {
     $scheme = isRequestHttps() ? 'https' : 'http';
     $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'];
     $port = (string) $_SERVER['SERVER_PORT'] ?? null;
-    $path = $_SERVER['REQUEST_URI'] ?? '/';
+    $path ??= $_SERVER['REQUEST_URI'] ?? '';
+    $path = '/' . \ltrim($path, '/');
 
     if ($port && !\in_array($port, ['80', '443'])) {
         $host .= ':' . $port;
@@ -64,10 +65,10 @@ function respond(int $statusCode = 200, ?string $body = null, ?array $headers = 
             continue;
         }
 
-        header($header);
+        \header($header);
     }
 
-    http_response_code($statusCode);
+    \http_response_code($statusCode);
 
     if ($body !== null) {
         echo $body;

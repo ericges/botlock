@@ -27,10 +27,6 @@ readonly class Kernel
         private Session $session,
     ) {}
 
-    public function getRequestMethod(): string
-    {
-        return $_SERVER['REQUEST_METHOD'] ?? abort(500);
-    }
     public function handleRequest(): void
     {
         if ($this->isRequestWhitelisted()) {
@@ -86,7 +82,8 @@ readonly class Kernel
 
     private function route(): void
     {
-        $requestMethod = $this->getRequestMethod();
+        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? abort(500);
+        $requestMethod = \strtoupper($requestMethod);
 
         switch ($_GET['_botlock'] ?? null)
         {
@@ -97,6 +94,10 @@ readonly class Kernel
             case 'verify':
                 if ($requestMethod !== 'POST') abort(405);
                 $this->handlePostChallengeRequest();
+
+            case 'reset':
+                if ($requestMethod !== 'POST') abort(405);
+                $this->handleResetRequest();
 
             default:
                 $this->handleAnyRequest();
@@ -163,6 +164,25 @@ readonly class Kernel
         }
 
         sendJson($statusCode, ['ok' => $ok]);
+    }
+
+    public function handleResetRequest(): never
+    {
+        $this->session->clear();
+        $this->session->write();
+
+        if (($location = $_POST['location'] ?? null)
+            && \filter_var($location = getRequestUrl($location), \FILTER_VALIDATE_URL))
+        {
+            respond(303, headers: [
+                'Location: ' . $location,
+            ]);
+        }
+
+        sendJson(200, [
+            'ok' => true,
+            'message' => 'Session cleared',
+        ]);
     }
 
     public function handleAnyRequest(): void
