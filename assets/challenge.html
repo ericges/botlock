@@ -247,6 +247,9 @@
     const widgetElement = document.getElementById('bot-check-widget');
     const footerElement = document.getElementById('footer-note');
 
+    const nonce = crypto?.randomUUID();
+    const fup = localStorage.getItem('botlock_fup') || null;
+
     async function sha(text, algo = 'SHA-256') {
         const encoder = new TextEncoder();
         const data = encoder.encode(text);
@@ -275,17 +278,23 @@
             <svg class="status-icon" aria-hidden="true" focusable="false" data-prefix="fas" role="img" xmlns="http://www.w3.org/2000/svg">
                 <use xlink:href="#icon-user-check"></use>
             </svg>
-        `;  // <span class="status-message">${currentTranslations.successWidget}</span>
+        `;  // <span claavss="status-message">${currentTranslations.successWidget}</span>
         footerElement.textContent = trans.successFooter;
     }
 
     async function getChallenge() {
         try {
-            const response = await fetch("?_botlock=challenge", {
+            if (!nonce || nonce.length < 16) {
+                console.error("Failed to generate nonce.");
+                return null;
+            }
+
+            const response = await fetch('?_botlock=challenge', {
                 method: "GET",
                 headers: {
                     "Content-Type": "application/json",
-                    "Accept": "application/json"
+                    "Accept": "application/json",
+                    "Botlock-Nonce": nonce,
                 }
             });
             if (!response.ok) {
@@ -333,6 +342,11 @@
             return null;
         }
 
+        if (fup) {
+            console.error("Fup");
+            return null;
+        }
+
         return { num, ver, slt, exp, alg };
     }
 
@@ -341,7 +355,8 @@
             method: "POST",
             body: JSON.stringify(result),
             headers: {
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                "Botlock-Nonce": nonce,
             }
         })
 

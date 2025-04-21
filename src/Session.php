@@ -6,40 +6,39 @@ class Session
 {
     public final const COOKIE_NAME = 'BOTLOCKSESS';
 
-    private string $id;
+    private string $sub;
     private array $data = [];
 
     public function __construct(
         private readonly Config $config,
         private readonly JWT $jwt,
     ) {
-        $id = null;
+        if (!$sub = getUserFingerprint())
+        {
+            throw new \RuntimeException('Invalid request');
+        }
 
         if (isset($_COOKIE[self::COOKIE_NAME]))
         {
-            $payload = $this->jwt->tryGetPayload($_COOKIE[self::COOKIE_NAME], $this->config->getSecret());
+            $payload = $this->jwt->tryGetPayload($_COOKIE[self::COOKIE_NAME], $this->config->getSecret(), $sub);
 
             if ($payload)
             {
-                $id = $payload['sub'] ?? null;
+                $this->sub = $sub;
                 $this->data = $payload['data'] ?? [];
             }
         }
 
-        if (isset($id))
+        if (!isset($this->sub))
         {
-            $this->id = $id;
-        }
-        else
-        {
-            $this->id = randStr(64);
+            $this->sub = $sub;
             $this->data = [];
         }
     }
 
-    public function getId(): string
+    public function getSub(): string
     {
-        return $this->id;
+        return $this->sub;
     }
 
     public function getData(): array
@@ -70,7 +69,7 @@ class Session
     public function write(): void
     {
         $payload = [
-            'sub' => $this->id,
+            'sub' => $this->sub,
             'data' => $this->data,
         ];
 

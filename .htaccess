@@ -1,1 +1,2 @@
 SetEnv BOTLOCK_ENABLED yes
+SetENV BOTLOCK_IGNORE_USER_AGENTS "Googlebot,Bingbot,DuckDuckBot"

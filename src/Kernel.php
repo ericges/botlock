@@ -2,20 +2,29 @@
 
 namespace GES\Botlock;
 
-class Kernel
+readonly class Kernel
 {
     public static function boot(): static
     {
-        $config = new Config();
-        $jwt = new JWT($config);
-        $session = new Session($config, $jwt);
+        try
+        {
+            $config = new Config();
+            $jwt = new JWT($config);
+            $session = new Session($config, $jwt);
 
-        return new static($config, $session);
+            return new static($config, $session);
+        }
+        catch (\Throwable $th)
+        {
+            abort(500, headers: [
+                'Botlock-Error: ' . $th->getMessage(),
+            ]);
+        }
     }
 
     public function __construct(
-        private readonly Config $config,
-        private readonly Session $session,
+        private Config  $config,
+        private Session $session,
     ) {}
 
     public function getRequestMethod(): string
@@ -51,11 +60,13 @@ class Kernel
             }
         }
 
-        if ($ignoreUserAgents = $this->config->getIgnoreUserAgents())
+        if (($ignoreUserAgents = $this->config->getIgnoreUserAgents())
+            && ($userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null))
         {
-            $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-            if ($userAgent && \in_array($userAgent, $ignoreUserAgents)) {
-                return true;
+            foreach ($ignoreUserAgents as $iua) {
+                if (\str_contains($userAgent, $iua)) {
+                    return true;
+                }
             }
         }
 
@@ -95,10 +106,19 @@ class Kernel
 
     public function handleGetChallengeRequest(): never
     {
+        if (!($nonce = $_SERVER['HTTP_BOTLOCK_NONCE'] ?? null)
+            || !\preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string) $nonce))
+        {
+            sendJson(400, [
+                'ok' => false,
+                'error' => 'Invalid nonce',
+            ]);
+        }
+
         $challenge = new Challenge($this->config);
         $data = $challenge->create();
 
-        $this->session->set('fingerprint', getUserFingerprint());
+        $this->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
         $this->session->write();
 
         sendJson(200, $data);
@@ -106,19 +126,38 @@ class Kernel
 
     public function handlePostChallengeRequest(): never
     {
-        $statusCode = 401;
+        if (!$nonceHash = $this->session->get('nh')) {
+            sendJson(400, [
+                'ok' => false,
+                'error' => 'Invalid session data',
+            ]);
+        }
 
-        if ($this->session->get('fingerprint') !== getUserFingerprint()) {
-            \http_response_code($statusCode);
-            exit(\json_encode(['ok' => false]));
+        if (!($nonce = $_SERVER['HTTP_BOTLOCK_NONCE'] ?? null) || !\password_verify($nonce, $nonceHash)) {
+            sendJson(400, [
+                'ok' => false,
+                'error' => 'Invalid nonce',
+            ]);
         }
 
         $data = \json_decode(\file_get_contents('php://input'), true);
 
+        if (!\is_array($data)) {
+            sendJson(400, [
+                'ok' => false,
+                'error' => 'Invalid data',
+            ]);
+        }
+
+        unset($data['nonce']);
+
+        $statusCode = 401;
+
         $challenge = new Challenge($this->config);
         if ($ok = $challenge->verify($data))
         {
-            $this->session->set('access_granted', true);
+            $this->session->set('grant', true);
+            $this->session->remove('nh');
             $this->session->write();
             $statusCode = 200;
         }
@@ -128,8 +167,7 @@ class Kernel
 
     public function handleAnyRequest(): void
     {
-        if ($this->session->get('access_granted', false)
-            && $this->session->get('fingerprint') === getUserFingerprint())
+        if ($this->session->get('grant', false))
         {
             return;
         }

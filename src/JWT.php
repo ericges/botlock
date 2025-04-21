@@ -8,7 +8,7 @@ class JWT
         private readonly Config $config,
     ) {}
 
-    public function tryGetPayload(string $jwt, string $secret, ?string $subject = null): ?array
+    public function tryGetPayload(string $jwt, string $secret, string $subject): ?array
     {
         $token = \explode('.', $jwt);
 
@@ -90,6 +90,6 @@ class JWT
 
     public function getAudience(): string
     {
-        return \rtrim($this->config->getIssuer(), '') . '/_botlock';
+        return \rtrim($this->config->getIssuer(), '/') . '/?_botlock';
     }
 }

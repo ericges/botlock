@@ -51,10 +51,34 @@ function getRequestUrl(): string
     return "$scheme://$host$path";
 }
 
-function abort(int $errorCode): never
+function respond(int $statusCode = 200, ?string $body = null, ?array $headers = null): never
 {
-    http_response_code($errorCode);
-    echo match ($errorCode) {
+    foreach ($headers ?? [] as $header)
+    {
+        if (\is_array($header) && \count($header) === 2)
+        {
+            $header = \trim($header[0]) . ': ' . \trim($header[1]);
+        }
+
+        if (!\is_string($header)) {
+            continue;
+        }
+
+        header($header);
+    }
+
+    http_response_code($statusCode);
+
+    if ($body !== null) {
+        echo $body;
+    }
+
+    exit;
+}
+
+function abort(int $errorCode, bool $json = false, ?array $headers = null): never
+{
+    $body = match ($errorCode) {
         400 => '400 Bad Request',
         401 => '401 Unauthorized',
         403 => '403 Forbidden',
@@ -63,15 +87,30 @@ function abort(int $errorCode): never
         500 => '500 Internal Server Error',
         default => "$errorCode An error occurred",
     };
-    exit;
+
+    $headers = \array_merge([
+        $json ? 'Content-Type: application/json; charset=utf-8' : 'Content-Type: text/plain; charset=utf-8',
+        'Content-Length: ' . \strlen($body),
+        ...($headers ?? []),
+    ]);
+
+    respond($errorCode, $body, $headers);
 }
 
-function sendJson(int $statusCode, array $data): never
+function sendJson(int $statusCode, array $data, ?array $headers = null): never
 {
-    header('Content-Type: application/json');
-    http_response_code($statusCode);
-    echo json_encode($data);
-    exit;
+    $body = \json_encode($data, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_PRETTY_PRINT);
+
+    if ($body === false) {
+        abort(500, true);
+    }
+
+    $headers = \array_merge([
+        'Content-Type: application/json; charset=utf-8',
+        'Content-Length: ' . \strlen($body),
+    ], $headers ?? []);
+
+    respond($statusCode, $body, $headers);
 }
 
 function randStr($length, ?string $chars = null): string
@@ -104,34 +143,87 @@ function base64url_encode(string $data): string
     return rtrim($b64, '=');
 }
 
-function getUserFingerprint(): string
+function filterHeader(?string $str): ?string
 {
-    // 1. collect IPs
+    if (!$str) {
+        return null;
+    }
+
+    $arr = [];
+
+    foreach (\explode(',', $str) as $part) {
+        if ($part = \trim(\explode(';', $part)[0] ?? '')) {
+            $arr[] = \trim($part);
+        }
+    }
+
+    $arr = \array_unique($arr);
+    \sort($arr, \SORT_STRING);
+
+    return empty($arr) ? null : \implode(',', \array_slice($arr, 0, 5));
+}
+
+function getUserFingerprint(): ?string
+{
+    $payloadParts = [];
+
+    // --- IP ADDRESSES ---
     $sources = [
         $_SERVER['HTTP_CLIENT_IP']        ?? '',
         $_SERVER['HTTP_X_FORWARDED_FOR']  ?? '',
         $_SERVER['REMOTE_ADDR']           ?? '',
     ];
 
-    // 2. extract valid IPs
     $ips = [];
     foreach ($sources as $entry) {
-        foreach (explode(',', $entry) as $ip) {
-            $ip = trim($ip);
-            if (filter_var($ip, FILTER_VALIDATE_IP)) {
+        foreach (\explode(',', $entry) as $ip) {
+            $ip = \trim($ip);
+            if (\filter_var($ip, FILTER_VALIDATE_IP)) {
                 $ips[] = $ip;
             }
         }
     }
 
-    // 3. remove duplicates and sort
-    $ips = array_unique($ips);
-    sort($ips, SORT_STRING);
+    if (!empty($ips)) {
+        $ips = \array_unique($ips);
+        \sort($ips, SORT_STRING);
+        $payloadParts[] = 'ip=' . \implode(',', $ips);
+    }
 
-    // 4. add user agent
-    $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    // --- USER AGENT ---
+    if ($userAgent = \trim($_SERVER['HTTP_USER_AGENT'] ?? '')) {
+        $userAgent = \strtr(\strtolower($userAgent), [' ' => '_']);
+        $userAgent = \preg_replace('/[^a-z0-9_\-.]/', '', $userAgent);
+        if ($userAgent) {
+            $payloadParts[] = 'ua=' . $userAgent;
+        }
+    }
 
-    // 5. create hash
-    $payload = $userAgent . '|' . implode(',', $ips);
-    return hash('sha256', $payload);
+    // --- ACCEPT LANGUAGE ---
+    if ($acceptLanguage = filterHeader(\trim($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''))) {
+        $payloadParts[] = 'al=' . $acceptLanguage;
+    }
+
+    // --- ACCEPT HEADER ---
+    // can't be used as fetch alters the header
+    // if ($accept = filterHeader(\trim($_SERVER['HTTP_ACCEPT'] ?? ''))) {
+    //     $payloadParts[] = 'ac=' . $accept;
+    // }
+
+    // --- ACCEPT ENCODING ---
+    if ($acceptEncoding = filterHeader(\trim($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''))) {
+        $payloadParts[] = 'ae=' . $acceptEncoding;
+    }
+
+    // Assemble payload
+    if (empty($payloadParts)) {
+        return null;
+    }
+
+    // sort payload parts to make order of parts deterministic
+    \sort($payloadParts, \SORT_STRING);
+
+    $payload = \implode('|', $payloadParts);
+
+    return \hash('sha256', $payload);
 }
