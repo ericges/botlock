@@ -8,6 +8,7 @@ class Config
 
     private readonly int $expire;
     private readonly int $maxNumber;
+    private readonly int $crawlerFactor;
     private readonly string $algorithm;
     private readonly string $secret;
     private readonly string $issuer;
@@ -15,6 +16,7 @@ class Config
     private readonly ?array $ignoreIps;
     private readonly ?array $ignoreUserAgents;
     private readonly ?array $ignoreUrls;
+    private readonly ?array $goodBots;
 
     public function __construct(
         ?int    $expire = null,
@@ -26,6 +28,7 @@ class Config
         ?array  $ignoreIps = null,
         ?array  $ignoreUserAgents = null,
         ?array  $ignoreUrls = null,
+        ?array  $goodBots = null,
     ) {
         $this->algorithm = \strtolower($algorithm ?? env('ALGORITHM', '')) ?: 'sha256';
         if (!in_array($this->algorithm, self::ALLOWED_ALGORITHMS)) {
@@ -37,9 +40,11 @@ class Config
         $this->issuer = \trim($issuer ?? $this->loadIssuer());
         $this->expire = $expire ?? (int) (env('EXPIRE') ?: 3600);
         $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 100000);
+        $this->crawlerFactor = (int) (env('CRAWLER_FACTOR') ?: 10);
         $this->ignoreIps = $ignoreIps ?: $this->loadIgnoreIps();
         $this->ignoreUserAgents = $ignoreUserAgents ?: $this->loadIgnoreUserAgents();
         $this->ignoreUrls = $ignoreUrls ?: $this->loadIgnoreUrls();
+        $this->goodBots = $goodBots ?: $this->loadGoodBots();
     }
 
     public function getAlgorithm(): string
@@ -67,6 +72,11 @@ class Config
         return $this->maxNumber;
     }
 
+    public function getCrawlerFactor(): int
+    {
+        return \max(1, $this->crawlerFactor);
+    }
+
     public function getInstanceId(): string
     {
         return $this->instanceId;
@@ -85,6 +95,11 @@ class Config
     public function getIgnoreUrls(): ?array
     {
         return $this->ignoreUrls;
+    }
+
+    public function getGoodBots(): array
+    {
+        return $this->goodBots;
     }
 
     private function loadIssuer(): string
@@ -174,5 +189,23 @@ class Config
         }
 
         return null;
+    }
+
+    private function loadGoodBots(): array
+    {
+        $defaultGoodBots = [
+            'Googlebot',
+            'Bingbot',
+            'DuckDuckBot',
+            'Exabot',
+            'facebot',
+        ];
+
+        if ($goodBots = envArray('GOOD_BOTS')) {
+            $goodBots = \array_unique(\array_map('trim', $goodBots));
+            return empty($goodBots) ? $defaultGoodBots : $goodBots;
+        }
+
+        return $defaultGoodBots;
     }
 }

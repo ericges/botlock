@@ -6,10 +6,14 @@ class Challenge
 {
     public function __construct(private readonly Config $config) {}
 
-    public function create(): array
+    public function create(?int $factor = null): array
     {
-        $min = \floor($this->config->getMaxNumber() / 10);
-        $number = \random_int($min, $this->config->getMaxNumber());
+        $factor = \max(1, $factor ?? 1);  // >= 1
+        $max = \floor($this->config->getMaxNumber() * $factor);
+        $max = \max(100, $max);   // >= 100
+        $min = \floor($max / 10);  // 10% of max, >= 10
+
+        $number = \random_int($min, $max);
         $salt = randStr(15);
         $expire = $this->config->getExpire();
         $expire = $expire > 0 ? time() + $this->config->getExpire() : 0;
@@ -23,7 +27,7 @@ class Challenge
         return [
             'alg' => $this->config->getAlgorithm(),
             'exp' => $expire,
-            'max' => $this->config->getMaxNumber(),
+            'max' => $max,
             'slt' => $salt,
             'try' => $challenge,
             'ver' => $verify,

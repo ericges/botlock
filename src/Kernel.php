@@ -2,6 +2,8 @@
 
 namespace GES\Botlock;
 
+use Jaybizzle\CrawlerDetect\CrawlerDetect;
+
 readonly class Kernel
 {
     public static function boot(): static
@@ -116,8 +118,25 @@ readonly class Kernel
             ]);
         }
 
+        $crawlerDetect = new CrawlerDetect();
+        $factor = null;
+
+        if ($crawlerDetect->isCrawler())
+        {
+            $match = \strtolower($crawlerDetect->getMatches() ?: '');
+            $goodBots = \array_map(
+                static fn($bot): string => \trim(\strtolower((string) $bot)),
+                $this->config->getGoodBots()
+            );
+
+            if (!$match || !\array_filter($goodBots, static fn($bot): bool => \str_contains($match, $bot)))
+            {
+                $factor = $this->config->getCrawlerFactor();
+            }
+        }
+
         $challenge = new Challenge($this->config);
-        $data = $challenge->create();
+        $data = $challenge->create($factor);
 
         $this->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
         $this->session->write();

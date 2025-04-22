@@ -18,12 +18,14 @@ function env(string $name, $default = null): mixed
     return $value;
 }
 
-function envArray(string $name): array {
-    if (!$value = env($name, '')) {
-        return [];
+function envArray(string $name, ?array $default = null): array
+{
+    $default ??= [];
+    if (!$value = env($name)) {
+        return $default;
     }
     if (!\is_string($value)) {
-        return [];
+        return $default;
     }
     if ($value[0] !== '[' || $value[-1] !== ']') {
         return \explode(',', $value);
