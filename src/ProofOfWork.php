@@ -2,9 +2,9 @@
 
 namespace GES\Botlock;
 
-class Challenge
+readonly class ProofOfWork
 {
-    public function __construct(private readonly Config $config) {}
+    public function __construct(private Config $config) {}
 
     public function create(?int $factor = null): array
     {

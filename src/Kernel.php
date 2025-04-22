@@ -145,7 +145,7 @@ readonly class Kernel
             }
         }
 
-        $challenge = new Challenge($this->config);
+        $challenge = new ProofOfWork($this->config);
         $data = $challenge->create($factor);
 
         $this->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
@@ -183,7 +183,7 @@ readonly class Kernel
 
         $statusCode = 401;
 
-        $challenge = new Challenge($this->config);
+        $challenge = new ProofOfWork($this->config);
         if ($ok = $challenge->verify($data))
         {
             $this->session->set('grant', true);
