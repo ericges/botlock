@@ -50,19 +50,27 @@ readonly class Kernel
 
     private function isRequestWhitelisted(): bool
     {
-        if ($ignoreIps = $this->config->getIgnoreIps())
-        {
-            $ip = $_SERVER['SERVER_ADDR'] ?? $_SERVER['REMOTE_ADDR'] ?? null;
-            if ($ip && \in_array($ip, $ignoreIps)) {
-                return true;
-            }
+        $ip = getReliableClientIp();
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+
+        if ($ip && ($ignoreIps = $this->config->getIgnoreIps()) && \in_array($ip, $ignoreIps)) {
+            return true;
         }
 
-        if (($ignoreUserAgents = $this->config->getIgnoreUserAgents())
-            && ($userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null))
+        if ($userAgent && $ignoreUserAgents = $this->config->getIgnoreUserAgents())
         {
-            foreach ($ignoreUserAgents as $iua) {
-                if (\str_contains($userAgent, $iua)) {
+            foreach ($ignoreUserAgents as $iua)
+            {
+                if (!\str_contains($userAgent, $iua)) {
+                    continue;
+                }
+
+                if ($this->config->getDnsChecks() && \str_contains($iua, 'Google')) {
+                    if ($this->verifyGooglebot($ip)) {
+                        return true;
+                    }
+                    // else -> user agent is probably spoofed
+                } else {
                     return true;
                 }
             }
@@ -224,5 +232,38 @@ readonly class Kernel
         }
 
         exit;
+    }
+
+    private function verifyGooglebot(string $ip): bool
+    {
+        $hostname = @\gethostbyaddr($ip);
+        if (!$hostname) {
+            return false;
+        }
+
+        $hostname = \strtolower($hostname);
+        if (!\str_ends_with($hostname, '.google.com') && !\str_ends_with($hostname, '.googlebot.com')) {
+            return false;
+        }
+
+        $ips = @\dns_get_record($hostname, \DNS_A + \DNS_AAAA);
+        if (!$ips) {
+            return false;
+        }
+
+        $foundOriginalIp = false;
+        foreach ($ips as $record) {
+            $resolvedIp = $record['ip'] ?? $record['ipv6'] ?? null;
+            if ($resolvedIp === $ip) {
+                $foundOriginalIp = true;
+                break;
+            }
+        }
+
+        if (!$foundOriginalIp) {
+            return false;
+        }
+
+        return true;
     }
 }

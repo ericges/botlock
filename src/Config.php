@@ -9,19 +9,23 @@ class Config
     private readonly int $expire;
     private readonly int $maxNumber;
     private readonly int $crawlerFactor;
+    private readonly bool $dnsChecks;
     private readonly string $algorithm;
     private readonly string $secret;
     private readonly string $issuer;
     private readonly string $instanceId;
     private readonly ?array $ignoreIps;
-    private readonly ?array $ignoreUserAgents;
+    private readonly array $ignoreUserAgents;
     private readonly ?array $ignoreUrls;
-    private readonly ?array $goodBots;
+    private readonly array $goodBots;
+    private readonly array $trustedProxies;
 
     public function __construct(
         ?int    $expire = null,
-        ?int    $maxNumber = null,
         ?string $algorithm = null,
+        ?int    $maxNumber = null,
+        ?int    $crawlerFactor = null,
+        ?bool   $dnsChecks = null,
         ?string $secret = null,
         ?string $issuer = null,
         ?string $instanceId = null,
@@ -29,6 +33,7 @@ class Config
         ?array  $ignoreUserAgents = null,
         ?array  $ignoreUrls = null,
         ?array  $goodBots = null,
+        ?array  $trustedProxies = null,
     ) {
         $this->algorithm = \strtolower($algorithm ?? env('ALGORITHM', '')) ?: 'sha256';
         if (!in_array($this->algorithm, self::ALLOWED_ALGORITHMS)) {
@@ -40,11 +45,13 @@ class Config
         $this->issuer = \trim($issuer ?? $this->loadIssuer());
         $this->expire = $expire ?? (int) (env('EXPIRE') ?: 3600);
         $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 100000);
-        $this->crawlerFactor = (int) (env('CRAWLER_FACTOR') ?: 10);
+        $this->crawlerFactor = (int) ($crawlerFactor ?? (env('CRAWLER_FACTOR') ?: 100));
         $this->ignoreIps = $ignoreIps ?: $this->loadIgnoreIps();
-        $this->ignoreUserAgents = $ignoreUserAgents ?: $this->loadIgnoreUserAgents();
+        $this->ignoreUserAgents = $ignoreUserAgents ?? $this->loadIgnoreUserAgents();
         $this->ignoreUrls = $ignoreUrls ?: $this->loadIgnoreUrls();
-        $this->goodBots = $goodBots ?: $this->loadGoodBots();
+        $this->goodBots = $goodBots ?? $this->loadGoodBots();
+        $this->trustedProxies = $trustedProxies ?? envArray('TRUSTED_PROXIES');
+        $this->dnsChecks = (bool) ($dnsChecks ?? env('DNS_CHECKS', true));
     }
 
     public function getAlgorithm(): string
@@ -100,6 +107,16 @@ class Config
     public function getGoodBots(): array
     {
         return $this->goodBots;
+    }
+
+    public function getTrustedProxies(): ?array
+    {
+        return $this->trustedProxies;
+    }
+
+    public function getDnsChecks(): bool
+    {
+        return $this->dnsChecks;
     }
 
     private function loadIssuer(): string
@@ -171,14 +188,18 @@ class Config
         return null;
     }
 
-    private function loadIgnoreUserAgents(): ?array
+    private function loadIgnoreUserAgents(): array
     {
+        $defaultIgnoreUserAgents = [
+            'Googlebot',
+        ];
+
         if ($ignoreUserAgents = envArray('IGNORE_USER_AGENTS')) {
             $ignoreUserAgents = \array_unique(\array_map('trim', $ignoreUserAgents));
-            return empty($ignoreUserAgents) ? null : $ignoreUserAgents;
+            return empty($ignoreUserAgents) ? $defaultIgnoreUserAgents : $ignoreUserAgents;
         }
 
-        return null;
+        return $defaultIgnoreUserAgents;
     }
 
     private function loadIgnoreUrls(): ?array
