@@ -44,8 +44,8 @@ class Config
         $this->secret = \trim($secret ?: $this->loadSecret());
         $this->issuer = \trim($issuer ?? $this->loadIssuer());
         $this->expire = $expire ?? (int) (env('EXPIRE') ?: 3600);
-        $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 100000);
-        $this->crawlerFactor = (int) ($crawlerFactor ?? (env('CRAWLER_FACTOR') ?: 100));
+        $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 50000);
+        $this->crawlerFactor = (int) ($crawlerFactor ?? (env('CRAWLER_FACTOR') ?: 15));
         $this->ignoreIps = $ignoreIps ?: $this->loadIgnoreIps();
         $this->ignoreUserAgents = $ignoreUserAgents ?? $this->loadIgnoreUserAgents();
         $this->ignoreUrls = $ignoreUrls ?: $this->loadIgnoreUrls();
@@ -192,6 +192,7 @@ class Config
     {
         $defaultIgnoreUserAgents = [
             'Googlebot',
+            'AdsBot-Google',
         ];
 
         if ($ignoreUserAgents = envArray('IGNORE_USER_AGENTS')) {
@@ -216,6 +217,7 @@ class Config
     {
         $defaultGoodBots = [
             'Googlebot',
+            'AdsBot',
             'Bingbot',
             'DuckDuckBot',
             'Exabot',

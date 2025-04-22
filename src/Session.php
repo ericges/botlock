@@ -13,7 +13,7 @@ class Session
         private readonly Config $config,
         private readonly JWT $jwt,
     ) {
-        if (!$sub = getUserFingerprint())
+        if (!$sub = $this->generateSubject())
         {
             throw new \RuntimeException('Invalid request');
         }
@@ -83,5 +83,71 @@ class Session
             'httponly' => true,
             'samesite' => 'Strict',
         ]);
+    }
+
+    private function generateSubject(): ?string
+    {
+        $payloadParts = [];
+
+        // --- IP ADDRESSES ---
+        $sources = [
+            getReliableClientIp($this->config->getTrustedProxies()) ?? '',
+            $_SERVER['HTTP_CLIENT_IP']        ?? '',
+            $_SERVER['HTTP_X_FORWARDED_FOR']  ?? '',
+            $_SERVER['REMOTE_ADDR']           ?? '',
+        ];
+
+        $ips = [];
+        foreach ($sources as $entry) {
+            foreach (\explode(',', $entry) as $ip) {
+                $ip = \trim($ip);
+                if (\filter_var($ip, \FILTER_VALIDATE_IP)) {
+                    $ips[] = $ip;
+                }
+            }
+        }
+
+        if (!empty($ips)) {
+            $ips = \array_unique($ips);
+            \sort($ips, SORT_STRING);
+            $payloadParts[] = 'ip=' . \implode(',', $ips);
+        }
+
+        // --- USER AGENT ---
+        if ($userAgent = \trim($_SERVER['HTTP_USER_AGENT'] ?? '')) {
+            $userAgent = \strtr(\strtolower($userAgent), [' ' => '_']);
+            $userAgent = \preg_replace('/[^a-z0-9_\-.]/', '', $userAgent);
+            if ($userAgent) {
+                $payloadParts[] = 'ua=' . $userAgent;
+            }
+        }
+
+        // --- ACCEPT LANGUAGE ---
+        if ($acceptLanguage = filterHeader(\trim($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''))) {
+            $payloadParts[] = 'al=' . $acceptLanguage;
+        }
+
+        // --- ACCEPT HEADER ---
+        // can't be used as fetch alters the header
+        // if ($accept = filterHeader(\trim($_SERVER['HTTP_ACCEPT'] ?? ''))) {
+        //     $payloadParts[] = 'ac=' . $accept;
+        // }
+
+        // --- ACCEPT ENCODING ---
+        if ($acceptEncoding = filterHeader(\trim($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''))) {
+            $payloadParts[] = 'ae=' . $acceptEncoding;
+        }
+
+        // Assemble payload
+        if (empty($payloadParts)) {
+            return null;
+        }
+
+        // sort payload parts to make order of parts deterministic
+        \sort($payloadParts, \SORT_STRING);
+
+        $payload = \implode('|', $payloadParts);
+
+        return \hash('sha256', $payload);
     }
 }

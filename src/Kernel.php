@@ -50,7 +50,7 @@ readonly class Kernel
 
     private function isRequestWhitelisted(): bool
     {
-        $ip = getReliableClientIp();
+        $ip = getReliableClientIp($this->config->getTrustedProxies());
         $userAgent = \strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
 
         if ($ip && ($ignoreIps = $this->config->getIgnoreIps()) && \in_array($ip, $ignoreIps)) {
@@ -67,7 +67,7 @@ readonly class Kernel
                     continue;
                 }
 
-                if ($this->config->getDnsChecks() && \str_contains($iua, 'Google')) {
+                if ($ip && $this->config->getDnsChecks() && \str_contains($iua, 'google')) {
                     if ($this->verifyGooglebot($ip)) {
                         return true;
                     }
