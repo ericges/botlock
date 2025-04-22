@@ -51,7 +51,7 @@ readonly class Kernel
     private function isRequestWhitelisted(): bool
     {
         $ip = getReliableClientIp();
-        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+        $userAgent = \strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
 
         if ($ip && ($ignoreIps = $this->config->getIgnoreIps()) && \in_array($ip, $ignoreIps)) {
             return true;
@@ -61,6 +61,8 @@ readonly class Kernel
         {
             foreach ($ignoreUserAgents as $iua)
             {
+                $iua = \strtolower(\trim($iua));
+
                 if (!\str_contains($userAgent, $iua)) {
                     continue;
                 }
