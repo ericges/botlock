@@ -120,3 +120,33 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
         ]);
     }
 }
+
+/*
+// In ProofOfWorkMiddleware::handleGetChallengeRequest()
+
+$pow = new ProofOfWork($this->config);
+
+// --> Add difficulty adjustment <--
+$globalThreatLevel = $request->threatLevel ?? 0; // Get level bound by RateLimiterMiddleware
+$individualRate = $request->individualRate ?? 0; // Get rate
+$isGoodBot = $this->whitelist->isGoodBot();
+$isBot = $this->whitelist->isBot();
+
+$difficultyFactor = 1.0; // Default
+
+if ($isBot) {
+    $difficultyFactor = $isGoodBot ? 0.5 : $this->config->getCrawlerFactor(); // Existing logic
+} elseif ($globalThreatLevel >= 2) {
+     $difficultyFactor = 1.5; // Increase difficulty slightly at higher threat levels for humans too?
+} elseif ($globalThreatLevel === 1 && $individualRate > $this->config->getLevel1ThresholdIndividual()) {
+     $difficultyFactor = 1.2; // Slightly harder for individually flagged users at level 1
+}
+// You might add more complex logic based on combined factors
+
+$pow->setDifficulty($difficultyFactor);
+// --- End of adjustment ---
+
+$data = $pow->create();
+$data['auto_start'] = !$isBot; // Existing logic: Maybe only auto-start for non-bots?
+
+// ... rest of the method ... */
