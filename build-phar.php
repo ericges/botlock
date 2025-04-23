@@ -1,12 +1,12 @@
 <?php
 
-if (!\extension_loaded('phar')) {
+if (!extension_loaded('phar')) {
     throw new \RuntimeException('The Phar extension is not loaded');
 }
 
 $pharFileName = getenv('PHAR_FILENAME') ?: 'botlock.phar';
 
-if (!\preg_match('#^[a-zA-Z0-9_.-]+\.phar$#', $pharFileName)) {
+if (!preg_match('#^[a-zA-Z0-9_.-]+\.phar$#', $pharFileName)) {
     throw new \InvalidArgumentException('Invalid PHAR filename');
 }
 
@@ -22,15 +22,23 @@ $phar->buildFromDirectory(__DIR__, '#/src/.*\.php$#');
 $phar->buildFromDirectory(__DIR__, '#/assets/.*$#');
 $phar->buildFromDirectory(__DIR__, '#/vendor/.*\.(php|json|lock|twig|latte|neon|txt)$#');
 
+$stubPath = __DIR__ . DIRECTORY_SEPARATOR . 'bootstrap.php';
+if (!file_exists($stubPath)) {
+    throw new \RuntimeException('Stub file not found: ' . $stubPath);
+}
+$rawStub = file_get_contents($stubPath);
+$rawStub = trim(preg_replace('/^\s*<\?php\s*/', '', $rawStub));
+
 $stub = <<<STUB
 <?php
 Phar::mapPhar('$pharFileName');
-require 'phar://$pharFileName/vendor/autoload.php';
-\GES\Botlock\Kernel::boot()->handleRequest();
+
+$rawStub
+
 __HALT_COMPILER();
 STUB;
 
 $phar->setStub($stub);
 $phar->compressFiles(Phar::GZ);
 
-echo "botlock.phar erstellt\n";
+echo "botlock.phar created\n";
