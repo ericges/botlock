@@ -2,13 +2,27 @@
 
 namespace GES\Botlock;
 
-readonly class ProofOfWork
+class ProofOfWork
 {
-    public function __construct(private Config $config) {}
+    private float $difficulty = 1;
 
-    public function create(?int $factor = null): array
+    public function __construct(private readonly Config $config) {}
+
+    public function setDifficulty(float $difficulty): static
     {
-        $factor = \max(1, $factor ?? 1);  // >= 1
+        $this->difficulty = \max(0, $difficulty);  // >= 1
+
+        return $this;
+    }
+
+    public function getDifficulty(): int
+    {
+        return $this->difficulty;
+    }
+
+    public function create(): array
+    {
+        $factor = $this->getDifficulty();
         $max = \floor($this->config->getMaxNumber() * $factor);
         $max = \max(100, $max);   // >= 100
         $min = \floor($max / 10);  // 10% of max, >= 10
@@ -18,19 +32,21 @@ readonly class ProofOfWork
         $expire = $this->config->getExpire();
         $expire = $expire > 0 ? time() + $this->config->getExpire() : 0;
 
-        if (!$challenge = $this->hashChallenge($this->config->getAlgorithm(), $number, $salt, $expire)) {
+        $powAlgorithm = $this->config->getPowAlgorithm();
+
+        if (!$target = $this->hashTarget($powAlgorithm, $number, $salt, $expire)) {
             throw new \RuntimeException('Failed to create challenge');
         }
 
-        $verify = \hash_hmac($this->config->getAlgorithm(), $challenge, $this->config->getSecret());
+        $signature = \hash_hmac('sha384', $target, $this->config->getSecret());
 
         return [
-            'alg' => $this->config->getAlgorithm(),
+            'alg' => $powAlgorithm,
             'exp' => $expire,
             'max' => $max,
             'slt' => $salt,
-            'try' => $challenge,
-            'ver' => $verify,
+            'tgt' => $target,
+            'sig' => $signature,
         ];
     }
 
@@ -38,7 +54,7 @@ readonly class ProofOfWork
     {
         if (\count($data) !== 5
             || !($number = $data['num'] ?? null)
-            || !($verify = $data['ver'] ?? null)
+            || !($signature = $data['sig'] ?? null)
             || !($salt = $data['slt'] ?? null)
             || !\is_numeric($expire = $data['exp'] ?? null)
             || !($algorithm = $data['alg'] ?? null))
@@ -46,7 +62,7 @@ readonly class ProofOfWork
             return false;
         }
 
-        if ($algorithm !== $this->config->getAlgorithm()) {
+        if ($algorithm !== $this->config->getPowAlgorithm()) {
             return false;
         }
 
@@ -54,18 +70,18 @@ readonly class ProofOfWork
             return false;
         }
 
-        if (!$hash = $this->hashChallenge($this->config->getAlgorithm(), $number, $salt, $expire)) {
+        if (!$hash = $this->hashTarget($this->config->getPowAlgorithm(), $number, $salt, $expire)) {
             return false;
         }
 
-        $expect = \hash_hmac($this->config->getAlgorithm(), $hash, $this->config->getSecret());
+        $expect = \hash_hmac('sha384', $hash, $this->config->getSecret());
 
-        return $expect === $verify;
+        return $expect === $signature;
     }
 
-    private function hashChallenge(string $algorithm, int $number, string $salt, int $expire): ?string
+    private function hashTarget(string $algorithm, int $number, string $salt, int $expire): ?string
     {
-        if (!\in_array($algorithm, Config::ALLOWED_ALGORITHMS)) {
+        if (!\in_array($algorithm, Config::POW_ALLOWED_ALGORITHMS)) {
             return null;
         }
 

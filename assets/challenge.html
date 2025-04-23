@@ -302,18 +302,18 @@
     }
 
     async function solveChallenge({
-        'alg': alg,
-        'exp': exp,
+        'alg': algorithm,
+        'exp': expire,
         'max': max = 0,
-        'slt': slt,
-        'try': challenge,
-        'ver': ver,
+        'slt': salt,
+        'tgt': target,
+        'sig': signature,
     }) {
         const hashAlgo = {
             'sha256': 'SHA-256',
             'sha384': 'SHA-384',
             'sha512': 'SHA-512',
-        }[alg] || null;
+        }[algorithm] || null;
 
         if (!hashAlgo) {
             return null;
@@ -323,9 +323,9 @@
 
         for (let i = 1; i <= max; i++)
         {
-            const hash = await sha(`${i}:${slt}:${exp}`, hashAlgo);
+            const hash = await sha(`${i}:${salt}:${expire}`, hashAlgo);
 
-            if (hash === challenge) {
+            if (hash === target) {
                 num = i;
                 break;
             }
@@ -341,7 +341,7 @@
             return null;
         }
 
-        return { num, ver, slt, exp, alg };
+        return { num, sig: signature, slt: salt, exp: expire, alg: algorithm };
     }
 
     async function sendResult(result) {
@@ -385,6 +385,11 @@
         if (!challenge) {
             showError();
             return;
+        }
+
+        const { autoStart = false } = challenge;
+        if (!autoStart) {
+            // todo: implement await user confirmation
         }
 
         const res = await solveChallenge(challenge);

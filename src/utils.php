@@ -11,26 +11,31 @@ function env(string $name, $default = null): mixed
         return $default;
     }
 
-    if (is_string($value)) {
-        return trim($value);
+    if (\is_string($value)) {
+        return \trim($value);
     }
 
     return $value;
 }
 
-function envArray(string $name, ?array $default = null): array
+function envArray(string $name, ?array $default = null): ?array
 {
-    $default ??= [];
-    if (!$value = env($name)) {
-        return $default;
-    }
+    $value = env($name);
+
     if (!\is_string($value)) {
         return $default;
     }
+
+    /*if (\strlen($value) < 1) {
+        return [];
+    }*/
+
     if ($value[0] !== '[' || $value[-1] !== ']') {
         return \explode(',', $value);
     }
+
     $data = \json_decode($value, true) ?: [];
+
     return \array_values(\array_filter($data, 'is_string'));
 }
 

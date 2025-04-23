@@ -2,15 +2,17 @@
 
 namespace GES\Botlock;
 
+use Exception;
+
 class Config
 {
-    public final const ALLOWED_ALGORITHMS = ['sha256', 'sha384', 'sha512'];
+    public final const POW_ALLOWED_ALGORITHMS = ['sha256', 'sha384', 'sha512'];
 
     private readonly int $expire;
     private readonly int $maxNumber;
     private readonly int $crawlerFactor;
     private readonly bool $dnsChecks;
-    private readonly string $algorithm;
+    private readonly string $powAlgorithm;
     private readonly string $secret;
     private readonly string $issuer;
     private readonly string $instanceId;
@@ -35,11 +37,7 @@ class Config
         ?array  $goodBots = null,
         ?array  $trustedProxies = null,
     ) {
-        $this->algorithm = \strtolower($algorithm ?? env('ALGORITHM', '')) ?: 'sha256';
-        if (!in_array($this->algorithm, self::ALLOWED_ALGORITHMS)) {
-            throw new \Exception('Invalid algorithm provided');
-        }
-
+        $this->powAlgorithm = $this->loadPowAlgorithm($algorithm);
         $this->instanceId = $instanceId ?: env('INSTANCE_ID') ?: \md5(__DIR__);
         $this->secret = \trim($secret ?: $this->loadSecret());
         $this->issuer = \trim($issuer ?? $this->loadIssuer());
@@ -50,13 +48,13 @@ class Config
         $this->ignoreUserAgents = $ignoreUserAgents ?? $this->loadIgnoreUserAgents();
         $this->ignoreUrls = $ignoreUrls ?: $this->loadIgnoreUrls();
         $this->goodBots = $goodBots ?? $this->loadGoodBots();
-        $this->trustedProxies = $trustedProxies ?? envArray('TRUSTED_PROXIES');
+        $this->trustedProxies = $trustedProxies ?? envArray('TRUSTED_PROXIES', []);
         $this->dnsChecks = (bool) ($dnsChecks ?? env('DNS_CHECKS', true));
     }
 
-    public function getAlgorithm(): string
+    public function getPowAlgorithm(): string
     {
-        return $this->algorithm;
+        return $this->powAlgorithm;
     }
 
     public function getIssuer(): string
@@ -117,6 +115,21 @@ class Config
     public function getDnsChecks(): bool
     {
         return $this->dnsChecks;
+    }
+
+    /**
+     * @throws Exception
+     */
+    private function loadPowAlgorithm(?string $algorithm): string
+    {
+        $algorithm ??= env('POW_ALGORITHM', 'sha256');
+        $algorithm = \strtolower($algorithm);
+
+        if (!\in_array($algorithm, self::POW_ALLOWED_ALGORITHMS)) {
+            throw new \Exception('Invalid PoW algorithm provided');
+        }
+
+        return $algorithm;
     }
 
     private function loadIssuer(): string
@@ -195,9 +208,11 @@ class Config
             'AdsBot-Google',
         ];
 
-        if ($ignoreUserAgents = envArray('IGNORE_USER_AGENTS')) {
-            $ignoreUserAgents = \array_unique(\array_map('trim', $ignoreUserAgents));
-            return empty($ignoreUserAgents) ? $defaultIgnoreUserAgents : $ignoreUserAgents;
+        $ignoreUserAgents = envArray('IGNORE_USER_AGENTS');
+
+        if (\is_array($ignoreUserAgents)) {
+            // allows to set an empty array
+            return \array_filter(\array_unique(\array_map('trim', $ignoreUserAgents)));
         }
 
         return $defaultIgnoreUserAgents;

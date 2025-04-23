@@ -11,10 +11,12 @@ readonly class Kernel
         try
         {
             $config = new Config();
+            $crawlerDetect = new CrawlerDetect();
             $jwt = new JWT($config);
             $session = new Session($config, $jwt);
+            $whitelist = new Whitelist($config, $crawlerDetect);
 
-            return new static($config, $session);
+            return new static($config, $session, $whitelist);
         }
         catch (\Throwable $th)
         {
@@ -25,13 +27,14 @@ readonly class Kernel
     }
 
     public function __construct(
-        private Config  $config,
-        private Session $session,
+        private Config    $config,
+        private Session   $session,
+        private Whitelist $whitelist,
     ) {}
 
     public function handleRequest(): void
     {
-        if ($this->isRequestWhitelisted()) {
+        if ($this->whitelist->isRequestWhitelisted()) {
             return;
         }
 
@@ -46,50 +49,6 @@ readonly class Kernel
                 'error' => $e->getMessage(),
             ]);
         }
-    }
-
-    private function isRequestWhitelisted(): bool
-    {
-        $ip = getReliableClientIp($this->config->getTrustedProxies());
-        $userAgent = \strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
-
-        if ($ip && ($ignoreIps = $this->config->getIgnoreIps()) && \in_array($ip, $ignoreIps)) {
-            return true;
-        }
-
-        if ($userAgent && $ignoreUserAgents = $this->config->getIgnoreUserAgents())
-        {
-            foreach ($ignoreUserAgents as $iua)
-            {
-                $iua = \strtolower(\trim($iua));
-
-                if (!\str_contains($userAgent, $iua)) {
-                    continue;
-                }
-
-                if ($ip && $this->config->getDnsChecks() && \str_contains($iua, 'google')) {
-                    if ($this->verifyGooglebot($ip)) {
-                        return true;
-                    }
-                    // else -> user agent is probably spoofed
-                } else {
-                    return true;
-                }
-            }
-        }
-
-        if ($ignoreUrls = $this->config->getIgnoreUrls())
-        {
-            $url = getRequestUrl();
-            foreach ($ignoreUrls as $w) {
-                $w = \trim($w);
-                if (\strlen($w) > 0 && \str_starts_with($url, $w)) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private function route(): void
@@ -128,25 +87,17 @@ readonly class Kernel
             ]);
         }
 
-        $crawlerDetect = new CrawlerDetect();
-        $factor = null;
+        $pow = new ProofOfWork($this->config);
+        $goodActor = true;
 
-        if ($crawlerDetect->isCrawler())
+        if ($this->whitelist->isBot())
         {
-            $match = \strtolower($crawlerDetect->getMatches() ?: '');
-            $goodBots = \array_map(
-                static fn($bot): string => \trim(\strtolower((string) $bot)),
-                $this->config->getGoodBots()
-            );
-
-            if (!$match || !\array_filter($goodBots, static fn($bot): bool => \str_contains($match, $bot)))
-            {
-                $factor = $this->config->getCrawlerFactor();
-            }
+            $goodActor = $this->whitelist->isGoodBot();
+            $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
         }
 
-        $challenge = new ProofOfWork($this->config);
-        $data = $challenge->create($factor);
+        $data = $pow->create();
+        $data['auto_start'] = $goodActor;
 
         $this->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
         $this->session->write();
@@ -234,38 +185,5 @@ readonly class Kernel
         }
 
         exit;
-    }
-
-    private function verifyGooglebot(string $ip): bool
-    {
-        $hostname = @\gethostbyaddr($ip);
-        if (!$hostname) {
-            return false;
-        }
-
-        $hostname = \strtolower($hostname);
-        if (!\str_ends_with($hostname, '.google.com') && !\str_ends_with($hostname, '.googlebot.com')) {
-            return false;
-        }
-
-        $ips = @\dns_get_record($hostname, \DNS_A + \DNS_AAAA);
-        if (!$ips) {
-            return false;
-        }
-
-        $foundOriginalIp = false;
-        foreach ($ips as $record) {
-            $resolvedIp = $record['ip'] ?? $record['ipv6'] ?? null;
-            if ($resolvedIp === $ip) {
-                $foundOriginalIp = true;
-                break;
-            }
-        }
-
-        if (!$foundOriginalIp) {
-            return false;
-        }
-
-        return true;
     }
 }
