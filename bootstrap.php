@@ -9,6 +9,8 @@ ini_set('display_errors', 'stderr');
 
 require_once __DIR__ . '/vendor/autoload.php';
 
-\GES\Botlock\Kernel::boot()->handleRequest();
+\GES\Botlock\Kernel::boot()->handleRequest(
+    \GES\Botlock\Http\Request::fromGlobals()
+);
 
 ini_set('display_errors', $displayErrors);

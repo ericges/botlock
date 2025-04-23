@@ -2,7 +2,8 @@
 
 namespace GES\Botlock;
 
-use Jaybizzle\CrawlerDetect\CrawlerDetect;
+use GES\Botlock\Http\Request;
+use GES\Botlock\Http\Router;
 
 readonly class Kernel
 {
@@ -11,10 +12,9 @@ readonly class Kernel
         try
         {
             $config = new Config();
-            $crawlerDetect = new CrawlerDetect();
             $jwt = new JWT($config);
             $session = new Session($config, $jwt);
-            $whitelist = new Whitelist($config, $crawlerDetect);
+            $whitelist = new Whitelist($config);
 
             return new static($config, $session, $whitelist);
         }
@@ -32,15 +32,21 @@ readonly class Kernel
         private Whitelist $whitelist,
     ) {}
 
-    public function handleRequest(): void
+    public function handleRequest(Request $request): void
     {
         if ($this->whitelist->isRequestWhitelisted()) {
             return;
         }
 
+        $router = Router::create()
+            ->get('challenge', $this->handleGetChallengeRequest(...))
+            ->post('verify', $this->handlePostChallengeRequest(...))
+            ->post('reset', $this->handleResetRequest(...))
+            ->fallback($this->handleAnyRequest(...));
+
         try
         {
-            $this->route();
+            $router->dispatch($request);
         }
         catch (\Throwable $e)
         {
@@ -51,32 +57,7 @@ readonly class Kernel
         }
     }
 
-    private function route(): void
-    {
-        $requestMethod = $_SERVER['REQUEST_METHOD'] ?? abort(500);
-        $requestMethod = \strtoupper($requestMethod);
-
-        switch ($_GET['_botlock'] ?? null)
-        {
-            case 'challenge':
-                if ($requestMethod !== 'GET') abort(405);
-                $this->handleGetChallengeRequest();
-
-            case 'verify':
-                if ($requestMethod !== 'POST') abort(405);
-                $this->handlePostChallengeRequest();
-
-            case 'reset':
-                if ($requestMethod !== 'POST') abort(405);
-                $this->handleResetRequest();
-
-            default:
-                $this->handleAnyRequest();
-                break;
-        }
-    }
-
-    public function handleGetChallengeRequest(): never
+    public function handleGetChallengeRequest(Request $request): never
     {
         if (!($nonce = $_SERVER['HTTP_BOTLOCK_NONCE'] ?? null)
             || !\preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string) $nonce))
@@ -105,7 +86,7 @@ readonly class Kernel
         sendJson(200, $data);
     }
 
-    public function handlePostChallengeRequest(): never
+    public function handlePostChallengeRequest(Request $request): never
     {
         if (!$nonceHash = $this->session->get('nh')) {
             sendJson(400, [
@@ -146,7 +127,7 @@ readonly class Kernel
         sendJson($statusCode, ['ok' => $ok]);
     }
 
-    public function handleResetRequest(): never
+    public function handleResetRequest(Request $request): never
     {
         $this->session->clear();
         $this->session->write();
@@ -165,7 +146,7 @@ readonly class Kernel
         ]);
     }
 
-    public function handleAnyRequest(): void
+    public function handleAnyRequest(Request $request): void
     {
         if ($this->session->get('grant', false))
         {

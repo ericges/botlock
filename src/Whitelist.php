@@ -6,16 +6,24 @@ use Jaybizzle\CrawlerDetect\CrawlerDetect;
 
 class Whitelist
 {
-    private readonly ?string $ip;
-    private readonly string $userAgent;
+    private string $ip;
+    private string $userAgent;
     private bool $isCrawler;
     private ?string $crawlerMatch = null;
 
     public function __construct(
         private readonly Config $config,
     ) {
-        $this->ip = getReliableClientIp($this->config->getTrustedProxies());
         $this->userAgent = \strtolower($_SERVER['HTTP_USER_AGENT'] ?? '');
+    }
+
+    public function getIp(): string
+    {
+        if (!isset($this->ip)) {
+            $this->ip = getReliableClientIp($this->config->getTrustedProxies()) ?? '';
+        }
+
+        return $this->ip;
     }
 
     public function isBot(): bool
@@ -86,11 +94,11 @@ class Whitelist
 
     public function isRequestWhitelisted(): bool
     {
-        if ($this->ip && $this->isIpIgnored($this->ip)) {
+        if ($this->getIp() && $this->isIpIgnored($this->getIp())) {
             return true;
         }
 
-        if ($this->userAgent && $this->isUserAgentIgnored($this->userAgent, $this->ip)) {
+        if ($this->userAgent && $this->isUserAgentIgnored($this->userAgent, $this->getIp() ?: null)) {
             return true;
         }
 
