@@ -7,7 +7,7 @@ use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
-use GES\Botlock\ProofOfWork;
+use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Whitelist;
 
 readonly class ProofOfWorkMiddleware implements MiddlewareInterface

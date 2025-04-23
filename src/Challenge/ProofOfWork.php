@@ -1,6 +1,9 @@
 <?php
 
-namespace GES\Botlock;
+namespace GES\Botlock\Challenge;
+
+use GES\Botlock\Config;
+use function GES\Botlock\randStr;
 
 class ProofOfWork
 {
