@@ -2,8 +2,6 @@
 
 namespace GES\Botlock\Http\Response;
 
-use GES\Botlock\Http\Response;
-
 class HtmlFileResponse extends HtmlResponse
 {
     private string $filePath;
@@ -26,19 +24,15 @@ class HtmlFileResponse extends HtmlResponse
 
     public function send(): void
     {
-        \http_response_code($this->getStatus());
-
-        $headers = $this->getHeaders();
-
-        if (!isset($headers['Content-Length'])
-            && false !== ($filesize = @\filesize($this->filePath))) {
-            \header('Content-Length: ' . $filesize);
+        if (!$this->hasHeader('Content-Length') && false !== ($filesize = @\filesize($this->filePath))) {
+            $this->setHeader('Content-Length', (string) $filesize);
         }
 
-        foreach ($headers as $name => $value) {
-            \header(sprintf('%s: %s', $name, $value));
-        }
+        parent::send();
+    }
 
+    protected function sendBody(): void
+    {
         \readfile($this->filePath);
     }
 

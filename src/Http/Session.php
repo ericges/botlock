@@ -1,6 +1,10 @@
 <?php
 
-namespace GES\Botlock;
+namespace GES\Botlock\Http;
+
+use GES\Botlock\Config;
+use GES\Botlock\JWT;
+use function GES\Botlock\getReliableClientIp;
 
 class Session
 {
@@ -8,19 +12,25 @@ class Session
 
     private string $sub;
     private array $data = [];
+    private bool $commit = false;
 
     public function __construct(
-        private readonly Config $config,
-        private readonly JWT $jwt,
+        private readonly Config  $config,
+        private readonly Request $request,
     ) {
         if (!$sub = $this->generateSubject())
         {
             throw new \RuntimeException('Invalid request');
         }
 
-        if (isset($_COOKIE[self::COOKIE_NAME]))
+        if ($this->request->hasCookie(self::COOKIE_NAME))
         {
-            $payload = $this->jwt->tryGetPayload($_COOKIE[self::COOKIE_NAME], $this->config->getSecret(), $sub);
+            $payload = JWT::tryGetPayload(
+                $this->request->getCookie(self::COOKIE_NAME),
+                $this->config->getSecret(),
+                $sub,
+                $this->request->getUrlWithoutParameters(),
+            );
 
             if ($payload)
             {
@@ -61,28 +71,49 @@ class Session
         unset($this->data[$key]);
     }
 
-    public function clear(): void
+    public function clear(): static
     {
         $this->data = [];
+
+        return $this;
     }
 
-    public function write(): void
+    public function commit(bool $commit = true): static
+    {
+        $this->commit = $commit;
+
+        return $this;
+    }
+
+    public function isCommited(): bool
+    {
+        return $this->commit;
+    }
+
+    public function createCookie(): Cookie
     {
         $payload = [
             'sub' => $this->sub,
             'data' => $this->data,
         ];
 
-        $jwt = $this->jwt->create($payload, $this->config->getSecret(), $this->config->getExpire());
+        $jwt = JWT::create(
+            payload: $payload,
+            secret: $this->config->getSecret(),
+            issuer: $this->request->getUrlWithoutParameters(),
+            ttl: $this->config->getExpire(),
+        );
 
-        \setcookie(self::COOKIE_NAME, $jwt, [
-            'expires' => 0,
-            'path' => '/',
-            'domain' => $_SERVER['HTTP_HOST'] ?? '',
-            'secure' => isRequestHttps(),
-            'httponly' => true,
-            'samesite' => 'Strict',
-        ]);
+        return new Cookie(
+            name: self::COOKIE_NAME,
+            value: $jwt,
+            expires: 0,
+            path: '/',
+            domain: $this->request->getHost(),
+            secure: $this->request->isSecure(),
+            httpOnly: true,
+            sameSite: 'Strict'
+        );
     }
 
     private function generateSubject(): ?string
@@ -92,9 +123,9 @@ class Session
         // --- IP ADDRESSES ---
         $sources = [
             getReliableClientIp($this->config->getTrustedProxies()) ?? '',
-            $_SERVER['HTTP_CLIENT_IP']        ?? '',
-            $_SERVER['HTTP_X_FORWARDED_FOR']  ?? '',
-            $_SERVER['REMOTE_ADDR']           ?? '',
+            $this->request->getHeader('Client-Ip', ''),
+            $this->request->getHeader('X-Forwarded-For', ''),
+            $_SERVER['REMOTE_ADDR'] ?? '',
         ];
 
         $ips = [];
@@ -114,7 +145,7 @@ class Session
         }
 
         // --- USER AGENT ---
-        if ($userAgent = \trim($_SERVER['HTTP_USER_AGENT'] ?? '')) {
+        if ($userAgent = \trim($this->request->getHeader('User-Agent', ''))) {
             $userAgent = \strtr(\strtolower($userAgent), [' ' => '_']);
             $userAgent = \preg_replace('/[^a-z0-9_\-.]/', '', $userAgent);
             if ($userAgent) {
@@ -123,7 +154,7 @@ class Session
         }
 
         // --- ACCEPT LANGUAGE ---
-        if ($acceptLanguage = filterHeader(\trim($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''))) {
+        if ($acceptLanguage = self::filterHeader(\trim($this->request->getHeader('Accept-Language', '')))) {
             $payloadParts[] = 'al=' . $acceptLanguage;
         }
 
@@ -134,7 +165,7 @@ class Session
         // }
 
         // --- ACCEPT ENCODING ---
-        if ($acceptEncoding = filterHeader(\trim($_SERVER['HTTP_ACCEPT_ENCODING'] ?? ''))) {
+        if ($acceptEncoding = self::filterHeader(\trim($this->request->getHeader('Accept-Encoding', '')))) {
             $payloadParts[] = 'ae=' . $acceptEncoding;
         }
 
@@ -149,5 +180,25 @@ class Session
         $payload = \implode('|', $payloadParts);
 
         return \hash('sha256', $payload);
+    }
+
+    private static function filterHeader(?string $str): ?string
+    {
+        if (!$str) {
+            return null;
+        }
+
+        $arr = [];
+
+        foreach (\explode(',', $str) as $part) {
+            if ($part = \trim(\explode(';', $part)[0] ?? '')) {
+                $arr[] = \trim($part);
+            }
+        }
+
+        $arr = \array_unique($arr);
+        \sort($arr, \SORT_STRING);
+
+        return empty($arr) ? null : \implode(',', \array_slice($arr, 0, 5));
     }
 }

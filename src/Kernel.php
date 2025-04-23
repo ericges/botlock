@@ -8,6 +8,7 @@ use GES\Botlock\Http\Response\PassResponse;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
 use GES\Botlock\Middleware\ErrorMiddleware;
 use GES\Botlock\Middleware\ProofOfWorkMiddleware;
+use GES\Botlock\Middleware\SessionMiddleware;
 use GES\Botlock\Middleware\WhitelistMiddleware;
 
 readonly class Kernel
@@ -17,25 +18,22 @@ readonly class Kernel
         try
         {
             $config = new Config();
-            $jwt = new JWT($config);
-            $session = new Session($config, $jwt);
             $whitelist = new Whitelist($config);
 
-            return new static($config, $session, $whitelist, $botlockRoot);
+            return new static($botlockRoot, $config, $whitelist);
         }
         catch (\Throwable $th)
         {
-            abort(500, headers: [
-                'Botlock-Error: ' . $th->getMessage(),
-            ]);
+            \http_response_code(500);
+            \header('Botlock-Error: ' . $th->getMessage());
+            exit('500 Internal Server Error');
         }
     }
 
     public function __construct(
+        private string    $botlockRoot,
         private Config    $config,
-        private Session   $session,
         private Whitelist $whitelist,
-        private string    $projectRoot,
     ) {}
 
     public function handleRequest(Request $request): void
@@ -45,8 +43,9 @@ readonly class Kernel
         $middleware
             ->add(new ErrorMiddleware())
             ->add(new WhitelistMiddleware($this->whitelist))
-            ->add(new ProofOfWorkMiddleware($this->config, $this->session, $this->whitelist))
-            ->add(new ChallengeDocumentMiddleware($this->session, $this->projectRoot))
+            ->add(new SessionMiddleware($this->config))
+            ->add(new ProofOfWorkMiddleware($this->config, $request, $this->whitelist))
+            ->add(new ChallengeDocumentMiddleware($request, $this->botlockRoot))
         ;
 
         $response = $middleware->dispatch($request);

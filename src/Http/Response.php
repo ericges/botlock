@@ -13,6 +13,7 @@ class Response
         private int              $status = 200,
         private array            $headers = [],
         private readonly ?string $body = null,
+        private array            $cookies = [],
     ) {}
 
     public function withHeader(string $name, string $value): static
@@ -31,12 +32,35 @@ class Response
 
     public function send(): void
     {
-        http_response_code($this->status);
+        $this->sendResponseCode();
+        $this->sendHeaders();
+        $this->sendCookies();
+        $this->sendBody();
+    }
 
+    protected function sendResponseCode(): void
+    {
+        \http_response_code($this->status);
+    }
+
+    protected function sendHeaders(): void
+    {
         foreach ($this->getHeaders() as $name => $value) {
-            header(sprintf('%s: %s', $name, $value));
+            \header(\sprintf('%s: %s', $name, $value));
         }
+    }
 
+    protected function sendCookies(): void
+    {
+        foreach ($this->cookies as $cookie) {
+            if ($cookie instanceof Cookie) {
+                $cookie->send();
+            }
+        }
+    }
+
+    protected function sendBody(): void
+    {
         if (null !== ($body = $this->getBody())) {
             echo $body;
         }
@@ -52,8 +76,33 @@ class Response
         return $this->headers;
     }
 
+    public function hasHeader(string $name): bool
+    {
+        return isset($this->headers[$name]);
+    }
+
+    public function getHeader(string $name, ?string $default = null): ?string
+    {
+        return $this->headers[$name] ?? $default;
+    }
+
+    protected function setHeader(string $name, string $value): void
+    {
+        $this->headers[$name] = $value;
+    }
+
     public function getStatus(): int
     {
         return $this->status;
+    }
+
+    public function getCookies(): array
+    {
+        return $this->cookies;
+    }
+
+    public function setCookie(Cookie $cookie): void
+    {
+        $this->cookies[$cookie->getName()] = $cookie;
     }
 }

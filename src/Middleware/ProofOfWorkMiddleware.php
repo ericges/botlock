@@ -8,14 +8,13 @@ use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\ProofOfWork;
-use GES\Botlock\Session;
 use GES\Botlock\Whitelist;
 
 readonly class ProofOfWorkMiddleware implements MiddlewareInterface
 {
     public function __construct(
         private Config    $config,
-        private Session   $session,
+        private Request   $request,
         private Whitelist $whitelist,
     ) {}
 
@@ -63,8 +62,8 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
         $data = $pow->create();
         $data['auto_start'] = $goodActor;
 
-        $this->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
-        $this->session->write();
+        $this->request->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
+        $this->request->session->commit();
 
         return new Response\JsonResponse(200, $data);
     }
@@ -74,7 +73,7 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
      */
     public function handlePostChallengeRequest(Request $request): Response
     {
-        if (!$nonceHash = $this->session->get('nh')) {
+        if (!$nonceHash = $this->request->session->get('nh')) {
             throw new JsonResponseException('Invalid session data', 400);
         }
 
@@ -95,9 +94,9 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
         $challenge = new ProofOfWork($this->config);
         if ($ok = $challenge->verify($data))
         {
-            $this->session->set('grant', true);
-            $this->session->remove('nh');
-            $this->session->write();
+            $this->request->session->set('grant', true);
+            $this->request->session->remove('nh');
+            $this->request->session->commit();
             $statusCode = 200;
         }
 
@@ -106,8 +105,8 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
 
     public function handleResetRequest(Request $request): Response
     {
-        $this->session->clear();
-        $this->session->write();
+        $this->request->session->clear();
+        $this->request->session->commit();
 
         if (($location = $_POST['location'] ?? null)
             && \filter_var($location = $request->getAbsoluteUrl($location), \FILTER_VALIDATE_URL))

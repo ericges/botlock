@@ -2,16 +2,31 @@
 
 namespace GES\Botlock\Http;
 
-readonly class Request
+use GES\Botlock\Http\Session;
+
+/**
+ * @property Session $session
+ */
+class Request
 {
+    private readonly array $urlParts;
+    private array $bindings = [];
+
     public function __construct(
-        private string $method,
-        private string $requestUrl,
-        private bool   $secure = false,
-        private array  $headers = [],
-        private array  $queryParams = [],
-        private string $body = '',
-    ) {}
+        private readonly string $method,
+        private readonly string $requestUrl,
+        private readonly bool   $secure = false,
+        private readonly array  $headers = [],
+        private readonly array  $queryParams = [],
+        private readonly array  $cookies = [],
+        private readonly string $body = '',
+    ) {
+        if (!($urlParts = \parse_url($requestUrl)) || !isset($urlParts['scheme'], $urlParts['host'])) {
+            throw new \InvalidArgumentException('Invalid request URL');
+        }
+
+        $this->urlParts = $urlParts;
+    }
 
     public static function fromGlobals(): static
     {
@@ -42,14 +57,13 @@ readonly class Request
                 if (\str_starts_with($key, 'HTTP_'))
                 {
                     $name = \str_replace(' ', '-', \ucwords(\strtolower(
-                        \str_replace('_', ' ', \substr($key, 5))
+                        \str_replace('_', ' ', \substr($key, 5)),
                     )));
                     $headers[$name] = $value;
                 }
             }
         }
 
-        $queryParams = $_GET;
         $body = \file_get_contents('php://input') ?: '';
 
         return new static(
@@ -57,7 +71,8 @@ readonly class Request
             requestUrl: $requestUrl,
             secure: $secure,
             headers: $headers,
-            queryParams: $queryParams,
+            queryParams: $_GET,
+            cookies: $_COOKIE,
             body: $body,
         );
     }
@@ -92,6 +107,21 @@ readonly class Request
         return $this->headers[$name] ?? $default;
     }
 
+    public function getCookies(): array
+    {
+        return $this->cookies;
+    }
+
+    public function getCookie(string $name, ?string $default = null): ?string
+    {
+        return $this->cookies[$name] ?? $default;
+    }
+
+    public function hasCookie(string $name): bool
+    {
+        return isset($this->cookies[$name]);
+    }
+
     public function getBody(): string
     {
         return $this->body;
@@ -109,8 +139,7 @@ readonly class Request
 
     public function getAbsoluteUrl(string $path): ?string
     {
-        $urlParts = \parse_url($this->requestUrl);
-        $url = $urlParts['scheme'] . '://' . $urlParts['host'];
+        $url = $this->urlParts['scheme'] . '://' . $this->urlParts['host'];
 
         if (isset($urlParts['port'])) {
             $url .= ':' . $urlParts['port'];
@@ -124,5 +153,35 @@ readonly class Request
         }
 
         return $url;
+    }
+
+    public function getHost(): ?string
+    {
+        return $this->urlParts['host'] ?? null;
+    }
+
+    public function getUrlWithoutParameters(): ?string
+    {
+        return $this->getAbsoluteUrl($this->urlParts['path'] ?? '');
+    }
+
+    public function bind(string $name, mixed $value): static
+    {
+        if (isset($this->bindings[$name])) {
+            throw new \InvalidArgumentException("Binding '$name' already exists");
+        }
+
+        $this->bindings[$name] = $value;
+
+        return $this;
+    }
+
+    public function __get(string $name): mixed
+    {
+        if (isset($this->bindings[$name])) {
+            return $this->bindings[$name];
+        }
+
+        throw new \InvalidArgumentException("Binding '$name' does not exist");
     }
 }

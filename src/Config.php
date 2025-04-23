@@ -14,7 +14,6 @@ class Config
     private readonly bool $dnsChecks;
     private readonly string $powAlgorithm;
     private readonly string $secret;
-    private readonly string $issuer;
     private readonly string $instanceId;
     private readonly ?array $ignoreIps;
     private readonly array $ignoreUserAgents;
@@ -29,7 +28,6 @@ class Config
         ?int    $crawlerFactor = null,
         ?bool   $dnsChecks = null,
         ?string $secret = null,
-        ?string $issuer = null,
         ?string $instanceId = null,
         ?array  $ignoreIps = null,
         ?array  $ignoreUserAgents = null,
@@ -40,7 +38,6 @@ class Config
         $this->powAlgorithm = $this->loadPowAlgorithm($algorithm);
         $this->instanceId = $instanceId ?: env('INSTANCE_ID') ?: \md5(__DIR__);
         $this->secret = \trim($secret ?: $this->loadSecret());
-        $this->issuer = \trim($issuer ?? $this->loadIssuer());
         $this->expire = $expire ?? (int) (env('EXPIRE') ?: 3600);
         $this->maxNumber = $maxNumber ?? (int) (env('MAX_NUMBER') ?: 50000);
         $this->crawlerFactor = (int) ($crawlerFactor ?? (env('CRAWLER_FACTOR') ?: 15));
@@ -55,11 +52,6 @@ class Config
     public function getPowAlgorithm(): string
     {
         return $this->powAlgorithm;
-    }
-
-    public function getIssuer(): string
-    {
-        return $this->issuer;
     }
 
     public function getExpire(): int
@@ -130,28 +122,6 @@ class Config
         }
 
         return $algorithm;
-    }
-
-    private function loadIssuer(): string
-    {
-        if ($issuer = env('ISSUER')) {
-            return $issuer;
-        }
-
-        $requestUrl = getRequestUrl();
-
-        $urlParts = parse_url($requestUrl);
-        $url = $urlParts['scheme'] . '://' . $urlParts['host'];
-
-        if (isset($urlParts['port'])) {
-            $url .= ':' . $urlParts['port'];
-        }
-
-        if (isset($urlParts['path'])) {
-            $url .= $urlParts['path'];
-        }
-
-        return \trim(\rtrim($url, '/'));
     }
 
     private function loadSecret(): string

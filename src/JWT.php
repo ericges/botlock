@@ -2,13 +2,9 @@
 
 namespace GES\Botlock;
 
-class JWT
+final readonly class JWT
 {
-    public function __construct(
-        private readonly Config $config,
-    ) {}
-
-    public function tryGetPayload(string $jwt, string $secret, string $subject): ?array
+    public static function tryGetPayload(string $jwt, string $secret, string $subject, ?string $issuer = null): ?array
     {
         $token = \explode('.', $jwt);
 
@@ -49,12 +45,12 @@ class JWT
         }
 
         $iss = $payload['iss'] ?? null;
-        if ($iss && $iss !== $this->config->getIssuer()) {
+        if ($iss && $issuer && $iss !== $issuer) {
             return null;
         }
 
         $aud = $payload['aud'] ?? null;
-        if ($aud && $aud !== $this->getAudience()) {
+        if ($aud && $issuer && $aud !== JWT::getAudience($issuer)) {
             return null;
         }
 
@@ -66,7 +62,7 @@ class JWT
         return $payload;
     }
 
-    public function create(array $payload, string $secret, int $ttl = 3600): string
+    public static function create(array $payload, string $secret, ?string $issuer = null, int $ttl = 3600): string
     {
         $header = [
             'alg' => 'HS256',
@@ -77,8 +73,12 @@ class JWT
         $payload['iat'] = $now;
         $payload['exp'] = $now + $ttl;
         $payload['nbf'] = $now;
-        $payload['iss'] = $this->config->getIssuer();
-        $payload['aud'] = $this->getAudience();
+
+        if ($issuer) {
+            $payload['iss'] = $issuer;
+            $payload['aud'] = JWT::getAudience($issuer);
+        }
+
         $payload['jti'] = \bin2hex(\random_bytes(16));
 
         $header = base64url_encode(\json_encode($header));
@@ -88,8 +88,8 @@ class JWT
         return $header . '.' . $payload . '.' . $signature;
     }
 
-    public function getAudience(): string
+    public static function getAudience(string $issuer): string
     {
-        return \rtrim($this->config->getIssuer(), '/') . '/?_botlock';
+        return \rtrim($issuer, '/') . '/?_botlock';
     }
 }

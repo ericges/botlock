@@ -26,9 +26,9 @@ function envArray(string $name, ?array $default = null): ?array
         return $default;
     }
 
-    /*if (\strlen($value) < 1) {
+    if (\strlen($value) < 1) {
         return [];
-    }*/
+    }
 
     if ($value[0] !== '[' || $value[-1] !== ']') {
         return \explode(',', $value);
@@ -37,26 +37,6 @@ function envArray(string $name, ?array $default = null): ?array
     $data = \json_decode($value, true) ?: [];
 
     return \array_values(\array_filter($data, 'is_string'));
-}
-
-function isRequestHttps(): bool
-{
-    return ($_SERVER['HTTPS'] ?? 'off') !== 'off' || (string) ($_SERVER['SERVER_PORT'] ?? '') == "443";
-}
-
-function getRequestUrl(?string $path = null): string
-{
-    $scheme = isRequestHttps() ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'];
-    $port = (string) $_SERVER['SERVER_PORT'] ?? null;
-    $path ??= $_SERVER['REQUEST_URI'] ?? '';
-    $path = '/' . \ltrim($path, '/');
-
-    if ($port && !\in_array($port, ['80', '443'])) {
-        $host .= ':' . $port;
-    }
-
-    return "$scheme://$host$path";
 }
 
 /**
@@ -145,68 +125,6 @@ function isValidIp(?string $ip, bool $allowPrivate = false): bool
     return \filter_var($ip, FILTER_VALIDATE_IP, $flags) !== false;
 }
 
-function respond(int $statusCode = 200, ?string $body = null, ?array $headers = null): never
-{
-    foreach ($headers ?? [] as $header)
-    {
-        if (\is_array($header) && \count($header) === 2)
-        {
-            $header = \trim($header[0]) . ': ' . \trim($header[1]);
-        }
-
-        if (!\is_string($header)) {
-            continue;
-        }
-
-        \header($header);
-    }
-
-    \http_response_code($statusCode);
-
-    if ($body !== null) {
-        echo $body;
-    }
-
-    exit;
-}
-
-function abort(int $errorCode, bool $json = false, ?array $headers = null): never
-{
-    $body = match ($errorCode) {
-        400 => '400 Bad Request',
-        401 => '401 Unauthorized',
-        403 => '403 Forbidden',
-        404 => '404 Not Found',
-        405 => '405 Method Not Allowed',
-        500 => '500 Internal Server Error',
-        default => "$errorCode An error occurred",
-    };
-
-    $headers = \array_merge([
-        $json ? 'Content-Type: application/json; charset=utf-8' : 'Content-Type: text/plain; charset=utf-8',
-        'Content-Length: ' . \strlen($body),
-        ...($headers ?? []),
-    ]);
-
-    respond($errorCode, $body, $headers);
-}
-
-function sendJson(int $statusCode, array $data, ?array $headers = null): never
-{
-    $body = \json_encode($data, \JSON_UNESCAPED_SLASHES | \JSON_UNESCAPED_UNICODE | \JSON_PRETTY_PRINT);
-
-    if ($body === false) {
-        abort(500, true);
-    }
-
-    $headers = \array_merge([
-        'Content-Type: application/json; charset=utf-8',
-        'Content-Length: ' . \strlen($body),
-    ], $headers ?? []);
-
-    respond($statusCode, $body, $headers);
-}
-
 function randStr($length, ?string $chars = null): string
 {
     $chars ??= '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -235,24 +153,4 @@ function base64url_encode(string $data): string
 {
     $b64 = \strtr(\base64_encode($data), '+/', '-_');
     return rtrim($b64, '=');
-}
-
-function filterHeader(?string $str): ?string
-{
-    if (!$str) {
-        return null;
-    }
-
-    $arr = [];
-
-    foreach (\explode(',', $str) as $part) {
-        if ($part = \trim(\explode(';', $part)[0] ?? '')) {
-            $arr[] = \trim($part);
-        }
-    }
-
-    $arr = \array_unique($arr);
-    \sort($arr, \SORT_STRING);
-
-    return empty($arr) ? null : \implode(',', \array_slice($arr, 0, 5));
 }
