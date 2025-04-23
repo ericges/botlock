@@ -5,12 +5,13 @@ if (!filter_var(getenv('BOTLOCK_ENABLED'), FILTER_VALIDATE_BOOLEAN, FILTER_NULL_
 }
 
 $displayErrors = ini_get('display_errors');
-ini_set('display_errors', 'stderr');
+ini_set('display_errors', '0');
 
-require_once __DIR__ . '/vendor/autoload.php';
+define('BOTLOCK_ROOT', defined('BOTLOCK_PHAR') ? BOTLOCK_PHAR : __DIR__);
 
-\GES\Botlock\Kernel::boot()->handleRequest(
-    \GES\Botlock\Http\Request::fromGlobals()
-);
+require_once BOTLOCK_ROOT . '/vendor/autoload.php';
+
+\GES\Botlock\Kernel::boot(BOTLOCK_ROOT)
+    ->handleRequest(\GES\Botlock\Http\Request::fromGlobals());
 
 ini_set('display_errors', $displayErrors);

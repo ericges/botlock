@@ -2,12 +2,17 @@
 
 namespace GES\Botlock;
 
+use GES\Botlock\Http\Middleware\MiddlewareDispatcher;
 use GES\Botlock\Http\Request;
-use GES\Botlock\Http\Router;
+use GES\Botlock\Http\Response\PassResponse;
+use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
+use GES\Botlock\Middleware\ErrorMiddleware;
+use GES\Botlock\Middleware\ProofOfWorkMiddleware;
+use GES\Botlock\Middleware\WhitelistMiddleware;
 
 readonly class Kernel
 {
-    public static function boot(): static
+    public static function boot(string $botlockRoot): static
     {
         try
         {
@@ -16,7 +21,7 @@ readonly class Kernel
             $session = new Session($config, $jwt);
             $whitelist = new Whitelist($config);
 
-            return new static($config, $session, $whitelist);
+            return new static($config, $session, $whitelist, $botlockRoot);
         }
         catch (\Throwable $th)
         {
@@ -30,141 +35,37 @@ readonly class Kernel
         private Config    $config,
         private Session   $session,
         private Whitelist $whitelist,
+        private string    $projectRoot,
     ) {}
 
     public function handleRequest(Request $request): void
     {
-        if ($this->whitelist->isRequestWhitelisted()) {
+        $middleware = new MiddlewareDispatcher();
+
+        $middleware
+            ->add(new ErrorMiddleware())
+            ->add(new WhitelistMiddleware($this->whitelist))
+            ->add(new ProofOfWorkMiddleware($this->config, $this->session, $this->whitelist))
+            ->add(new ChallengeDocumentMiddleware($this->session, $this->projectRoot))
+        ;
+
+        $response = $middleware->dispatch($request);
+
+        if ($response instanceof PassResponse) {
             return;
         }
-
-        $router = Router::create()
-            ->get('challenge', $this->handleGetChallengeRequest(...))
-            ->post('verify', $this->handlePostChallengeRequest(...))
-            ->post('reset', $this->handleResetRequest(...))
-            ->fallback($this->handleAnyRequest(...));
 
         try
         {
-            $router->dispatch($request);
+            $response->send();
         }
-        catch (\Throwable $e)
+        catch (\Throwable)
         {
-            sendJson(500, [
-                'ok' => false,
-                'error' => $e->getMessage(),
-            ]);
+            echo '500 Internal Server Error';
         }
-    }
-
-    public function handleGetChallengeRequest(Request $request): never
-    {
-        if (!($nonce = $_SERVER['HTTP_BOTLOCK_NONCE'] ?? null)
-            || !\preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', (string) $nonce))
+        finally
         {
-            sendJson(400, [
-                'ok' => false,
-                'error' => 'Invalid nonce',
-            ]);
+            exit();
         }
-
-        $pow = new ProofOfWork($this->config);
-        $goodActor = true;
-
-        if ($this->whitelist->isBot())
-        {
-            $goodActor = $this->whitelist->isGoodBot();
-            $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
-        }
-
-        $data = $pow->create();
-        $data['auto_start'] = $goodActor;
-
-        $this->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
-        $this->session->write();
-
-        sendJson(200, $data);
-    }
-
-    public function handlePostChallengeRequest(Request $request): never
-    {
-        if (!$nonceHash = $this->session->get('nh')) {
-            sendJson(400, [
-                'ok' => false,
-                'error' => 'Invalid session data',
-            ]);
-        }
-
-        if (!($nonce = $_SERVER['HTTP_BOTLOCK_NONCE'] ?? null) || !\password_verify($nonce, $nonceHash)) {
-            sendJson(400, [
-                'ok' => false,
-                'error' => 'Invalid nonce',
-            ]);
-        }
-
-        $data = \json_decode(\file_get_contents('php://input'), true);
-
-        if (!\is_array($data)) {
-            sendJson(400, [
-                'ok' => false,
-                'error' => 'Invalid data',
-            ]);
-        }
-
-        unset($data['nonce']);
-
-        $statusCode = 401;
-
-        $challenge = new ProofOfWork($this->config);
-        if ($ok = $challenge->verify($data))
-        {
-            $this->session->set('grant', true);
-            $this->session->remove('nh');
-            $this->session->write();
-            $statusCode = 200;
-        }
-
-        sendJson($statusCode, ['ok' => $ok]);
-    }
-
-    public function handleResetRequest(Request $request): never
-    {
-        $this->session->clear();
-        $this->session->write();
-
-        if (($location = $_POST['location'] ?? null)
-            && \filter_var($location = getRequestUrl($location), \FILTER_VALIDATE_URL))
-        {
-            respond(303, headers: [
-                'Location: ' . $location,
-            ]);
-        }
-
-        sendJson(200, [
-            'ok' => true,
-            'message' => 'Session cleared',
-        ]);
-    }
-
-    public function handleAnyRequest(Request $request): void
-    {
-        if ($this->session->get('grant', false))
-        {
-            return;
-        }
-
-        $this->session->write();
-        \http_response_code(401);
-
-        if ($fp = \fopen(__DIR__ . '/../assets/challenge.html', 'r'))
-        {
-            while (($buffer = \fgets($fp, 4096)) !== false)
-            {
-                echo $buffer;
-            }
-            \fclose($fp);
-        }
-
-        exit;
     }
 }

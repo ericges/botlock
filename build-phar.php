@@ -33,6 +33,8 @@ $stub = <<<STUB
 <?php
 Phar::mapPhar('$pharFileName');
 
+define('BOTLOCK_PHAR', Phar::running(true) ?: ('phar://' . __FILE__));
+
 $rawStub
 
 __HALT_COMPILER();

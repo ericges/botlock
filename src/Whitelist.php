@@ -2,6 +2,7 @@
 
 namespace GES\Botlock;
 
+use GES\Botlock\Http\Request;
 use Jaybizzle\CrawlerDetect\CrawlerDetect;
 
 class Whitelist
@@ -92,7 +93,7 @@ class Whitelist
         return false;
     }
 
-    public function isRequestWhitelisted(): bool
+    public function isRequestWhitelisted(Request $request): bool
     {
         if ($this->getIp() && $this->isIpIgnored($this->getIp())) {
             return true;
@@ -102,7 +103,7 @@ class Whitelist
             return true;
         }
 
-        if ($this->config->getIgnoreUrls() && $this->isUrlIgnored(getRequestUrl())) {
+        if ($this->config->getIgnoreUrls() && $this->isUrlIgnored($request->getRequestUrl())) {
             return true;
         }
 
