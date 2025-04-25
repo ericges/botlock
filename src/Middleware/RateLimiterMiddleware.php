@@ -13,22 +13,23 @@ readonly class RateLimiterMiddleware implements MiddlewareInterface
 
     public function process(Request $request, callable $next): Response
     {
-        // Record the request AFTER session is established
         $this->rateLimiter->recordRequest($request);
+
+        if (!$fingerprint = $request->fingerprint) {
+            throw new \RuntimeException('Fingerprint not set');
+        }
 
         // Calculate levels (might read from cache within RateLimiter)
         $globalThreatLevel = $this->rateLimiter->getGlobalThreatLevel();
-        $individualRate = 0;
-        if (isset($request->session)) { // Ensure session middleware ran
-            $fingerprint = $request->session->getSub();
-            $individualRate = $this->rateLimiter->getIndividualRate($fingerprint);
-        } else {
-            // Log Error: Session not found when expected
-        }
+        $individualRate = $this->rateLimiter->getIndividualRate($fingerprint);
+        $individualThreatLevel = $this->rateLimiter->getIndividualThreatLevel($fingerprint);
+        $threatLevel = \max($globalThreatLevel, $individualThreatLevel);
 
         // Bind values to the request for later middleware
-        $request->bind('threatLevel', $globalThreatLevel);
+        $request->bind('threatLevelGlobal', $globalThreatLevel);
         $request->bind('individualRate', $individualRate);
+        $request->bind('threatLevelIndividual', $individualThreatLevel);
+        $request->bind('threatLevel', $threatLevel);
 
         // Proceed to the next middleware
         return $next($request);

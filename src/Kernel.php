@@ -7,7 +7,9 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response\PassResponse;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
 use GES\Botlock\Middleware\ErrorMiddleware;
+use GES\Botlock\Middleware\FingerprintMiddleware;
 use GES\Botlock\Middleware\ProofOfWorkMiddleware;
+use GES\Botlock\Middleware\RateLimiterMiddleware;
 use GES\Botlock\Middleware\SessionMiddleware;
 use GES\Botlock\Middleware\WhitelistMiddleware;
 
@@ -18,9 +20,10 @@ readonly class Kernel
         try
         {
             $config = new Config();
+            $rateLimiter = new RateLimiter($config);
             $whitelist = new Whitelist($config);
 
-            return new static($botlockRoot, $config, $whitelist);
+            return new static($botlockRoot, $config, $rateLimiter, $whitelist);
         }
         catch (\Throwable $th)
         {
@@ -31,9 +34,10 @@ readonly class Kernel
     }
 
     public function __construct(
-        private string    $botlockRoot,
-        private Config    $config,
-        private Whitelist $whitelist,
+        private string      $botlockRoot,
+        private Config      $config,
+        private RateLimiter $rateLimiter,
+        private Whitelist   $whitelist,
     ) {}
 
     public function handleRequest(Request $request): void
@@ -41,7 +45,9 @@ readonly class Kernel
         $middleware = new MiddlewareDispatcher();
 
         $middleware
-            ->add(new ErrorMiddleware())
+            ->add(new ErrorMiddleware)
+            ->add(new FingerprintMiddleware($this->config))
+            ->add(new RateLimiterMiddleware($this->rateLimiter))
             ->add(new WhitelistMiddleware($this->whitelist))
             ->add(new SessionMiddleware($this->config))
             ->add(new ProofOfWorkMiddleware($this->config, $request, $this->whitelist))

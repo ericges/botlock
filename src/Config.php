@@ -46,15 +46,17 @@ class Config
         $this->dnsChecks = (bool) (env('DNS_CHECKS', true));
 
         $this->stateDir = env('STATE_DIR') ?: (\sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'botlock');
+
         $this->globalRateWindowMin = (int) env('GLOBAL_RATE_WINDOW_MIN', 5);
-        $this->individualRateWindowSec = (int) env('INDIVIDUAL_RATE_WINDOW_SEC', 60);
         $this->level1ThresholdGlobal = (int) env('LEVEL_1_THRESHOLD_GLOBAL', 100);
         $this->level2ThresholdGlobal = (int) env('LEVEL_2_THRESHOLD_GLOBAL', 500);
         $this->level3ThresholdGlobal = (int) env('LEVEL_3_THRESHOLD_GLOBAL', 1000);
-        $this->level1ThresholdIndividual = (int) env('LEVEL_1_THRESHOLD_INDIVIDUAL', 10);
-        $this->level2ThresholdIndividual = (int) env('LEVEL_2_THRESHOLD_INDIVIDUAL', 20);
-        $this->level3ThresholdIndividual = (int) env('LEVEL_3_THRESHOLD_INDIVIDUAL', 30);
         $this->levelDecayGracePeriod = (int) env('LEVEL_DECAY_GRACE_PERIOD', 300);  // 5 minutes low traffic to decrease level
+
+        $this->individualRateWindowSec = (int) env('INDIVIDUAL_RATE_WINDOW_SEC', 60);
+        $this->level1ThresholdIndividual = (int) env('LEVEL_1_THRESHOLD_INDIVIDUAL', 15);
+        $this->level2ThresholdIndividual = (int) env('LEVEL_2_THRESHOLD_INDIVIDUAL', 25);
+        $this->level3ThresholdIndividual = (int) env('LEVEL_3_THRESHOLD_INDIVIDUAL', 35);
     }
 
     public function getPowAlgorithm(): string { return $this->powAlgorithm; }

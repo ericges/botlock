@@ -5,6 +5,11 @@ namespace GES\Botlock\Http;
 use GES\Botlock\Http\Session;
 
 /**
+ * @property int     $threatLevel
+ * @property int     $threatLevelGlobal
+ * @property int     $threatLevelIndividual
+ * @property int     $individualRate
+ * @property string  $fingerprint
  * @property Session $session
  */
 class Request
