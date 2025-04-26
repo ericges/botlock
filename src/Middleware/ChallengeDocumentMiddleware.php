@@ -31,13 +31,13 @@ readonly class ChallengeDocumentMiddleware implements MiddlewareInterface
 
 namespace GES\Botlock\Middleware;
 
-use GES\Botlock\Config; // Add use
+use GES\Botlock\Manager\Config; // Add use
 use GES\Botlock\Http\Response\HtmlFileResponse;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
-use GES\Botlock\RateLimiter; // Add use
-use GES\Botlock\Whitelist;  // Add use
+use GES\Botlock\Manager\RateLimiter; // Add use
+use GES\Botlock\Manager\Whitelist;  // Add use
 
 readonly class ChallengeDocumentMiddleware implements MiddlewareInterface
 {

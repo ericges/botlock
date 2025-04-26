@@ -1,11 +1,11 @@
 <?php declare(strict_types=1);
 
-namespace GES\Botlock;
+namespace GES\Botlock\Manager;
 
 use GES\Botlock\Http\Request;
 use Throwable;
 
-class RateLimiter
+class ThreatAwarenessManager
 {
     // Constants for thresholds, windows, etc. - fetch from Config
     private const GLOBAL_STATE_FILE = 'global_state.json';
@@ -26,7 +26,7 @@ class RateLimiter
     private array $cachedIndividualThreatLevels = [];
     private array $cachedIndividualRates = [];
 
-    public function __construct(private readonly Config $config)
+    public function __construct(private readonly ConfigManager $config)
     {
         // Fetch config values
         $this->stateDir = $this->config->getStateDir();
@@ -100,7 +100,6 @@ class RateLimiter
         return $result;
     }
 
-
     /**
      * Records the current request for both global and individual tracking.
      */
@@ -139,7 +138,7 @@ class RateLimiter
             return $this->cachedGlobalThreatLevel;
         }
 
-        $filePath = $this->stateDir . '/' . self::GLOBAL_STATE_FILE;
+        $filePath = $this->getGlobalStateFilePath();
 
         // Use shared lock if possible for reading global level
         $state = $this->executeWithLock($filePath, $this->getGlobalThreatLevelLogic(...), 'r', true);
@@ -189,7 +188,7 @@ class RateLimiter
      */
     private function incrementGlobalBucket(): void
     {
-        $filePath = $this->stateDir . \DIRECTORY_SEPARATOR . self::GLOBAL_STATE_FILE;
+        $filePath = $this->getGlobalStateFilePath();
         // Use exclusive lock as we are modifying the file
         $this->executeWithLock($filePath, $this->incrementGlobalBucketLogic(...));
     }
@@ -364,7 +363,6 @@ class RateLimiter
         return $level;
     }
 
-
     /**
      * Adds the current timestamp to the individual fingerprint file and prunes old ones.
      */
@@ -415,6 +413,14 @@ class RateLimiter
     private function getIndividualFilePath(string $fingerprint): string
     {
         $hashDir = substr($fingerprint, 0, 2);
-        return $this->stateDir . '/' . self::INDIVIDUAL_STATE_DIR . '/' . $hashDir . '/' . $fingerprint . '.json';
+        return $this->stateDir
+            . \DIRECTORY_SEPARATOR . self::INDIVIDUAL_STATE_DIR
+            . \DIRECTORY_SEPARATOR . $hashDir
+            . \DIRECTORY_SEPARATOR . $fingerprint . '.txt';
+    }
+
+    private function getGlobalStateFilePath(): string
+    {
+        return $this->stateDir . \DIRECTORY_SEPARATOR . self::GLOBAL_STATE_FILE;
     }
 }

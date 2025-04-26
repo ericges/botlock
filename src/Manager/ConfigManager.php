@@ -1,10 +1,10 @@
 <?php
 
-namespace GES\Botlock;
+namespace GES\Botlock\Manager;
 
-use Exception;
+use function GES\Botlock\randStr;
 
-class Config
+class ConfigManager
 {
     public final const POW_ALLOWED_ALGORITHMS = ['sha256', 'sha384', 'sha512'];
 
@@ -19,6 +19,7 @@ class Config
     private readonly array $ignoreUserAgents;
     private readonly ?array $ignoreUrls;
     private readonly array $goodBots;
+    private readonly array $verifyBots;
     private readonly array $trustedProxies;
     private readonly string $stateDir;
     private readonly int $individualRateWindowSec;
@@ -36,37 +37,38 @@ class Config
 
     public function __construct() {
         $this->powAlgorithm = $this->loadPowAlgorithm();
-        $this->instanceId = env('INSTANCE_ID') ?: \md5(__DIR__);
+        $this->instanceId = self::env('INSTANCE_ID') ?: \md5(__DIR__);
         $this->secret = \trim($this->loadSecret());
-        $this->expire = (int) (env('EXPIRE') ?: 3600);
-        $this->maxNumber = (int) (env('MAX_NUMBER') ?: 50000);
-        $this->crawlerFactor = (int) (env('CRAWLER_FACTOR') ?: 15);
+        $this->expire = (int) (self::env('EXPIRE') ?: 3600);
+        $this->maxNumber = (int) (self::env('MAX_NUMBER') ?: 50000);
+        $this->crawlerFactor = (int) (self::env('CRAWLER_FACTOR') ?: 15);
         $this->ignoreIps = $this->loadIgnoreIps();
         $this->ignoreUserAgents = $this->loadIgnoreUserAgents();
         $this->ignoreUrls = $this->loadIgnoreUrls();
         $this->goodBots = $this->loadGoodBots();
-        $this->trustedProxies = envArray('TRUSTED_PROXIES', []);
-        $this->dnsChecks = (bool) envBool('DNS_CHECKS', true);
+        $this->verifyBots = $this->loadVerifyBots(); // e.g. "google,bing"
+        $this->trustedProxies = self::envArray('TRUSTED_PROXIES', []);
+        $this->dnsChecks = (bool) self::envBool('DNS_CHECKS', true);
 
-        $this->stateDir = env('STATE_DIR', \sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'botlock');
+        $this->stateDir = \rtrim(self::env('STATE_DIR', \sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'botlock'), '/\\');
 
-        $threadLevelOverride = env('THREAT_LEVEL_OVERRIDE');
+        $threadLevelOverride = self::env('THREAT_LEVEL_OVERRIDE');
         $this->threatLevelOverride = \is_null($threadLevelOverride) ? null : (int) $threadLevelOverride;
 
-        $this->enableGlobalRateLimit = (bool) envBool('ENABLE_GLOBAL_RATE_LIMIT', true);
-        $this->level1ThresholdGlobal = (int) env('LEVEL_1_THRESHOLD_GLOBAL', 120);  // weighted score ~ requests per minute over the rate window
-        $this->level2ThresholdGlobal = (int) env('LEVEL_2_THRESHOLD_GLOBAL', 300);
-        $this->level3ThresholdGlobal = (int) env('LEVEL_3_THRESHOLD_GLOBAL', 600);
-        $this->levelDecayGracePeriod = (int) env('LEVEL_DECAY_GRACE_PERIOD', 300);  // 5 minutes low traffic to decrease level
+        $this->enableGlobalRateLimit = (bool) self::envBool('ENABLE_GLOBAL_RATE_LIMIT', true);
+        $this->level1ThresholdGlobal = (int) self::env('LEVEL_1_THRESHOLD_GLOBAL', 120);  // weighted score ~ requests per minute over the rate window
+        $this->level2ThresholdGlobal = (int) self::env('LEVEL_2_THRESHOLD_GLOBAL', 300);
+        $this->level3ThresholdGlobal = (int) self::env('LEVEL_3_THRESHOLD_GLOBAL', 600);
+        $this->levelDecayGracePeriod = (int) self::env('LEVEL_DECAY_GRACE_PERIOD', 300);  // 5 minutes low traffic to decrease level
 
-        $this->enableIndividualRateLimit = (bool) envBool('ENABLE_INDIVIDUAL_RATE_LIMIT', true);
-        $this->individualRateWindowSec = (int) env('INDIVIDUAL_RATE_WINDOW_SEC', 60);
-        $this->level1ThresholdIndividual = (int) env('LEVEL_1_THRESHOLD_INDIVIDUAL', 60);
-        $this->level2ThresholdIndividual = (int) env('LEVEL_2_THRESHOLD_INDIVIDUAL', 90);
-        $this->level3ThresholdIndividual = (int) env('LEVEL_3_THRESHOLD_INDIVIDUAL', 120);
+        $this->enableIndividualRateLimit = (bool) self::envBool('ENABLE_INDIVIDUAL_RATE_LIMIT', true);
+        $this->individualRateWindowSec = (int) self::env('INDIVIDUAL_RATE_WINDOW_SEC', 60);
+        $this->level1ThresholdIndividual = (int) self::env('LEVEL_1_THRESHOLD_INDIVIDUAL', 60);
+        $this->level2ThresholdIndividual = (int) self::env('LEVEL_2_THRESHOLD_INDIVIDUAL', 90);
+        $this->level3ThresholdIndividual = (int) self::env('LEVEL_3_THRESHOLD_INDIVIDUAL', 120);
 
         $this->enableRateLimit = ($this->enableGlobalRateLimit || $this->enableIndividualRateLimit)
-            && envBool('ENABLE_RATE_LIMIT', true);
+            && self::envBool('ENABLE_RATE_LIMIT', true);
     }
 
     public function getPowAlgorithm(): string { return $this->powAlgorithm; }
@@ -79,6 +81,7 @@ class Config
     public function getIgnoreUserAgents(): ?array { return $this->ignoreUserAgents; }
     public function getIgnoreUrls(): ?array { return $this->ignoreUrls; }
     public function getGoodBots(): array { return $this->goodBots; }
+    public function getVerifyBots(): array { return $this->verifyBots; }
     public function getTrustedProxies(): ?array { return $this->trustedProxies; }
     public function getDnsChecks(): bool { return $this->dnsChecks; }
     public function getStateDir(): string { return $this->stateDir; }
@@ -96,11 +99,11 @@ class Config
     public function isIndividualRateLimitEnabled(): bool { return $this->enableIndividualRateLimit; }
 
     /**
-     * @throws Exception
+     * @throws \Exception
      */
     private function loadPowAlgorithm(): string
     {
-        $algorithm = \strtolower(env('POW_ALGORITHM', 'sha256'));
+        $algorithm = \strtolower(self::env('POW_ALGORITHM', 'sha256'));
 
         if (!\in_array($algorithm, self::POW_ALLOWED_ALGORITHMS)) {
             throw new \Exception('Invalid PoW algorithm provided');
@@ -111,7 +114,7 @@ class Config
 
     private function loadSecret(): string
     {
-        if ($secret = env('SECRET')) {
+        if ($secret = self::env('SECRET')) {
             return $secret;
         }
 
@@ -148,7 +151,7 @@ class Config
 
     private function loadIgnoreIps(): ?array
     {
-        if ($ignoreIps = envArray('IGNORE_IPS')) {
+        if ($ignoreIps = self::envArray('IGNORE_IPS')) {
             $ignoreIps = \array_unique(\array_map('trim', $ignoreIps));
             return empty($ignoreIps) ? null : $ignoreIps;
         }
@@ -163,7 +166,7 @@ class Config
             'AdsBot-Google',
         ];
 
-        $ignoreUserAgents = envArray('IGNORE_USER_AGENTS');
+        $ignoreUserAgents = self::envArray('IGNORE_USER_AGENTS');
 
         if (\is_array($ignoreUserAgents)) {
             // allows to set an empty array
@@ -175,7 +178,7 @@ class Config
 
     private function loadIgnoreUrls(): ?array
     {
-        if ($ignoreUrls = envArray('IGNORE_URLS')) {
+        if ($ignoreUrls = self::envArray('IGNORE_URLS')) {
             $ignoreUrls = \array_unique(\array_map('trim', $ignoreUrls));
             return empty($ignoreUrls) ? null : $ignoreUrls;
         }
@@ -194,11 +197,88 @@ class Config
             'facebot',
         ];
 
-        if ($goodBots = envArray('GOOD_BOTS')) {
+        if ($goodBots = self::envArray('GOOD_BOTS')) {
             $goodBots = \array_unique(\array_map('trim', $goodBots));
             return empty($goodBots) ? $defaultGoodBots : $goodBots;
         }
 
         return $defaultGoodBots;
+    }
+
+    private function loadVerifyBots(): array
+    {
+        $verifiableBots = [
+            'google' => ['Googlebot', 'AdsBot']
+        ];
+
+        if (\is_null($verifyBots = self::envArray('VERIFY_BOTS'))) {
+            return $verifiableBots;
+        }
+
+        $verifyThese = [];
+
+        foreach (\array_map('trim', $verifyBots) as $bot)
+        {
+            $bot = \strtolower($bot);
+
+            if ($userAgentStrings = $verifiableBots[$bot] ?? null)
+            {
+                $verifyThese[$bot] = $userAgentStrings;
+            }
+        }
+
+        return $verifyThese;
+    }
+
+    public static function env(string $name, $default = null): mixed
+    {
+        $name = 'BOTLOCK_' . \strtoupper($name);
+        $value = \getenv($name);
+
+        if ($value === false) {
+            return $default;
+        }
+
+        if (\is_string($value)) {
+            return \trim($value);
+        }
+
+        return $value;
+    }
+
+    public static function envBool($name, ?bool $default = null): ?bool
+    {
+        $value = self::env($name);
+
+        if (\is_bool($value)) {
+            return $value;
+        }
+
+        if (!\is_string($value) || !\is_numeric($value)) {
+            return $default;
+        }
+
+        return \filter_var($value, \FILTER_VALIDATE_BOOLEAN, \FILTER_NULL_ON_FAILURE) ?? $default;
+    }
+
+    public static function envArray(string $name, ?array $default = null): ?array
+    {
+        $value = self::env($name);
+
+        if (!\is_string($value)) {
+            return $default;
+        }
+
+        if (\strlen($value) < 1) {
+            return [];
+        }
+
+        if ($value[0] !== '[' || $value[-1] !== ']') {
+            return \explode(',', $value);
+        }
+
+        $data = \json_decode($value, true) ?: [];
+
+        return \array_values(\array_filter($data, 'is_string'));
     }
 }

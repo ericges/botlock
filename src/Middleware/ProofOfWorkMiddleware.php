@@ -2,8 +2,8 @@
 
 namespace GES\Botlock\Middleware;
 
-use GES\Botlock\BotDetect;
-use GES\Botlock\Config;
+use GES\Botlock\Manager\BotTestManager;
+use GES\Botlock\Manager\ConfigManager;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
@@ -13,9 +13,9 @@ use GES\Botlock\Challenge\ProofOfWork;
 readonly class ProofOfWorkMiddleware implements MiddlewareInterface
 {
     public function __construct(
-        private BotDetect $botDetect,
-        private Config    $config,
-        private Request   $request,
+        private BotTestManager $detective,
+        private ConfigManager  $config,
+        private Request        $request,
     ) {}
 
     /**
@@ -54,9 +54,9 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
         $pow = new ProofOfWork($this->config);
         $goodActor = true;
 
-        if ($this->botDetect->isBot())
+        if ($this->detective->isCrawler())
         {
-            $goodActor = $this->botDetect->isGoodBot();
+            $goodActor = $this->detective->isGoodBot();
             $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
         }
 

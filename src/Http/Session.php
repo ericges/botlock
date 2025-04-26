@@ -2,7 +2,7 @@
 
 namespace GES\Botlock\Http;
 
-use GES\Botlock\Config;
+use GES\Botlock\Manager\ConfigManager;
 use GES\Botlock\JWT;
 
 class Session
@@ -14,8 +14,8 @@ class Session
     private bool $commit = false;
 
     public function __construct(
-        private readonly Config  $config,
-        private readonly Request $request,
+        private readonly ConfigManager $config,
+        private readonly Request       $request,
     ) {
         if (!$sub = $this->request->fingerprint)
         {

@@ -1,17 +1,17 @@
 <?php
 
-namespace GES\Botlock;
+namespace GES\Botlock\Manager;
 
 use Jaybizzle\CrawlerDetect\CrawlerDetect;
 
-class BotDetect
+class BotTestManager
 {
     private bool $isCrawler;
     private ?string $crawlerMatch = null;
 
-    public function __construct(private readonly Config $config) {}
+    public function __construct(private readonly ConfigManager $config) {}
 
-    public function isBot(): bool
+    public function isCrawler(): bool
     {
         if (!isset($this->isCrawler))
         {
@@ -25,7 +25,7 @@ class BotDetect
 
     public function isGoodBot(): bool
     {
-        if (!$this->isBot())
+        if (!$this->isCrawler())
         {
             return false;
         }

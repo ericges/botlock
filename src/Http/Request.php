@@ -9,6 +9,7 @@ use GES\Botlock\Http\Session;
  * @property int     $threatLevelGlobal
  * @property int     $threatLevelIndividual
  * @property int     $individualRate
+ * @property string  $clientIp
  * @property string  $fingerprint
  * @property Session $session
  */
@@ -21,6 +22,7 @@ class Request
         private readonly string $method,
         private readonly string $requestUrl,
         private readonly bool   $secure = false,
+        private readonly array  $server = [],
         private readonly array  $headers = [],
         private readonly array  $queryParams = [],
         private readonly array  $cookies = [],
@@ -70,11 +72,20 @@ class Request
         }
 
         $body = \file_get_contents('php://input') ?: '';
+        $server = [
+            'REQUEST_TIME' => $_SERVER['REQUEST_TIME'] ?? null,
+            'REQUEST_TIME_FLOAT' => $_SERVER['REQUEST_TIME_FLOAT'] ?? null,
+            'REMOTE_ADDR' => $_SERVER['REMOTE_ADDR'] ?? null,
+            'REMOTE_PORT' => $_SERVER['REMOTE_PORT'] ?? null,
+            'REMOTE_HOST' => $_SERVER['REMOTE_HOST'] ?? null,
+            'REMOTE_USER' => $_SERVER['REMOTE_USER'] ?? null,
+        ];
 
         return new static(
             method: $method,
             requestUrl: $requestUrl,
             secure: $secure,
+            server: $server,
             headers: $headers,
             queryParams: $_GET,
             cookies: $_COOKIE,
@@ -100,6 +111,16 @@ class Request
     public function isSecure(): bool
     {
         return $this->secure;
+    }
+
+    public function getServer(): array
+    {
+        return $this->server;
+    }
+
+    public function getServerParam(string $name, ?string $default = null): ?string
+    {
+        return $this->server[$name] ?? $default;
     }
 
     public function getHeaders(): array
@@ -172,10 +193,6 @@ class Request
 
     public function bind(string $name, mixed $value): static
     {
-        if (isset($this->bindings[$name])) {
-            throw new \InvalidArgumentException("Binding '$name' already exists");
-        }
-
         $this->bindings[$name] = $value;
 
         return $this;
@@ -183,10 +200,6 @@ class Request
 
     public function __get(string $name): mixed
     {
-        if (isset($this->bindings[$name])) {
-            return $this->bindings[$name];
-        }
-
-        return null;
+        return $this->bindings[$name] ?? null;
     }
 }

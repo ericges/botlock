@@ -2,14 +2,14 @@
 
 namespace GES\Botlock\Challenge;
 
-use GES\Botlock\Config;
+use GES\Botlock\Manager\ConfigManager;
 use function GES\Botlock\randStr;
 
 class ProofOfWork
 {
     private float $difficulty = 1;
 
-    public function __construct(private readonly Config $config) {}
+    public function __construct(private readonly ConfigManager $config) {}
 
     public function setDifficulty(float $difficulty): static
     {
@@ -84,7 +84,7 @@ class ProofOfWork
 
     private function hashTarget(string $algorithm, int $number, string $salt, int $expire): ?string
     {
-        if (!\in_array($algorithm, Config::POW_ALLOWED_ALGORITHMS)) {
+        if (!\in_array($algorithm, ConfigManager::POW_ALLOWED_ALGORITHMS)) {
             return null;
         }
 

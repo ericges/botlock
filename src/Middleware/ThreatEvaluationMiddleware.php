@@ -2,15 +2,18 @@
 
 namespace GES\Botlock\Middleware;
 
-use GES\Botlock\Config;
+use GES\Botlock\Manager\ConfigManager;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
-use GES\Botlock\RateLimiter;
+use GES\Botlock\Manager\ThreatAwarenessManager;
 
-readonly class RateLimiterMiddleware implements MiddlewareInterface
+readonly class ThreatEvaluationMiddleware implements MiddlewareInterface
 {
-    public function __construct(private Config $config) {}
+    public function __construct(
+        private ConfigManager          $config,
+        private ThreatAwarenessManager $rateLimiter,
+    ) {}
 
     public function process(Request $request, callable $next): Response
     {
@@ -28,13 +31,11 @@ readonly class RateLimiterMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        $rateLimiter = new RateLimiter($this->config);
-
-        $rateLimiter->recordRequest($request);
+        $this->rateLimiter->recordRequest($request);
 
         if ($this->config->isGlobalRateLimitEnabled())
         {
-            $globalThreatLevel = $rateLimiter->getGlobalThreatLevel();
+            $globalThreatLevel = $this->rateLimiter->getGlobalThreatLevel();
             $request->bind('threatLevelGlobal', $globalThreatLevel);
         }
 
@@ -44,10 +45,10 @@ readonly class RateLimiterMiddleware implements MiddlewareInterface
                 throw new \RuntimeException('Fingerprint not set');
             }
 
-            $individualRate = $rateLimiter->getIndividualRate($fingerprint);
+            $individualRate = $this->rateLimiter->getIndividualRate($fingerprint);
             $request->bind('individualRate', $individualRate);
 
-            $individualThreatLevel = $rateLimiter->getIndividualThreatLevel($fingerprint);
+            $individualThreatLevel = $this->rateLimiter->getIndividualThreatLevel($fingerprint);
             $request->bind('threatLevelIndividual', $individualThreatLevel);
         }
 
