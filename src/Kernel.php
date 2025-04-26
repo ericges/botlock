@@ -12,6 +12,7 @@ use GES\Botlock\Manager\ThreatAwarenessManager;
 use GES\Botlock\Manager\WhitelistManager;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
 use GES\Botlock\Middleware\ErrorMiddleware;
+use GES\Botlock\Middleware\StatusMiddleware;
 use GES\Botlock\Middleware\VerifyCrawlerMiddleware;
 use GES\Botlock\Middleware\WhoIsMiddleware;
 use GES\Botlock\Middleware\ProofOfWorkMiddleware;
@@ -59,6 +60,7 @@ readonly class Kernel
             ->add(new VerifyCrawlerMiddleware($this->detective, $this->config))
             ->add(new WhitelistMiddleware($this->detective, $this->whitelist))
             ->add(new SessionMiddleware($this->config))
+            ->add(new StatusMiddleware())
             ->add(new ProofOfWorkMiddleware($this->detective, $this->config, $request))
             ->add(new ChallengeDocumentMiddleware($request, $this->botlockRoot))
         ;

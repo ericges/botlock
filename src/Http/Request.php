@@ -2,8 +2,6 @@
 
 namespace GES\Botlock\Http;
 
-use GES\Botlock\Http\Session;
-
 /**
  * @property int     $threatLevel
  * @property int     $threatLevelGlobal
@@ -15,11 +13,12 @@ use GES\Botlock\Http\Session;
  */
 class Request
 {
+    private readonly string $method;
     private readonly array $urlParts;
     private array $bindings = [];
 
     public function __construct(
-        private readonly string $method,
+        string                  $method,
         private readonly string $requestUrl,
         private readonly bool   $secure = false,
         private readonly array  $server = [],
@@ -32,12 +31,14 @@ class Request
             throw new \InvalidArgumentException('Invalid request URL');
         }
 
+        $this->method = \strtoupper(\trim($method));
+
         $this->urlParts = $urlParts;
     }
 
     public static function fromGlobals(): static
     {
-        $method = \strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         $secure = \strtolower($_SERVER['HTTPS'] ?? '') === 'on' || $_SERVER['SERVER_PORT'] === '443';
 
         $scheme = $secure ? 'https' : 'http';
@@ -161,6 +162,20 @@ class Request
     public function get($key, mixed $default = null): mixed
     {
         return $this->queryParams[$key] ?? $default;
+    }
+
+    /**
+     * Returns the action for botlock, if present.
+     * Example: GET challenge, POST verify, POST reset, GET status
+     */
+    public function getBotlockAction(): ?string
+    {
+        if ($action = $this->get('_botlock')) {
+            $action = \preg_replace('/[^a-z0-9_]/', '', \strtolower($action));
+            return $this->getMethod() . ' ' . $action;
+        }
+
+        return null;
     }
 
     public function getAbsoluteUrl(string $path): ?string

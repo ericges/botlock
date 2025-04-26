@@ -36,9 +36,12 @@ class ConfigManager
     private readonly ?int $threatLevelOverride;
 
     public function __construct() {
+        $this->instanceId = self::env('INSTANCE_ID') ?: \md5(__DIR__);  // must be first
+
+        $this->stateDir = \rtrim(self::env('STATE_DIR', \sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'botlock'), '/\\');
+        $this->secret = \trim($this->loadSecret($this->stateDir));  // secret must come after stateDir
+
         $this->powAlgorithm = $this->loadPowAlgorithm();
-        $this->instanceId = self::env('INSTANCE_ID') ?: \md5(__DIR__);
-        $this->secret = \trim($this->loadSecret());
         $this->expire = (int) (self::env('EXPIRE') ?: 3600);
         $this->maxNumber = (int) (self::env('MAX_NUMBER') ?: 50000);
         $this->crawlerFactor = (int) (self::env('CRAWLER_FACTOR') ?: 15);
@@ -49,8 +52,6 @@ class ConfigManager
         $this->verifyBots = $this->loadVerifyBots(); // e.g. "google,bing"
         $this->trustedProxies = self::envArray('TRUSTED_PROXIES', []);
         $this->dnsChecks = (bool) self::envBool('DNS_CHECKS', true);
-
-        $this->stateDir = \rtrim(self::env('STATE_DIR', \sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'botlock'), '/\\');
 
         $threadLevelOverride = self::env('THREAT_LEVEL_OVERRIDE');
         $this->threatLevelOverride = \is_null($threadLevelOverride) ? null : (int) $threadLevelOverride;
@@ -112,20 +113,22 @@ class ConfigManager
         return $algorithm;
     }
 
-    private function loadSecret(): string
+    private function loadSecret(?string $fallbackDir = null): string
     {
         if ($secret = self::env('SECRET')) {
             return $secret;
         }
 
-        $tmpdir = \sys_get_temp_dir();
+        if ($fallbackDir === null) {
+            $fallbackDir = \sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'botlock';
+        }
 
-        if (!@\file_exists($tmpdir) && !@\is_dir($tmpdir) && !@\mkdir($tmpdir)) {
-            throw new \Exception('TMPDIR does not exist and could not be created');
+        if (!@\file_exists($fallbackDir) && !@\is_dir($fallbackDir) && !@\mkdir($fallbackDir)) {
+            throw new \Exception('Fallback secret dir does not exist and could not be created');
         }
 
         $secretFilename = 'botlock_secret_' . $this->getInstanceId();
-        $secretFile = $tmpdir . DIRECTORY_SEPARATOR . $secretFilename;
+        $secretFile = $fallbackDir . DIRECTORY_SEPARATOR . $secretFilename;
 
         if (@\file_exists($secretFile)) {
             if (!$secret = \file_get_contents($secretFile))
@@ -136,8 +139,8 @@ class ConfigManager
             return $secret;
         }
 
-        if (!@\is_writable($tmpdir) && !@\chmod($tmpdir, '0755')) {
-            throw new \Exception('TMPDIR is not writable and could not be chmoded');
+        if (!@\is_writable($fallbackDir) && !@\chmod($fallbackDir, '0755')) {
+            throw new \Exception('Fallback secret dir is not writable and could not be chmoded');
         }
 
         $secret = randStr(32);
@@ -161,10 +164,7 @@ class ConfigManager
 
     private function loadIgnoreUserAgents(): array
     {
-        $defaultIgnoreUserAgents = [
-            'Googlebot',
-            'AdsBot-Google',
-        ];
+        $defaultIgnoreUserAgents = [];
 
         $ignoreUserAgents = self::envArray('IGNORE_USER_AGENTS');
 
@@ -188,6 +188,7 @@ class ConfigManager
 
     private function loadGoodBots(): array
     {
+        // list of crawlers as known by Jaybizzle\CrawlerDetect
         $defaultGoodBots = [
             'Googlebot',
             'AdsBot',

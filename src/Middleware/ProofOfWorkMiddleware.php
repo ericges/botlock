@@ -23,19 +23,14 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
      */
     public function process(Request $request, callable $next): Response
     {
-        $action = (string) $request->get('_botlock');
-
-        if (!$action) {
+        if (!$action = $request->getBotlockAction()) {
             return $next($request);
         }
 
-        $action = \preg_replace('/[^a-z0-9_]/i', '', $action);
-
-        return match ($request->getMethod() . ' ' . $action) {
+        return match ($action) {
             'GET challenge' => $this->handleGetChallengeRequest($request),
             'POST verify' => $this->handlePostChallengeRequest($request),
             'POST reset' => $this->handleResetRequest($request),
-            'GET status' => $this->handleGetStatusRequest($request),
             default => $next($request)
         };
     }
@@ -119,20 +114,6 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
             'ok' => true,
             'message' => 'Session cleared',
         ]);
-    }
-
-    public function handleGetStatusRequest(Request $request): Response
-    {
-        $status = [
-            'user_agent' => $request->getHeader('User-Agent'),
-            'fingerprint' => $request->fingerprint,
-            'threat_level' => $request->threatLevel ?? null,
-            'threat_level_global' => $request->threatLevelGlobal ?? null,
-            'threat_level_individual' => $request->threatLevelIndividual ?? null,
-            'individual_rate' => $request->individualRate ?? null,
-        ];
-
-        return new Response\JsonResponse(200, $status);
     }
 }
 

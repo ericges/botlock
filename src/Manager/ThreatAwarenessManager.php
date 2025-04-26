@@ -8,7 +8,6 @@ use Throwable;
 class ThreatAwarenessManager
 {
     // Constants for thresholds, windows, etc. - fetch from Config
-    private const GLOBAL_STATE_FILE = 'global_state.json';
     private const INDIVIDUAL_STATE_DIR = 'ua';
     private const LOCK_TIMEOUT_MS = 100; // Max time to wait for a lock
 
@@ -416,11 +415,11 @@ class ThreatAwarenessManager
         return $this->stateDir
             . \DIRECTORY_SEPARATOR . self::INDIVIDUAL_STATE_DIR
             . \DIRECTORY_SEPARATOR . $hashDir
-            . \DIRECTORY_SEPARATOR . $fingerprint . '.txt';
+            . \DIRECTORY_SEPARATOR . $fingerprint . '.lst';
     }
 
     private function getGlobalStateFilePath(): string
     {
-        return $this->stateDir . \DIRECTORY_SEPARATOR . self::GLOBAL_STATE_FILE;
+        return $this->stateDir . \DIRECTORY_SEPARATOR . 'botlock_state_' . $this->config->getInstanceId() . '.json';
     }
 }

@@ -17,6 +17,10 @@ readonly class WhitelistMiddleware implements MiddlewareInterface
 
     public function process(Request $request, callable $next): Response
     {
+        if ($request->getBotlockAction()) {
+            return $next($request);
+        }
+
         if ($request->threatLevel === 0) {
             return new Response\PassResponse;
         }
