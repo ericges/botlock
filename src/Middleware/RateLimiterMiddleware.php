@@ -10,16 +10,13 @@ use GES\Botlock\RateLimiter;
 
 readonly class RateLimiterMiddleware implements MiddlewareInterface
 {
-    public function __construct(
-        private Config      $config,
-        private RateLimiter $rateLimiter,
-    ) {}
+    public function __construct(private Config $config) {}
 
     public function process(Request $request, callable $next): Response
     {
-        if ($this->config->getThreatLevelOverride() !== null)
+        if (!\is_null($override = $this->config->getThreatLevelOverride()))
         {
-            $request->bind('threatLevel', $this->config->getThreatLevelOverride());
+            $request->bind('threatLevel', $override);
 
             return $next($request);
         }
@@ -31,32 +28,32 @@ readonly class RateLimiterMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        $this->rateLimiter->recordRequest($request);
+        $rateLimiter = new RateLimiter($this->config);
 
-        if (!$fingerprint = $request->fingerprint) {
-            throw new \RuntimeException('Fingerprint not set');
-        }
+        $rateLimiter->recordRequest($request);
 
-        // Calculate levels (might read from cache within RateLimiter)
         if ($this->config->isGlobalRateLimitEnabled())
         {
-            $globalThreatLevel = $this->rateLimiter->getGlobalThreatLevel();
+            $globalThreatLevel = $rateLimiter->getGlobalThreatLevel();
             $request->bind('threatLevelGlobal', $globalThreatLevel);
         }
 
         if ($this->config->isIndividualRateLimitEnabled())
         {
-            $individualRate = $this->rateLimiter->getIndividualRate($fingerprint);
+            if (!$fingerprint = $request->fingerprint) {
+                throw new \RuntimeException('Fingerprint not set');
+            }
+
+            $individualRate = $rateLimiter->getIndividualRate($fingerprint);
             $request->bind('individualRate', $individualRate);
 
-            $individualThreatLevel = $this->rateLimiter->getIndividualThreatLevel($fingerprint);
+            $individualThreatLevel = $rateLimiter->getIndividualThreatLevel($fingerprint);
             $request->bind('threatLevelIndividual', $individualThreatLevel);
         }
 
         $threatLevel = \max($globalThreatLevel ?? 0, $individualThreatLevel ?? 0);
         $request->bind('threatLevel', $threatLevel);
 
-        // Proceed to the next middleware
         return $next($request);
     }
 }

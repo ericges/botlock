@@ -20,10 +20,9 @@ readonly class Kernel
         try
         {
             $config = new Config();
-            $rateLimiter = new RateLimiter($config);
             $whitelist = new Whitelist($config);
 
-            return new static($botlockRoot, $config, $rateLimiter, $whitelist);
+            return new static($botlockRoot, $config, $whitelist);
         }
         catch (\Throwable $th)
         {
@@ -36,7 +35,6 @@ readonly class Kernel
     public function __construct(
         private string      $botlockRoot,
         private Config      $config,
-        private RateLimiter $rateLimiter,
         private Whitelist   $whitelist,
     ) {}
 
@@ -47,7 +45,7 @@ readonly class Kernel
         $middleware
             ->add(new ErrorMiddleware)
             ->add(new FingerprintMiddleware($this->config))
-            ->add(new RateLimiterMiddleware($this->config, $this->rateLimiter))
+            ->add(new RateLimiterMiddleware($this->config))
             ->add(new WhitelistMiddleware($this->whitelist))
             ->add(new SessionMiddleware($this->config))
             ->add(new ProofOfWorkMiddleware($this->config, $request, $this->whitelist))
