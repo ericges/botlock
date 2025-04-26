@@ -21,7 +21,6 @@ class Config
     private readonly array $goodBots;
     private readonly array $trustedProxies;
     private readonly string $stateDir;
-    private readonly int $globalRateWindowMin;
     private readonly int $individualRateWindowSec;
     private readonly int $level1ThresholdGlobal;
     private readonly int $level2ThresholdGlobal;
@@ -55,13 +54,12 @@ class Config
         $this->threatLevelOverride = \is_null($threadLevelOverride) ? null : (int) $threadLevelOverride;
 
         $this->enableGlobalRateLimit = (bool) envBool('ENABLE_GLOBAL_RATE_LIMIT', true);
-        $this->globalRateWindowMin = (int) env('GLOBAL_RATE_WINDOW_MIN', 5);
         $this->level1ThresholdGlobal = (int) env('LEVEL_1_THRESHOLD_GLOBAL', 120);  // weighted score ~ requests per minute over the rate window
         $this->level2ThresholdGlobal = (int) env('LEVEL_2_THRESHOLD_GLOBAL', 300);
         $this->level3ThresholdGlobal = (int) env('LEVEL_3_THRESHOLD_GLOBAL', 600);
         $this->levelDecayGracePeriod = (int) env('LEVEL_DECAY_GRACE_PERIOD', 300);  // 5 minutes low traffic to decrease level
 
-        $this->enableIndividualRateLimit = (bool) envBool('ENABLE_INDIVIDUAL_RATE_LIMIT', false);
+        $this->enableIndividualRateLimit = (bool) envBool('ENABLE_INDIVIDUAL_RATE_LIMIT', true);
         $this->individualRateWindowSec = (int) env('INDIVIDUAL_RATE_WINDOW_SEC', 60);
         $this->level1ThresholdIndividual = (int) env('LEVEL_1_THRESHOLD_INDIVIDUAL', 60);
         $this->level2ThresholdIndividual = (int) env('LEVEL_2_THRESHOLD_INDIVIDUAL', 90);
@@ -84,7 +82,6 @@ class Config
     public function getTrustedProxies(): ?array { return $this->trustedProxies; }
     public function getDnsChecks(): bool { return $this->dnsChecks; }
     public function getStateDir(): string { return $this->stateDir; }
-    public function getGlobalRateWindowMin(): int { return $this->globalRateWindowMin; }
     public function getIndividualRateWindowSec(): int { return $this->individualRateWindowSec; }
     public function getLevel1ThresholdGlobal(): int { return $this->level1ThresholdGlobal; }
     public function getLevel2ThresholdGlobal(): int { return $this->level2ThresholdGlobal; }

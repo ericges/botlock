@@ -15,6 +15,16 @@ readonly class WhitelistMiddleware implements MiddlewareInterface
 
     public function process(Request $request, callable $next): Response
     {
+        if ($request->threatLevel === 0) {
+            return new Response\PassResponse;
+        }
+
+        if (\is_int($request->threatLevelIndividual) && $request->threatLevelIndividual < 2) {
+            if ($this->whitelist->isGoodBot()) {
+                return new Response\PassResponse;
+            }
+        }
+
         if ($this->whitelist->isRequestWhitelisted($request)) {
             return new Response\PassResponse;
         }

@@ -13,7 +13,6 @@ class RateLimiter
     private const LOCK_TIMEOUT_MS = 100; // Max time to wait for a lock
 
     private string $stateDir;
-    private int $globalRateWindowMin;
     private int $individualRateWindowSec;
     private int $level1ThresholdGlobal;
     private int $level2ThresholdGlobal;
@@ -30,11 +29,10 @@ class RateLimiter
     public function __construct(private readonly Config $config)
     {
         // Fetch config values
-        $this->stateDir = $this->config->getStateDir(); // Needs to be added to Config
-        $this->globalRateWindowMin = $this->config->getGlobalRateWindowMin(); // Add getter
-        $this->individualRateWindowSec = $this->config->getIndividualRateWindowSec(); // Add getter
+        $this->stateDir = $this->config->getStateDir();
+        $this->individualRateWindowSec = $this->config->getIndividualRateWindowSec();
         // ... (load all thresholds and grace period from config) ...
-        $this->level1ThresholdGlobal = $this->config->getLevel1ThresholdGlobal(); // Add getter etc.
+        $this->level1ThresholdGlobal = $this->config->getLevel1ThresholdGlobal();
         $this->level2ThresholdGlobal = $this->config->getLevel2ThresholdGlobal();
         $this->level3ThresholdGlobal = $this->config->getLevel3ThresholdGlobal();
         $this->level1ThresholdIndividual = $this->config->getLevel1ThresholdIndividual();
