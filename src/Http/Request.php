@@ -187,6 +187,6 @@ class Request
             return $this->bindings[$name];
         }
 
-        throw new \InvalidArgumentException("Binding '$name' does not exist");
+        return null;
     }
 }

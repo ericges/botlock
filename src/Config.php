@@ -30,6 +30,10 @@ class Config
     private readonly int $level2ThresholdIndividual;
     private readonly int $level3ThresholdIndividual;
     private readonly int $levelDecayGracePeriod;
+    private readonly bool $enableRateLimit;
+    private readonly bool $enableGlobalRateLimit;
+    private readonly bool $enableIndividualRateLimit;
+    private readonly ?int $threatLevelOverride;
 
     public function __construct() {
         $this->powAlgorithm = $this->loadPowAlgorithm();
@@ -43,20 +47,28 @@ class Config
         $this->ignoreUrls = $this->loadIgnoreUrls();
         $this->goodBots = $this->loadGoodBots();
         $this->trustedProxies = envArray('TRUSTED_PROXIES', []);
-        $this->dnsChecks = (bool) (env('DNS_CHECKS', true));
+        $this->dnsChecks = (bool) envBool('DNS_CHECKS', true);
 
-        $this->stateDir = env('STATE_DIR') ?: (\sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'botlock');
+        $this->stateDir = env('STATE_DIR', \sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'botlock');
 
+        $threadLevelOverride = env('THREAT_LEVEL_OVERRIDE');
+        $this->threatLevelOverride = \is_null($threadLevelOverride) ? null : (int) $threadLevelOverride;
+
+        $this->enableGlobalRateLimit = (bool) envBool('ENABLE_GLOBAL_RATE_LIMIT', true);
         $this->globalRateWindowMin = (int) env('GLOBAL_RATE_WINDOW_MIN', 5);
-        $this->level1ThresholdGlobal = (int) env('LEVEL_1_THRESHOLD_GLOBAL', 100);
-        $this->level2ThresholdGlobal = (int) env('LEVEL_2_THRESHOLD_GLOBAL', 500);
-        $this->level3ThresholdGlobal = (int) env('LEVEL_3_THRESHOLD_GLOBAL', 1000);
+        $this->level1ThresholdGlobal = (int) env('LEVEL_1_THRESHOLD_GLOBAL', 120);  // weighted score ~ requests per minute over the rate window
+        $this->level2ThresholdGlobal = (int) env('LEVEL_2_THRESHOLD_GLOBAL', 300);
+        $this->level3ThresholdGlobal = (int) env('LEVEL_3_THRESHOLD_GLOBAL', 600);
         $this->levelDecayGracePeriod = (int) env('LEVEL_DECAY_GRACE_PERIOD', 300);  // 5 minutes low traffic to decrease level
 
+        $this->enableIndividualRateLimit = (bool) envBool('ENABLE_INDIVIDUAL_RATE_LIMIT', false);
         $this->individualRateWindowSec = (int) env('INDIVIDUAL_RATE_WINDOW_SEC', 60);
-        $this->level1ThresholdIndividual = (int) env('LEVEL_1_THRESHOLD_INDIVIDUAL', 15);
-        $this->level2ThresholdIndividual = (int) env('LEVEL_2_THRESHOLD_INDIVIDUAL', 25);
-        $this->level3ThresholdIndividual = (int) env('LEVEL_3_THRESHOLD_INDIVIDUAL', 35);
+        $this->level1ThresholdIndividual = (int) env('LEVEL_1_THRESHOLD_INDIVIDUAL', 60);
+        $this->level2ThresholdIndividual = (int) env('LEVEL_2_THRESHOLD_INDIVIDUAL', 90);
+        $this->level3ThresholdIndividual = (int) env('LEVEL_3_THRESHOLD_INDIVIDUAL', 120);
+
+        $this->enableRateLimit = ($this->enableGlobalRateLimit || $this->enableIndividualRateLimit)
+            && envBool('ENABLE_RATE_LIMIT', true);
     }
 
     public function getPowAlgorithm(): string { return $this->powAlgorithm; }
@@ -81,6 +93,10 @@ class Config
     public function getLevel2ThresholdIndividual(): int { return $this->level2ThresholdIndividual; }
     public function getLevel3ThresholdIndividual(): int { return $this->level3ThresholdIndividual; }
     public function getLevelDecayGracePeriod(): int { return $this->levelDecayGracePeriod; }
+    public function getThreatLevelOverride(): ?int { return $this->threatLevelOverride; }
+    public function isRateLimitEnabled(): bool { return $this->enableRateLimit; }
+    public function isGlobalRateLimitEnabled(): bool { return $this->enableGlobalRateLimit; }
+    public function isIndividualRateLimitEnabled(): bool { return $this->enableIndividualRateLimit; }
 
     /**
      * @throws Exception

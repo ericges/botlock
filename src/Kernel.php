@@ -47,7 +47,7 @@ readonly class Kernel
         $middleware
             ->add(new ErrorMiddleware)
             ->add(new FingerprintMiddleware($this->config))
-            ->add(new RateLimiterMiddleware($this->rateLimiter))
+            ->add(new RateLimiterMiddleware($this->config, $this->rateLimiter))
             ->add(new WhitelistMiddleware($this->whitelist))
             ->add(new SessionMiddleware($this->config))
             ->add(new ProofOfWorkMiddleware($this->config, $request, $this->whitelist))

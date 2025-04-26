@@ -18,6 +18,21 @@ function env(string $name, $default = null): mixed
     return $value;
 }
 
+function envBool($name, ?bool $default = null): ?bool
+{
+    $value = env($name);
+
+    if (\is_bool($value)) {
+        return $value;
+    }
+
+    if (!\is_string($value) || !\is_numeric($value)) {
+        return $default;
+    }
+
+    return \filter_var($value, \FILTER_VALIDATE_BOOLEAN, \FILTER_NULL_ON_FAILURE) ?? $default;
+}
+
 function envArray(string $name, ?array $default = null): ?array
 {
     $value = env($name);

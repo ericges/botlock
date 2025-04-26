@@ -88,7 +88,7 @@ class RateLimiter
                 /* Log Error: Callback failed */
                 $result = null; // Indicate failure
             } finally {
-                flock($file, LOCK_UN); // Release lock
+                \flock($file, LOCK_UN); // Release lock
             }
         }
         else
@@ -98,7 +98,7 @@ class RateLimiter
             // Consider alternative action on lock failure - e.g., temporary higher threat?
         }
 
-        fclose($file);
+        \fclose($file);
         return $result;
     }
 
@@ -108,15 +108,27 @@ class RateLimiter
      */
     public function recordRequest(Request $request): void
     {
-        // 1. Update Global State (only increments the current bucket)
-        $this->incrementGlobalBucket();
+        if (!$this->config->isRateLimitEnabled())
+            // Skip if rate limiting is disabled
+        {
+            return;
+        }
+
+        if ($this->config->isGlobalRateLimitEnabled())
+            // 1. Update Global State (only increments the current bucket)
+        {
+            $this->incrementGlobalBucket();
+        }
 
         if (!$fingerprint = $request->fingerprint) {
             return;
         }
 
-        // 2. Update Individual State
-        $this->updateIndividualTimestamps($fingerprint);
+        if ($this->config->isIndividualRateLimitEnabled())
+            // 2. Update Individual State
+        {
+            $this->updateIndividualTimestamps($fingerprint);
+        }
     }
 
     /**
@@ -160,28 +172,7 @@ class RateLimiter
             // No need to calculate rate if state was just initialized
         }
 
-        // --- Rate Calculation & Level Update ---
-        $currentRate = 0;
-
-        // Calculate rate from relevant buckets
-        if (!empty($state['traffic_buckets']))
-        {
-            $rateStartTime = $now - ($this->globalRateWindowMin * 60);
-            $minBucketKey = \floor($rateStartTime / 60);
-
-            foreach ($state['traffic_buckets'] as $key => $count)
-            {
-                $key = (int) $key;
-
-                if ($key >= $minBucketKey && ($key * 60) >= $rateStartTime)
-                {
-                    $currentRate += $count;
-                }
-            }
-            // Don't prune here - separate occasional task or do it during incrementGlobalBucket
-        }
-
-        [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($currentRate, $state);
+        [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
 
         // Check if level needs saving back to the file (only if changed)
         if ($newLevel !== $oldLevel) {
@@ -236,29 +227,18 @@ class RateLimiter
     {
         $now = \time();
 
-        $rateStartTime = $now - ($this->globalRateWindowMin * 60);
+        $rateStartTime = $now - 300;  // keep rates of last 5 minutes
         $minBucketKey = \floor($rateStartTime / 60);
 
-        $currentRate = 0;
-        $bucketsToKeep = [];
-
-        foreach ($state['traffic_buckets'] as $key => $count)
+        foreach ($state['traffic_buckets'] ?? [] as $key => $count)
             // Prune old buckets and calculate rate
         {
-            $key = (int) $key;
-
-            if ($key >= $minBucketKey)
-            {
-                $bucketsToKeep[$key] = $count;
-                if (($key * 60) >= $rateStartTime) { // Check if bucket start is within window
-                    $currentRate += $count;
-                }
+            if ($key < $minBucketKey) {
+                unset($state['traffic_buckets'][$key]);
             }
         }
 
-        $state['traffic_buckets'] = $bucketsToKeep; // Assign pruned buckets back
-
-        [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($currentRate, $state);
+        [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
 
         if ($newLevel !== $oldLevel)
             // If level changed, update timestamp and level in state
@@ -269,15 +249,31 @@ class RateLimiter
         }
     }
 
-    private function calcOldAndNewLevelsGlobal(int $currentRate, array $state): array
+    private function calcOldAndNewLevelsGlobal(array $state): array
     {
-        $requestsPerMinute = $currentRate / \max(1, $this->globalRateWindowMin);
+        $buckets = $state['traffic_buckets'] ?? [];
+        \ksort($buckets);
+        $buckets = \array_values($buckets);
+        $amount = \count($buckets);
+
+        $getWeight = static function (int $n) use ($amount): float {
+            // Calculate distance from the end (0 = last element, 1 = second last, etc.)
+            $x = ($amount - 1) - $n;
+            return \pow(-0.05 * $x + 1.05, 8);
+        };
+
+        $score = 0;
+        foreach ($buckets as $i => $count)
+            // Prune old buckets and calculate rate
+        {
+            $score += $count * $getWeight($i);
+        }
 
         // Update Threat Level Logic (Copied from getGlobalThreatLevel - needs refactoring ideally)
         $newLevel = match (true) {
-            $requestsPerMinute >= $this->level3ThresholdGlobal => 3,
-            $requestsPerMinute >= $this->level2ThresholdGlobal => 2,
-            $requestsPerMinute >= $this->level1ThresholdGlobal => 1,
+            $score >= $this->level3ThresholdGlobal => 3,
+            $score >= $this->level2ThresholdGlobal => 2,
+            $score >= $this->level1ThresholdGlobal => 1,
             default => 0,
         };
 
