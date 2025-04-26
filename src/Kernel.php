@@ -20,9 +20,10 @@ readonly class Kernel
         try
         {
             $config = new Config();
+            $botDetect = new BotDetect($config);
             $whitelist = new Whitelist($config);
 
-            return new static($botlockRoot, $config, $whitelist);
+            return new static($botlockRoot, $botDetect, $config, $whitelist);
         }
         catch (\Throwable $th)
         {
@@ -34,6 +35,7 @@ readonly class Kernel
 
     public function __construct(
         private string      $botlockRoot,
+        private BotDetect   $botDetect,
         private Config      $config,
         private Whitelist   $whitelist,
     ) {}
@@ -46,9 +48,9 @@ readonly class Kernel
             ->add(new ErrorMiddleware)
             ->add(new FingerprintMiddleware($this->config))
             ->add(new RateLimiterMiddleware($this->config))
-            ->add(new WhitelistMiddleware($this->whitelist))
+            ->add(new WhitelistMiddleware($this->botDetect, $this->whitelist))
             ->add(new SessionMiddleware($this->config))
-            ->add(new ProofOfWorkMiddleware($this->config, $request, $this->whitelist))
+            ->add(new ProofOfWorkMiddleware($this->botDetect, $this->config, $request))
             ->add(new ChallengeDocumentMiddleware($request, $this->botlockRoot))
         ;
 

@@ -2,20 +2,20 @@
 
 namespace GES\Botlock\Middleware;
 
+use GES\Botlock\BotDetect;
 use GES\Botlock\Config;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Challenge\ProofOfWork;
-use GES\Botlock\Whitelist;
 
 readonly class ProofOfWorkMiddleware implements MiddlewareInterface
 {
     public function __construct(
+        private BotDetect $botDetect,
         private Config    $config,
         private Request   $request,
-        private Whitelist $whitelist,
     ) {}
 
     /**
@@ -54,9 +54,9 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
         $pow = new ProofOfWork($this->config);
         $goodActor = true;
 
-        if ($this->whitelist->isBot())
+        if ($this->botDetect->isBot())
         {
-            $goodActor = $this->whitelist->isGoodBot();
+            $goodActor = $this->botDetect->isGoodBot();
             $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
         }
 

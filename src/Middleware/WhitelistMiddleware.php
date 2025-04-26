@@ -2,6 +2,7 @@
 
 namespace GES\Botlock\Middleware;
 
+use GES\Botlock\BotDetect;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
@@ -10,6 +11,7 @@ use GES\Botlock\Whitelist;
 readonly class WhitelistMiddleware implements MiddlewareInterface
 {
     public function __construct(
+        private BotDetect $botDetect,
         private Whitelist $whitelist,
     ) {}
 
@@ -20,7 +22,7 @@ readonly class WhitelistMiddleware implements MiddlewareInterface
         }
 
         if (\is_int($request->threatLevelIndividual) && $request->threatLevelIndividual < 2) {
-            if ($this->whitelist->isGoodBot()) {
+            if ($this->botDetect->isGoodBot()) {
                 return new Response\PassResponse;
             }
         }

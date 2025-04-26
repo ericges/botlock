@@ -209,8 +209,9 @@ class RateLimiter
         $currentBucketKey = \floor($now / 60);
         $state['traffic_buckets'][$currentBucketKey] = ($state['traffic_buckets'][$currentBucketKey] ?? 0) + 1;
 
-        if (\rand(1, 30) === 1)
-            // Probabilistic Pruning & Rate Calculation & Level Update (e.g., 1 in 50 times)
+        if (($r = \rand(1, 30)) === 1
+            || $r > 10 && \array_sum(\array_slice($state['traffic_buckets'], -2, null)) < 10)
+            // Probabilistic Pruning & Rate Calculation & Level Update (e.g., 1 in 30 times or if last 2 buckets are low)
         {
             $this->updateGlobalState($state);
         }
