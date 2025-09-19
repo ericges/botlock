@@ -143,7 +143,7 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
             return false;
         }
 
-        $flags = \FILTER_FLAG_IPV4 | \FILTER_FLAG_IPV6;
+        $flags = 0;
 
         if (!$allowPrivate) {
             // Exclude private and reserved IP ranges (RFC 1918 for IPv4, fc00::/7 for IPv6)
