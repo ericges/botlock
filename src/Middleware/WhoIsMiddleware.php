@@ -16,7 +16,9 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
      */
     public function process(Request $request, callable $next): Response
     {
-        if ($ip = $this->getReliableClientIp($request, $this->config->getTrustedProxies())) {
+        $trustedProxies = $this->normalizeTrustedProxies($this->config->getTrustedProxies());
+
+        if ($ip = $this->getReliableClientIp($request, $trustedProxies)) {
             $request->bind('clientIp', $ip);
         }
 
@@ -49,6 +51,10 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
     {
         $remoteAddr = $request->getServerParam('REMOTE_ADDR');
 
+        if (!self::isValidIp($remoteAddr, true)) {
+            $remoteAddr = null;
+        }
+
         // List of headers to check for the client IP
         $headerChecks = [
             // 'Cf-Connecting-Ip', // Cloudflare // todo: create config option
@@ -60,13 +66,12 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
 
         $isConnectedViaTrustedProxy = $remoteAddr
             && !empty($trustedProxies)
-            && \in_array($remoteAddr, $trustedProxies, true);
+            && $this->isTrustedProxy($remoteAddr, $trustedProxies);
 
         $clientIp = null;
 
         // Only check the headers if the request comes from a trusted proxy
-        // OR if no trusted proxies are configured, trust blindly (not recommended)
-        if ($isConnectedViaTrustedProxy || empty($trustedProxies))
+        if ($isConnectedViaTrustedProxy)
         {
             foreach ($headerChecks as $header)
             {
@@ -74,16 +79,48 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
                     continue; // Header not set, skip
                 }
 
-                // Some headers can contain multiple IPs (comma-separated)
-                // The first one *should* be the client IP
-                $ips = \explode(',', $value);
-                $potentialIp = \trim(\reset($ips));
+                $ips = [];
 
-                if (self::isValidIp($potentialIp, $allowPrivateIPs))
-                {
-                    $clientIp = $potentialIp;
-                    break;
+                foreach (\explode(',', $value) as $forwardedIp) {
+                    $forwardedIp = \trim($forwardedIp);
+
+                    if ($forwardedIp === '') {
+                        continue;
+                    }
+
+                    if (!self::isValidIp($forwardedIp, true)) {
+                        $ips = [];
+                        break; // invalid entry invalidates entire header
+                    }
+
+                    $ips[] = $forwardedIp;
                 }
+
+                if (empty($ips)) {
+                    continue;
+                }
+
+                $potentialIp = \array_shift($ips);
+
+                if (!self::isValidIp($potentialIp, $allowPrivateIPs)) {
+                    continue;
+                }
+
+                $forwardChainTrusted = true;
+
+                foreach ($ips as $proxyIp) {
+                    if (!$this->isTrustedProxy($proxyIp, $trustedProxies)) {
+                        $forwardChainTrusted = false;
+                        break;
+                    }
+                }
+
+                if (!$forwardChainTrusted) {
+                    continue;
+                }
+
+                $clientIp = $potentialIp;
+                break;
             }
         }
 
@@ -123,9 +160,7 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
         // --- IP ADDRESSES ---
         $sources = [
             $request->clientIp ?? '',
-            $request->getHeader('Client-Ip', ''),
-            $request->getHeader('X-Forwarded-For', ''),
-            $_SERVER['REMOTE_ADDR'] ?? '',
+            $request->getServerParam('REMOTE_ADDR', ''),
         ];
 
         $ips = [];
@@ -200,5 +235,106 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
         \sort($arr, \SORT_STRING);
 
         return empty($arr) ? null : \implode(',', \array_slice($arr, 0, 5));
+    }
+
+    /**
+     * @param array<string> $trustedProxies
+     * @return array<string>
+     */
+    private function normalizeTrustedProxies(array $trustedProxies): array
+    {
+        $normalized = [];
+
+        foreach ($trustedProxies as $proxy) {
+            $proxy = \trim((string) $proxy);
+
+            if ($proxy === '') {
+                continue;
+            }
+
+            $normalized[$proxy] = true;
+        }
+
+        return \array_keys($normalized);
+    }
+
+    /**
+     * @param array<string> $trustedProxies
+     */
+    private function isTrustedProxy(?string $ip, array $trustedProxies): bool
+    {
+        if (!$ip) {
+            return false;
+        }
+
+        foreach ($trustedProxies as $trusted) {
+            if ($trusted === $ip) {
+                return true;
+            }
+
+            if (\str_contains($trusted, '/') && self::ipMatchesCidr($ip, $trusted)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static function ipMatchesCidr(string $ip, string $cidr): bool
+    {
+        [$subnet, $mask] = \array_pad(\explode('/', $cidr, 2), 2, null);
+
+        if ($mask === null) {
+            return false;
+        }
+
+        $mask = (int) $mask;
+
+        if (\filter_var($ip, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV4) && \filter_var($subnet, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV4)) {
+            if ($mask < 0 || $mask > 32) {
+                return false;
+            }
+
+            $ipLong = \ip2long($ip);
+            $subnetLong = \ip2long($subnet);
+
+            if ($ipLong === false || $subnetLong === false) {
+                return false;
+            }
+
+            $maskLong = -1 << (32 - $mask);
+
+            return ($ipLong & $maskLong) === ($subnetLong & $maskLong);
+        }
+
+        if (\filter_var($ip, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV6) && \filter_var($subnet, \FILTER_VALIDATE_IP, \FILTER_FLAG_IPV6)) {
+            if ($mask < 0 || $mask > 128) {
+                return false;
+            }
+
+            $ipBin = \inet_pton($ip);
+            $subnetBin = \inet_pton($subnet);
+
+            if ($ipBin === false || $subnetBin === false) {
+                return false;
+            }
+
+            $fullBytes = intdiv($mask, 8);
+            $remainingBits = $mask % 8;
+
+            if ($fullBytes > 0 && \strncmp($ipBin, $subnetBin, $fullBytes) !== 0) {
+                return false;
+            }
+
+            if ($remainingBits === 0) {
+                return true;
+            }
+
+            $maskByte = (0xFF << (8 - $remainingBits)) & 0xFF;
+
+            return (\ord($ipBin[$fullBytes]) & $maskByte) === (\ord($subnetBin[$fullBytes]) & $maskByte);
+        }
+
+        return false;
     }
 }
