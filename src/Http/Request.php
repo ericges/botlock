@@ -39,14 +39,20 @@ class Request
     public static function fromGlobals(): static
     {
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-        $secure = \strtolower($_SERVER['HTTPS'] ?? '') === 'on' || $_SERVER['SERVER_PORT'] === '443';
+        $httpsFlag = \strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+        $serverPort = $_SERVER['SERVER_PORT'] ?? null;
+        if ($serverPort !== null) {
+            $serverPort = (string) $serverPort;
+        }
+
+        $secure = $httpsFlag === 'on' || $serverPort === '443';
 
         $scheme = $secure ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'];
-        $port = (string) $_SERVER['SERVER_PORT'] ?? null;
+        $host = $_SERVER['HTTP_HOST'] ?? ($_SERVER['SERVER_NAME'] ?? 'localhost');
+        $port = $serverPort;
         $uri = '/' . \ltrim($_SERVER['REQUEST_URI'] ?? '', '/');
 
-        if ($port && !\in_array($port, ['80', '443'])) {
+        if ($port && !\in_array($port, ['80', '443'], true)) {
             $host .= ':' . $port;
         }
 
@@ -182,8 +188,8 @@ class Request
     {
         $url = $this->urlParts['scheme'] . '://' . $this->urlParts['host'];
 
-        if (isset($urlParts['port'])) {
-            $url .= ':' . $urlParts['port'];
+        if (isset($this->urlParts['port'])) {
+            $url .= ':' . $this->urlParts['port'];
         }
 
         $url .= '/' . \ltrim($path, '/');

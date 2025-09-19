@@ -14,6 +14,9 @@ final readonly class JWT
 
         [$headerRaw, $payloadRaw, $signature] = $token;
         $signature = base64url_decode($signature);
+        if (!\is_string($signature)) {
+            return null;
+        }
 
         $header = \json_decode(base64url_decode($headerRaw), true);
         $payload = \json_decode(base64url_decode($payloadRaw), true);
@@ -30,7 +33,7 @@ final readonly class JWT
 
         $expectedSignature = \hash_hmac('sha256', $headerRaw . '.' . $payloadRaw, $secret, true);
 
-        if ($signature !== $expectedSignature) {
+        if (!\hash_equals($expectedSignature, $signature)) {
             return null;
         }
 

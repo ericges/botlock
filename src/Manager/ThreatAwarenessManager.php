@@ -140,7 +140,7 @@ class ThreatAwarenessManager
         $filePath = $this->getGlobalStateFilePath();
 
         // Use shared lock if possible for reading global level
-        $state = $this->executeWithLock($filePath, $this->getGlobalThreatLevelLogic(...), 'r', true);
+        $state = $this->executeWithLock($filePath, $this->getGlobalThreatLevelLogic(...), 'r');
 
         if ($state === null) {
             // Lock failed or file error - default to level 0? Or log and return higher level?
