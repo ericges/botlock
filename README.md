@@ -112,6 +112,21 @@ All configuration is read from environment variables. Boolean values accept `1`,
 
 ### Threat and rate-limit settings
 
+BOTLOCK calculates separate global and per-client threat levels and uses the higher
+of the two as the effective threat level for a request. Level `0` means that no
+configured threshold has been reached, so the request passes through without a
+challenge. The three elevated threat levels behave as follows:
+
+| Threat level | Behavior |
+| --- | --- |
+| `1` | Unlisted clients must complete the proof-of-work challenge. Recognized good bots may pass without a challenge while their individual threat level remains below `2`. |
+| `2` | All clients that are not explicitly whitelisted must complete the proof-of-work challenge, including recognized good bots. |
+| `3` | Marks the highest configured traffic severity. Its current request handling is the same as level `2`: non-whitelisted clients are challenged rather than blocked outright. |
+
+Clients that have already completed the challenge retain access for the configured
+`BOTLOCK_EXPIRE` lifetime. Explicit IP, User-Agent, and URL exclusions bypass all
+three elevated levels.
+
 | Environment variable | Default | Description |
 | --- | --- | --- |
 | `BOTLOCK_THREAT_LEVEL_OVERRIDE` | Unset | Fixed integer threat level that bypasses rate-based threat evaluation when set. Expected levels are `0` through `3`. |
