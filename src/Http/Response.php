@@ -103,6 +103,12 @@ class Response
 
     public function setCookie(Cookie $cookie): void
     {
-        $this->cookies[$cookie->getName()] = $cookie;
+        $key = \implode("\0", [
+            $cookie->getName(),
+            $cookie->getDomain() ?? '',
+            $cookie->getPath(),
+        ]);
+
+        $this->cookies[$key] = $cookie;
     }
 }

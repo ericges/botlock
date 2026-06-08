@@ -22,6 +22,7 @@ readonly class SessionMiddleware implements MiddlewareInterface
         $response = $next($request);
 
         if ($session->isCommited()) {
+            $response->setCookie($session->createLegacyCookieRemoval());
             $response->setCookie($session->createCookie());
         }
 

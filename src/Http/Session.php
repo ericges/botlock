@@ -114,4 +114,18 @@ class Session
             sameSite: 'Strict',
         );
     }
+
+    public function createLegacyCookieRemoval(): Cookie
+    {
+        return new Cookie(
+            name: self::COOKIE_NAME,
+            value: '',
+            expires: 1,
+            path: '/',
+            domain: $this->request->getHost(),
+            secure: $this->request->isSecure(),
+            httpOnly: true,
+            sameSite: 'Strict',
+        );
+    }
 }
