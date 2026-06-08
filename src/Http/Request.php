@@ -43,7 +43,7 @@ class Request
 
         $scheme = $secure ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'];
-        $port = (string) $_SERVER['SERVER_PORT'] ?? null;
+        $port = (string) ($_SERVER['SERVER_PORT'] ?? '');
         $uri = '/' . \ltrim($_SERVER['REQUEST_URI'] ?? '', '/');
 
         if ($port && !\in_array($port, ['80', '443'])) {
