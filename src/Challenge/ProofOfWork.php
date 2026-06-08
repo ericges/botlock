@@ -69,7 +69,7 @@ class ProofOfWork
             return false;
         }
 
-        if (!$expire || $expire > 0 && $expire < time()) {
+        if (!$expire || ($expire > 0 && $expire < \time())) {
             return false;
         }
 
