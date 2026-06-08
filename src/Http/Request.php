@@ -186,13 +186,7 @@ class Request
 
     public function getAbsoluteUrl(string $path): ?string
     {
-        $url = $this->urlParts['scheme'] . '://' . $this->urlParts['host'];
-
-        if (isset($urlParts['port'])) {
-            $url .= ':' . $urlParts['port'];
-        }
-
-        $url .= '/' . \ltrim($path, '/');
+        $url = $this->getOrigin() . '/' . \ltrim($path, '/');
         $url = \rtrim($url, '/');
 
         if (!\filter_var($url, \FILTER_VALIDATE_URL)) {
@@ -200,6 +194,17 @@ class Request
         }
 
         return $url;
+    }
+
+    public function getOrigin(): string
+    {
+        $origin = $this->urlParts['scheme'] . '://' . $this->urlParts['host'];
+
+        if (isset($this->urlParts['port'])) {
+            $origin .= ':' . $this->urlParts['port'];
+        }
+
+        return $origin;
     }
 
     public function getHost(): ?string

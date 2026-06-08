@@ -28,7 +28,7 @@ class Session
                 $this->request->getCookie(self::COOKIE_NAME),
                 $this->config->getSecret(),
                 $sub,
-                $this->request->getUrlWithoutParameters(),
+                $this->request->getOrigin(),
             );
 
             if ($payload)
@@ -99,7 +99,7 @@ class Session
         $jwt = JWT::create(
             payload: $payload,
             secret: $this->config->getSecret(),
-            issuer: $this->request->getUrlWithoutParameters(),
+            issuer: $this->request->getOrigin(),
             ttl: $this->config->getExpire(),
         );
 
@@ -108,10 +108,10 @@ class Session
             value: $jwt,
             expires: 0,
             path: '/',
-            domain: $this->request->getHost(),
+            domain: null,
             secure: $this->request->isSecure(),
             httpOnly: true,
-            sameSite: 'Strict'
+            sameSite: 'Strict',
         );
     }
 }
