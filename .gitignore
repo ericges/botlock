@@ -2,4 +2,4 @@
 vendor/
 remote/
 txt/
-botlock.phar
+botlock*.phar
