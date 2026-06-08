@@ -36,7 +36,7 @@ class ConfigManager
     private readonly ?int $threatLevelOverride;
 
     public function __construct() {
-        $this->instanceId = self::env('INSTANCE_ID') ?: \md5(__DIR__);  // must be first
+        $this->instanceId = self::env('INSTANCE_ID') ?: \substr(\md5(__DIR__), 0, 8);  // must be first
 
         $this->stateDir = \rtrim(self::env('STATE_DIR', \sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'botlock'), '/\\');
         $this->secret = \trim($this->loadSecret($this->stateDir));  // secret must come after stateDir

@@ -15,6 +15,7 @@ class Request
 {
     private readonly string $method;
     private readonly array $urlParts;
+    private readonly array $normalizedHeaders;
     private array $bindings = [];
 
     public function __construct(
@@ -22,7 +23,7 @@ class Request
         private readonly string $requestUrl,
         private readonly bool   $secure = false,
         private readonly array  $server = [],
-        private readonly array  $headers = [],
+        private readonly array  $rawHeaders = [],
         private readonly array  $queryParams = [],
         private readonly array  $cookies = [],
         private readonly string $body = '',
@@ -32,8 +33,13 @@ class Request
         }
 
         $this->method = \strtoupper(\trim($method));
-
         $this->urlParts = $urlParts;
+
+        $normalizedHeaders = [];
+        foreach ($this->rawHeaders as $name => $value) {
+            $normalizedHeaders[\strtolower((string) $name)] = $value;
+        }
+        $this->normalizedHeaders = $normalizedHeaders;
     }
 
     public static function fromGlobals(): static
@@ -87,7 +93,7 @@ class Request
             requestUrl: $requestUrl,
             secure: $secure,
             server: $server,
-            headers: $headers,
+            rawHeaders: $headers,
             queryParams: $_GET,
             cookies: $_COOKIE,
             body: $body,
@@ -124,14 +130,14 @@ class Request
         return $this->server[$name] ?? $default;
     }
 
-    public function getHeaders(): array
+    public function getRawHeaders(): array
     {
-        return $this->headers;
+        return $this->rawHeaders;
     }
 
     public function getHeader(string $name, ?string $default = null): ?string
     {
-        return $this->headers[$name] ?? $default;
+        return $this->normalizedHeaders[\strtolower($name)] ?? $default;
     }
 
     public function getCookies(): array

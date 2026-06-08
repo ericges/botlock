@@ -51,7 +51,7 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
 
         // List of headers to check for the client IP
         $headerChecks = [
-            // 'Cf-Connecting-Ip', // Cloudflare // todo: create config option
+            // 'Cf-Connecting-Ip', // Cloudflare (currently not supported, needs config option)
             'X-Forwarded-For',  // Default, can be a list (client, proxy1, proxy2)
             'X-Real-Ip',        // Oftentimes used by Nginx
             'Client-Ip',        // Used by older proxies
@@ -121,27 +121,9 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
         $payloadParts = [];
 
         // --- IP ADDRESSES ---
-        $sources = [
-            $request->clientIp ?? '',
-            $request->getHeader('Client-Ip', ''),
-            $request->getHeader('X-Forwarded-For', ''),
-            $_SERVER['REMOTE_ADDR'] ?? '',
-        ];
-
-        $ips = [];
-        foreach ($sources as $entry) {
-            foreach (\explode(',', $entry) as $ip) {
-                $ip = \trim($ip);
-                if (\filter_var($ip, \FILTER_VALIDATE_IP)) {
-                    $ips[] = $ip;
-                }
-            }
-        }
-
-        if (!empty($ips)) {
-            $ips = \array_unique($ips);
-            \sort($ips, SORT_STRING);
-            $payloadParts[] = 'ip=' . \implode(',', $ips);
+        $ip = $request->clientIp ?? $request->getServerParam('REMOTE_ADDR', '');
+        if (\filter_var($ip, \FILTER_VALIDATE_IP)) {
+            $payloadParts[] = 'ip=' . $ip;
         }
 
         // --- USER AGENT ---

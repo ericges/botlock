@@ -140,16 +140,12 @@ class ThreatAwarenessManager
         $filePath = $this->getGlobalStateFilePath();
 
         // Use shared lock if possible for reading global level
-        $state = $this->executeWithLock($filePath, $this->getGlobalThreatLevelLogic(...), 'r', true);
+        $state = $this->executeWithLock($filePath, $this->getGlobalThreatLevelLogic(...), 'r');
 
         if ($state === null) {
-            // Lock failed or file error - default to level 0? Or log and return higher level?
-            // Returning 0 is safer against false positives but less protective on failure.
-            // Let's default to 0 but log the error.
-            // error_log("Botlock: Failed to read/lock global state file.");
+            // Remain protective when the global state cannot be read.
             $this->cachedGlobalThreatLevel = 1;
         } else {
-            // Update from potentially modified state during increment
             $this->cachedGlobalThreatLevel = $state['current_level'] ?? 0;
         }
 
@@ -168,31 +164,26 @@ class ThreatAwarenessManager
             // No need to calculate rate if state was just initialized
         }
 
-        [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
-
-        // Check if level needs saving back to the file (only if changed)
-        if ($newLevel !== $oldLevel) {
-            // Need to reopen with exclusive lock to write
-            // This simple read approach doesn't modify the file here.
-            // Rate calculation should ideally happen probabilistically
-            // within incrementGlobalBucket to avoid read+write lock escalation.
-        }
+        [, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
+        $state['current_level'] = $newLevel;
 
         return $state; // Return the calculated level and state
     }
 
     /**
      * Increments the count for the current time bucket in the global state file.
-     * Also performs probabilistic pruning and level recalculation/saving.
+     * This also prunes expired buckets and updates the persisted threat level.
      */
     private function incrementGlobalBucket(): void
     {
         $filePath = $this->getGlobalStateFilePath();
         // Use exclusive lock as we are modifying the file
-        $this->executeWithLock($filePath, $this->incrementGlobalBucketLogic(...));
+        $level = $this->executeWithLock($filePath, $this->incrementGlobalBucketLogic(...));
+
+        $this->cachedGlobalThreatLevel = $level ?? 1;
     }
 
-    private function incrementGlobalBucketLogic($file): void
+    private function incrementGlobalBucketLogic($file): int
     {
         $rawContent = \stream_get_contents($file);
         $state = \json_decode($rawContent, true);
@@ -207,17 +198,18 @@ class ThreatAwarenessManager
         $currentBucketKey = \floor($now / 60);
         $state['traffic_buckets'][$currentBucketKey] = ($state['traffic_buckets'][$currentBucketKey] ?? 0) + 1;
 
-        if (($r = \rand(1, 30)) === 1
-            || $r > 10 && \array_sum(\array_slice($state['traffic_buckets'], -2, null)) < 10)
-            // Probabilistic Pruning & Rate Calculation & Level Update (e.g., 1 in 30 times or if last 2 buckets are low)
-        {
-            $this->updateGlobalState($state);
-        }
+        $this->updateGlobalState($state);
 
         // Write back the potentially modified state
-        \ftruncate($file, 0);
-        \rewind($file);
-        \fwrite($file, \json_encode($state));
+        $encodedState = \json_encode($state, \JSON_THROW_ON_ERROR);
+        if (!\ftruncate($file, 0)
+            || !\rewind($file)
+            || \fwrite($file, $encodedState) !== \strlen($encodedState))
+        {
+            throw new \RuntimeException('Could not persist global threat state.');
+        }
+
+        return (int) ($state['current_level'] ?? 0);
     }
 
     public function updateGlobalState(array &$state): void
@@ -256,7 +248,7 @@ class ThreatAwarenessManager
         $getWeight = static function (int $n) use ($amount): float {
             // Calculate distance from the end (0 = last element, 1 = second last, etc.)
             $x = ($amount - 1) - $n;
-            return \pow(-0.05 * $x + 1.05, 8);
+            return (-0.05 * $x + 1.05) ** 8;
         };
 
         $score = 0;
@@ -375,7 +367,10 @@ class ThreatAwarenessManager
         if (!\is_dir($dirPath))
         {
             $oldUmask = \umask(0);
-            @\mkdir($dirPath, 0775, true);
+            if (!mkdir($dirPath, 0775, true) && !is_dir($dirPath))
+            {
+                throw new \RuntimeException(sprintf('Directory "%s" was not created', $dirPath));
+            }
             \umask($oldUmask);
         }
 

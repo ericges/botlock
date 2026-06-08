@@ -59,7 +59,7 @@ readonly class WhitelistManager
 
         foreach ($ignoreUrls as $w) {
             $w = \trim($w);
-            if (\strlen($w) > 0 && \str_starts_with($url, $w)) {
+            if ($w !== '' && \str_starts_with($url, $w)) {
                 return true;
             }
         }
