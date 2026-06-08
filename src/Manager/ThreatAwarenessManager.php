@@ -39,7 +39,7 @@ class ThreatAwarenessManager
         $this->level3ThresholdIndividual = $this->config->getLevel3ThresholdIndividual();
         $this->levelDecayGracePeriod = $this->config->getLevelDecayGracePeriod();
 
-        if (!\is_dir($this->stateDir) && !@\mkdir($this->stateDir, 0775, true)) {
+        if (!\is_dir($this->stateDir) && !mkdir($this->stateDir, 0775, true) && !is_dir($this->stateDir)) {
             throw new \RuntimeException("State directory '{$this->stateDir}' is not writable or cannot be created.");
         }
 

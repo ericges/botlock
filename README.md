@@ -80,3 +80,49 @@ Then, at the beginning of your PHP script, after requiring Composer's autoload f
 > [!NOTE]
 > Not prepending the script to all requests will prevent the script from blocking bad bots accessing static files (e.g. images, CSS, JS).
 > Additionally, since all your Composer dependencies are loaded before the script is executed, it may slow down your website as even requests that are blocked will require more resources to process.
+
+## Configuration
+
+All configuration is read from environment variables. Boolean values accept `1`, `true`, `on`, or `yes` to enable an option and `0`, `false`, `off`, or `no` to disable it. List values may be comma-separated or JSON arrays of strings, for example `127.0.0.1,192.0.2.10` or `["127.0.0.1", "192.0.2.10"]`.
+
+### General and proof-of-work settings
+
+| Environment variable | Default | Description |
+| --- | --- | --- |
+| `BOTLOCK_ENABLED` | Disabled | Enables BOTLOCK. This must be enabled when using `bootstrap.php` or the PHAR as an `auto_prepend_file`. |
+| `BOTLOCK_INSTANCE_ID` | MD5 hash of the source directory | Identifies this BOTLOCK instance and separates its secret and global rate-limit state from other instances using the same state directory. |
+| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret and rate-limit state files. |
+| `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated and stored as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. |
+| `BOTLOCK_POW_ALGORITHM` | `sha256` | Hash algorithm used for proof-of-work challenges. Allowed values are `sha256`, `sha384`, and `sha512`. |
+| `BOTLOCK_EXPIRE` | `3600` | Challenge and session lifetime in seconds. |
+| `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
+| `BOTLOCK_CRAWLER_FACTOR` | `15` | Multiplies proof-of-work difficulty for crawlers that are not listed as good bots. The effective minimum is `1`. |
+
+### Bot detection, proxies, and exclusions
+
+| Environment variable | Default | Description |
+| --- | --- | --- |
+| `BOTLOCK_IGNORE_IPS` | Empty | List of exact client IP addresses that bypass BOTLOCK. |
+| `BOTLOCK_IGNORE_USER_AGENTS` | Empty | List of User-Agent substrings that bypass BOTLOCK. |
+| `BOTLOCK_IGNORE_URLS` | Empty | List of absolute URL prefixes that bypass BOTLOCK. |
+| `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots. |
+| `BOTLOCK_VERIFY_BOTS` | `google` | Bot providers to verify using DNS. Currently only `google` is supported. Set an empty value or `[]` to disable provider verification. |
+| `BOTLOCK_TRUSTED_PROXIES` | Empty | List of exact proxy IP addresses allowed to supply forwarding headers. When empty, forwarding headers are trusted from every source, which is insecure on a directly exposed server. |
+| `BOTLOCK_DNS_CHECKS` | Enabled | Enables DNS verification for providers selected by `BOTLOCK_VERIFY_BOTS`. |
+
+### Threat and rate-limit settings
+
+| Environment variable | Default | Description |
+| --- | --- | --- |
+| `BOTLOCK_THREAT_LEVEL_OVERRIDE` | Unset | Fixed integer threat level that bypasses rate-based threat evaluation when set. Expected levels are `0` through `3`. |
+| `BOTLOCK_ENABLE_RATE_LIMIT` | Enabled | Master switch for rate-based threat evaluation. It is effective only when at least one of the global or individual rate limits is enabled. |
+| `BOTLOCK_ENABLE_GLOBAL_RATE_LIMIT` | Enabled | Enables global request tracking and threat-level calculation. |
+| `BOTLOCK_LEVEL_1_THRESHOLD_GLOBAL` | `120` | Weighted five-minute global request score that activates threat level 1. |
+| `BOTLOCK_LEVEL_2_THRESHOLD_GLOBAL` | `300` | Weighted five-minute global request score that activates threat level 2. |
+| `BOTLOCK_LEVEL_3_THRESHOLD_GLOBAL` | `600` | Weighted five-minute global request score that activates threat level 3. |
+| `BOTLOCK_LEVEL_DECAY_GRACE_PERIOD` | `300` | Seconds to retain the current global threat level after traffic falls below its threshold. |
+| `BOTLOCK_ENABLE_INDIVIDUAL_RATE_LIMIT` | Enabled | Enables per-client-fingerprint request tracking and threat-level calculation. |
+| `BOTLOCK_INDIVIDUAL_RATE_WINDOW_SEC` | `60` | Rolling window in seconds used to count requests for each client fingerprint. |
+| `BOTLOCK_LEVEL_1_THRESHOLD_INDIVIDUAL` | `60` | Requests per individual window that activate threat level 1. |
+| `BOTLOCK_LEVEL_2_THRESHOLD_INDIVIDUAL` | `90` | Requests per individual window that activate threat level 2. |
+| `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL` | `120` | Requests per individual window that activate threat level 3. |
