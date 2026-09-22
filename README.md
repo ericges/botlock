@@ -90,6 +90,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | Environment variable | Default | Description |
 | --- | --- | --- |
 | `BOTLOCK_ENABLED` | Disabled | Enables BOTLOCK. This must be enabled when using `bootstrap.php` or the PHAR as an `auto_prepend_file`. |
+| `BOTLOCK_FAIL_OPEN` | Disabled | When enabled, boot errors (for example an unwritable state directory) let the request through to your application with a `Botlock-Error` header instead of answering `500`. Disabled means BOTLOCK fails closed and blocks the request. |
 | `BOTLOCK_INSTANCE_ID` | MD5 hash of the source directory | Identifies this BOTLOCK instance and separates its secret and global rate-limit state from other instances using the same state directory. |
 | `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret and rate-limit state files. |
 | `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated and stored as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. |

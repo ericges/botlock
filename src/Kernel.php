@@ -24,6 +24,9 @@ readonly class Kernel
 {
     public static function boot(string $botlockRoot): static
     {
+        // Read before anything that can throw: decides how a boot failure is handled.
+        $failOpen = (bool) ConfigManager::envBool('FAIL_OPEN', false);
+
         try
         {
             $config = new ConfigManager();
@@ -35,22 +38,42 @@ readonly class Kernel
         }
         catch (\Throwable $th)
         {
+            if ($failOpen) {
+                return static::passThrough($botlockRoot, $th->getMessage());
+            }
+
             \http_response_code(500);
             \header('Botlock-Error: ' . $th->getMessage());
             exit('500 Internal Server Error');
         }
     }
 
+    /**
+     * Kernel that lets every request through untouched, reporting why via
+     * a Botlock-Error header. Used when booting failed and BOTLOCK_FAIL_OPEN
+     * is enabled.
+     */
+    public static function passThrough(string $botlockRoot, string $reason): static
+    {
+        return new static($botlockRoot, null, null, null, null, $reason);
+    }
+
     public function __construct(
-        private string                 $botlockRoot,
-        private BotTestManager         $detective,
-        private ConfigManager          $config,
-        private ThreatAwarenessManager $rateLimiter,
-        private WhitelistManager       $whitelist,
+        private string                  $botlockRoot,
+        private ?BotTestManager         $detective,
+        private ?ConfigManager          $config,
+        private ?ThreatAwarenessManager $rateLimiter,
+        private ?WhitelistManager       $whitelist,
+        private ?string                 $bootError = null,
     ) {}
 
     public function handleRequest(Request $request): void
     {
+        if ($this->bootError !== null || !$this->config) {
+            \header('Botlock-Error: ' . \strtr($this->bootError ?? 'Kernel not booted', ["\r" => ' ', "\n" => ' ']));
+            return;
+        }
+
         $middleware = new MiddlewareDispatcher();
 
         $middleware

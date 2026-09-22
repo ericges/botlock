@@ -139,7 +139,7 @@ class ConfigManager
             return $secret;
         }
 
-        if (!@\is_writable($fallbackDir) && !@\chmod($fallbackDir, '0755')) {
+        if (!@\is_writable($fallbackDir) && !@\chmod($fallbackDir, 0755)) {
             throw new \Exception('Fallback secret dir is not writable and could not be chmoded');
         }
 
@@ -255,10 +255,11 @@ class ConfigManager
             return $value;
         }
 
-        if (!\is_string($value) || !\is_numeric($value)) {
+        if (!\is_string($value) || $value === '') {
             return $default;
         }
 
+        // accepts 1/true/on/yes and 0/false/off/no (case-insensitive); anything else falls back to the default
         return \filter_var($value, \FILTER_VALIDATE_BOOLEAN, \FILTER_NULL_ON_FAILURE) ?? $default;
     }
 
