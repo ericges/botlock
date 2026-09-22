@@ -7,7 +7,7 @@ use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 
-readonly class ChallengeDocumentMiddleware implements MiddlewareInterface
+final readonly class ChallengeDocumentMiddleware implements MiddlewareInterface
 {
     public function __construct(private string $projectRoot) {}
 

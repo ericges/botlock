@@ -30,8 +30,13 @@ final class FileThreatStateStore implements ThreatStateStore
     public function updateGlobal(callable $reducer): ?array
     {
         return $this->withLock($this->globalFile(), 'c+', function ($file) use ($reducer): array {
-            $state = \json_decode((string) \stream_get_contents($file), true);
-            $state = $reducer(\is_array($state) ? $state : []);
+            try {
+                $state = \json_decode((string) \stream_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
+                $state = \is_array($state) ? $state : [];
+            } catch (\JsonException) {
+                $state = [];
+            }
+            $state = $reducer($state);
 
             $encoded = \json_encode($state, \JSON_THROW_ON_ERROR);
 

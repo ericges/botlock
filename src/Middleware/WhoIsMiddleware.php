@@ -7,7 +7,7 @@ use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 
-readonly class WhoIsMiddleware implements MiddlewareInterface
+final readonly class WhoIsMiddleware implements MiddlewareInterface
 {
     public function __construct(private DetectionConfig $config) {}
 

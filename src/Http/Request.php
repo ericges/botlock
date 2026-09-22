@@ -165,7 +165,11 @@ class Request
             return null;
         }
 
-        $data = \json_decode($this->body, true);
+        try {
+            $data = \json_decode($this->body, true, 512, JSON_THROW_ON_ERROR);
+        } catch (\JsonException) {
+            return null;
+        }
 
         return \is_array($data) ? $data : null;
     }

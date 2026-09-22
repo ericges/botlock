@@ -16,7 +16,7 @@ use GES\Botlock\Manager\WhitelistManager;
  * Botlock actions (?_botlock=...) are never short-circuited here so that
  * excluded clients can still query the status endpoint.
  */
-readonly class IgnoreListMiddleware implements MiddlewareInterface
+final readonly class IgnoreListMiddleware implements MiddlewareInterface
 {
     public function __construct(private WhitelistManager $whitelist) {}
 

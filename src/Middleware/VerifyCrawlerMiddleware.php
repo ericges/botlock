@@ -9,7 +9,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\VerifyBot;
 
-readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
+final readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
 {
     public function __construct(
         private BotTestManager $detective,

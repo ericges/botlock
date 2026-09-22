@@ -8,7 +8,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Session;
 
-readonly class SessionMiddleware implements MiddlewareInterface
+final readonly class SessionMiddleware implements MiddlewareInterface
 {
     public function __construct(private ProofOfWorkConfig $config) {}
 

@@ -13,7 +13,7 @@ use GES\Botlock\Http\Response\PassResponse;
  * level does not warrant a challenge: no threshold reached, or a
  * recognized good bot whose individual level is still below 2.
  */
-readonly class ThreatPassMiddleware implements MiddlewareInterface
+final readonly class ThreatPassMiddleware implements MiddlewareInterface
 {
     public function __construct(private BotTestManager $detective) {}
 

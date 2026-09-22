@@ -8,7 +8,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Manager\ThreatAwarenessManager;
 
-readonly class ThreatEvaluationMiddleware implements MiddlewareInterface
+final readonly class ThreatEvaluationMiddleware implements MiddlewareInterface
 {
     public function __construct(
         private RateLimitConfig $config,

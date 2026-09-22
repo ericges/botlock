@@ -47,6 +47,7 @@ final class Env
      * An empty value yields an empty array; unset yields $default.
      *
      * @return string[]|null
+     * @throws \JsonException
      */
     public static function list(string $name, ?array $default = null): ?array
     {
@@ -64,7 +65,7 @@ final class Env
             return \explode(',', $value);
         }
 
-        $data = \json_decode($value, true) ?: [];
+        $data = \json_decode($value, true, 512, JSON_THROW_ON_ERROR) ?: [];
 
         return \array_values(\array_filter($data, 'is_string'));
     }

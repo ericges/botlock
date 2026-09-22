@@ -7,7 +7,7 @@ use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 
-readonly class ErrorMiddleware implements MiddlewareInterface
+final readonly class ErrorMiddleware implements MiddlewareInterface
 {
     public function process(Request $request, callable $next): Response
     {
