@@ -4,6 +4,7 @@ namespace GES\Botlock\Tests\Middleware;
 
 use GES\Botlock\Config\DetectionConfig;
 use GES\Botlock\Http\Request;
+use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\PassResponse;
 use GES\Botlock\Middleware\WhoIsMiddleware;
 use GES\Botlock\Tests\Support\Requests;
@@ -13,31 +14,77 @@ final class WhoIsMiddlewareTest extends TestCase
 {
     private const REMOTE = '203.0.113.10';
     private const FORWARDED = '198.51.100.7';
+    private const WARNING = WhoIsMiddleware::WARNING_HEADER;
 
-    public function testForwardedHeaderIsTrustedWhenNoProxiesAreConfigured(): void
+    public function testForwardedHeaderIsIgnoredWhenNoProxiesAreConfigured(): void
     {
-        $request = $this->process(new DetectionConfig(trustedProxies: []), ['X-Forwarded-For' => self::FORWARDED . ', 10.0.0.1']);
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: []), ['X-Forwarded-For' => self::FORWARDED . ', 10.0.0.1']);
 
-        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('X-Forwarded-For', (string) $response->getHeader(self::WARNING));
+        self::assertStringContainsString('BOTLOCK_TRUSTED_PROXIES', (string) $response->getHeader(self::WARNING));
     }
 
     public function testForwardedHeaderIsIgnoredFromUntrustedPeer(): void
     {
-        $request = $this->process(new DetectionConfig(trustedProxies: ['10.9.9.9']), ['X-Forwarded-For' => self::FORWARDED]);
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: ['10.9.9.9']), ['X-Forwarded-For' => self::FORWARDED]);
 
         self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('peer ' . self::REMOTE, (string) $response->getHeader(self::WARNING));
     }
 
     public function testForwardedHeaderIsUsedFromTrustedProxy(): void
     {
-        $request = $this->process(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Real-Ip' => self::FORWARDED]);
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Real-Ip' => self::FORWARDED]);
 
         self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testDirectVisitorGetsNoWarning(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(), []);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testTrustedProxyMayBeAnIpv4Range(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: ['203.0.113.0/24']), ['X-Forwarded-For' => self::FORWARDED]);
+
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testTrustedProxyMayBeAnIpv6Range(): void
+    {
+        [$request, $response] = $this->handle(
+            new DetectionConfig(trustedProxies: ['2001:db8::/32']),
+            ['X-Forwarded-For' => self::FORWARDED],
+            ['REMOTE_ADDR' => '2001:db8::10'],
+        );
+
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testMalformedRemoteAddrIsNeverTrusted(): void
+    {
+        [$request, $response] = $this->handle(
+            new DetectionConfig(trustedProxies: ['0.0.0.0/0']),
+            ['X-Forwarded-For' => self::FORWARDED],
+            ['REMOTE_ADDR' => 'not-an-ip'],
+        );
+
+        self::assertNull($request->context->clientIp);
+        self::assertNotNull($request->context->fingerprint);
+        self::assertStringContainsString('remote address is not a valid IP', (string) $response->getHeader(self::WARNING));
     }
 
     public function testPrivateForwardedAddressFallsBackToRemoteAddr(): void
     {
-        $request = $this->process(new DetectionConfig(), ['X-Forwarded-For' => '192.168.1.20']);
+        $request = $this->process(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-For' => '192.168.1.20']);
 
         self::assertSame(self::REMOTE, $request->context->clientIp);
     }
@@ -77,9 +124,17 @@ final class WhoIsMiddlewareTest extends TestCase
 
     private function process(DetectionConfig $config, array $headers, array $server = []): Request
     {
-        $request = Requests::make(headers: $headers, server: $server);
-        (new WhoIsMiddleware($config))->process($request, static fn(): PassResponse => new PassResponse());
+        return $this->handle($config, $headers, $server)[0];
+    }
 
-        return $request;
+    /**
+     * @return array{Request, Response}
+     */
+    private function handle(DetectionConfig $config, array $headers, array $server = []): array
+    {
+        $request = Requests::make(headers: $headers, server: $server);
+        $response = (new WhoIsMiddleware($config))->process($request, static fn(): PassResponse => new PassResponse());
+
+        return [$request, $response];
     }
 }

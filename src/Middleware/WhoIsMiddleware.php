@@ -3,12 +3,27 @@
 namespace GES\Botlock\Middleware;
 
 use GES\Botlock\Config\DetectionConfig;
+use GES\Botlock\Http\IpMatcher;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 
 final readonly class WhoIsMiddleware implements MiddlewareInterface
 {
+    /** Response header set when a forwarding header was present but not trusted. */
+    public const WARNING_HEADER = 'Botlock-Warning';
+
+    /**
+     * Headers a proxy may use to forward the original client address, in order of preference.
+     */
+    private const FORWARDING_HEADERS = [
+        // 'Cf-Connecting-Ip', // Cloudflare (currently not supported, needs config option)
+        'X-Forwarded-For',  // Default, can be a list (client, proxy1, proxy2)
+        'X-Real-Ip',        // Oftentimes used by Nginx
+        'Client-Ip',        // Used by older proxies
+        // 'Forwarded',     // Newer standard (RFC 7239), needs complex parsing
+    ];
+
     public function __construct(private DetectionConfig $config) {}
 
     /**
@@ -16,7 +31,15 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
      */
     public function process(Request $request, callable $next): Response
     {
-        if ($ip = $this->getReliableClientIp($request, $this->config->trustedProxies)) {
+        $remoteAddr = $request->getServerParam('REMOTE_ADDR');
+
+        if (!\is_string($remoteAddr) || \filter_var($remoteAddr, \FILTER_VALIDATE_IP) === false) {
+            $remoteAddr = null;
+        }
+
+        $trustedPeer = $remoteAddr !== null && IpMatcher::matchesAny($remoteAddr, $this->config->trustedProxies);
+
+        if ($ip = $this->getReliableClientIp($request, $remoteAddr, $trustedPeer)) {
             $request->context->clientIp = $ip;
         }
 
@@ -26,49 +49,38 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
 
         $request->context->fingerprint = $fingerprint;
 
-        return $next($request);
+        $response = $next($request);
+
+        if (!$trustedPeer && ($header = $this->firstForwardingHeader($request)) !== null) {
+            $response = $response->withHeader(self::WARNING_HEADER, $this->ignoredHeaderWarning($header, $remoteAddr));
+        }
+
+        return $response;
     }
 
     /**
-     * Attempts to determine the client’s most reliable public IP address,
-     * even if the request has been routed through proxies.
+     * Determines the client’s most reliable IP address.
      *
-     * IMPORTANT: Only reliable if the proxies are configured correctly
-     * and the headers cannot be spoofed by the client (see notes below).
+     * Forwarding headers (FORWARDING_HEADERS) are only consulted when the direct
+     * peer (REMOTE_ADDR) is a trusted proxy, i.e. matches one of the addresses or
+     * CIDR ranges in BOTLOCK_TRUSTED_PROXIES. With no trusted proxies configured
+     * the headers are never consulted, because any client can spoof them; the
+     * ignored header is reported via the Botlock-Warning response header.
+     * Otherwise REMOTE_ADDR itself is used.
      *
-     * @param array $trustedProxies   A list of IP addresses that are trusted proxies.
-     *                                Forwarding headers are only considered if the direct
-     *                                connection ($_SERVER['REMOTE_ADDR']) originates from
-     *                                one of these proxies. Leave empty to trust all
-     *                                proxies (insecure!) or none.
-     * @param bool  $allowPrivateIPs  Whether private IP addresses (RFC 1918) are allowed
-     *                                as a result. Defaults to false to prefer public IPs.
-     * @return string|null            The determined IP address, or null if none was valid.
+     * @param string|null $remoteAddr      REMOTE_ADDR, already validated as an IP, or null if missing/malformed
+     * @param bool        $trustedPeer     Whether $remoteAddr is a trusted proxy
+     * @param bool        $allowPrivateIPs Whether private IP addresses (RFC 1918) are allowed
+     *                                     as a result. Defaults to false to prefer public IPs.
+     * @return string|null                 The determined IP address, or null if none was valid.
      */
-    private function getReliableClientIp(Request $request, array $trustedProxies = [], bool $allowPrivateIPs = false): ?string
+    private function getReliableClientIp(Request $request, ?string $remoteAddr, bool $trustedPeer, bool $allowPrivateIPs = false): ?string
     {
-        $remoteAddr = $request->getServerParam('REMOTE_ADDR');
-
-        // List of headers to check for the client IP
-        $headerChecks = [
-            // 'Cf-Connecting-Ip', // Cloudflare (currently not supported, needs config option)
-            'X-Forwarded-For',  // Default, can be a list (client, proxy1, proxy2)
-            'X-Real-Ip',        // Oftentimes used by Nginx
-            'Client-Ip',        // Used by older proxies
-            // 'Forwarded',     // Newer standard (RFC 7239), needs complex parsing
-        ];
-
-        $isConnectedViaTrustedProxy = $remoteAddr
-            && !empty($trustedProxies)
-            && \in_array($remoteAddr, $trustedProxies, true);
-
         $clientIp = null;
 
-        // Only check the headers if the request comes from a trusted proxy
-        // OR if no trusted proxies are configured, trust blindly (not recommended)
-        if ($isConnectedViaTrustedProxy || empty($trustedProxies))
+        if ($trustedPeer)
         {
-            foreach ($headerChecks as $header)
+            foreach (self::FORWARDING_HEADERS as $header)
             {
                 if (!$value = $request->getHeader($header)) {
                     continue; // Header not set, skip
@@ -92,12 +104,29 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
             $clientIp = $remoteAddr;
         }
 
-        // final validation; if the IP is not valid, return null (should not happen, but just in case)
-        if ($clientIp !== null && !self::isValidIp($clientIp, $allowPrivateIPs)) {
-            return null;
+        return $clientIp;
+    }
+
+    private function firstForwardingHeader(Request $request): ?string
+    {
+        foreach (self::FORWARDING_HEADERS as $header) {
+            if ($request->getHeader($header)) {
+                return $header;
+            }
         }
 
-        return $clientIp;
+        return null;
+    }
+
+    private function ignoredHeaderWarning(string $header, ?string $remoteAddr): string
+    {
+        $reason = match (true) {
+            $remoteAddr === null => 'remote address is not a valid IP',
+            empty($this->config->trustedProxies) => 'no trusted proxies configured (BOTLOCK_TRUSTED_PROXIES)',
+            default => "peer $remoteAddr is not a trusted proxy",
+        };
+
+        return "forwarding header $header ignored: $reason";
     }
 
     private static function isValidIp(?string $ip, bool $allowPrivate = false): bool
