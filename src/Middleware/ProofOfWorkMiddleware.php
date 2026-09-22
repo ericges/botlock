@@ -55,7 +55,7 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
             $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
         }
 
-        $data = $pow->create();
+        $data = $pow->create($request->fingerprint);
         $data['auto_start'] = $goodActor;
 
         $this->request->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
@@ -88,7 +88,7 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
         $statusCode = 401;
 
         $challenge = new ProofOfWork($this->config);
-        if ($ok = $challenge->verify($data))
+        if ($ok = $challenge->verify($data, $request->fingerprint))
         {
             $this->request->session->set('grant', true);
             $this->request->session->remove('nh');

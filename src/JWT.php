@@ -30,7 +30,7 @@ final readonly class JWT
 
         $expectedSignature = \hash_hmac('sha256', $headerRaw . '.' . $payloadRaw, $secret, true);
 
-        if ($signature !== $expectedSignature) {
+        if (!\is_string($signature) || !\hash_equals($expectedSignature, $signature)) {
             return null;
         }
 

@@ -23,7 +23,11 @@ class ProofOfWork
         return $this->difficulty;
     }
 
-    public function create(): array
+    /**
+     * @param string $subject Client identifier (fingerprint) the challenge is bound to;
+     *                        a solution is only valid for the subject it was issued to.
+     */
+    public function create(string $subject): array
     {
         $factor = $this->getDifficulty();
         $max = \floor($this->config->getMaxNumber() * $factor);
@@ -41,27 +45,39 @@ class ProofOfWork
             throw new \RuntimeException('Failed to create challenge');
         }
 
-        $signature = \hash_hmac('sha384', $target, $this->config->getSecret());
-
         return [
             'alg' => $powAlgorithm,
             'exp' => $expire,
             'max' => $max,
             'slt' => $salt,
             'tgt' => $target,
-            'sig' => $signature,
+            'sig' => $this->sign($target, $subject),
         ];
     }
 
-    public function verify($data): bool
+    /**
+     * @param array  $data    Solution as submitted by the client: num, sig, slt, exp, alg
+     * @param string $subject Client identifier the challenge was created for
+     */
+    public function verify($data, string $subject): bool
     {
-        if (\count($data) !== 5
-            || !($number = $data['num'] ?? null)
-            || !($signature = $data['sig'] ?? null)
-            || !($salt = $data['slt'] ?? null)
+        if (!\is_array($data)
+            || \count($data) !== 5
+            || !\is_string($signature = $data['sig'] ?? null)
+            || !\is_string($salt = $data['slt'] ?? null) || $salt === ''
             || !\is_numeric($expire = $data['exp'] ?? null)
-            || !($algorithm = $data['alg'] ?? null))
+            || !\is_string($algorithm = $data['alg'] ?? null))
         {
+            return false;
+        }
+
+        $number = $data['num'] ?? null;
+        if (!\is_int($number) && !(\is_string($number) && \ctype_digit($number))) {
+            return false;
+        }
+
+        $number = (int) $number;
+        if ($number < 1) {
             return false;
         }
 
@@ -69,17 +85,21 @@ class ProofOfWork
             return false;
         }
 
+        $expire = (int) $expire;
         if (!$expire || ($expire > 0 && $expire < \time())) {
             return false;
         }
 
-        if (!$hash = $this->hashTarget($this->config->getPowAlgorithm(), $number, $salt, $expire)) {
+        if (!$hash = $this->hashTarget($algorithm, $number, $salt, $expire)) {
             return false;
         }
 
-        $expect = \hash_hmac('sha384', $hash, $this->config->getSecret());
+        return \hash_equals($this->sign($hash, $subject), $signature);
+    }
 
-        return $expect === $signature;
+    private function sign(string $target, string $subject): string
+    {
+        return \hash_hmac('sha384', $subject . "\0" . $target, $this->config->getSecret());
     }
 
     private function hashTarget(string $algorithm, int $number, string $salt, int $expire): ?string
