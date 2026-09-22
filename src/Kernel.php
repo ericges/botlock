@@ -61,8 +61,8 @@ readonly class Kernel
             ->add(new WhitelistMiddleware($this->detective, $this->whitelist))
             ->add(new SessionMiddleware($this->config))
             ->add(new StatusMiddleware())
-            ->add(new ProofOfWorkMiddleware($this->detective, $this->config, $request))
-            ->add(new ChallengeDocumentMiddleware($request, $this->botlockRoot))
+            ->add(new ProofOfWorkMiddleware($this->detective, $this->config))
+            ->add(new ChallengeDocumentMiddleware($this->botlockRoot))
         ;
 
         $response = $middleware->dispatch($request);

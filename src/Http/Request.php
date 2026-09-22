@@ -27,6 +27,7 @@ class Request
         private readonly array  $queryParams = [],
         private readonly array  $cookies = [],
         private readonly string $body = '',
+        private readonly array  $postParams = [],
     ) {
         if (!($urlParts = \parse_url($requestUrl)) || !isset($urlParts['scheme'], $urlParts['host'])) {
             throw new \InvalidArgumentException('Invalid request URL');
@@ -97,6 +98,7 @@ class Request
             queryParams: $_GET,
             cookies: $_COOKIE,
             body: $body,
+            postParams: $_POST,
         );
     }
 
@@ -158,6 +160,31 @@ class Request
     public function getBody(): string
     {
         return $this->body;
+    }
+
+    /**
+     * Decodes the raw body as a JSON object. Returns null when the body is
+     * empty, not valid JSON, or not a JSON object/array.
+     */
+    public function getJsonBody(): ?array
+    {
+        if ($this->body === '') {
+            return null;
+        }
+
+        $data = \json_decode($this->body, true);
+
+        return \is_array($data) ? $data : null;
+    }
+
+    public function getPostParams(): array
+    {
+        return $this->postParams;
+    }
+
+    public function getPost(string $key, mixed $default = null): mixed
+    {
+        return $this->postParams[$key] ?? $default;
     }
 
     public function getQueryParams(): array
