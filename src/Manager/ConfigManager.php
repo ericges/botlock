@@ -2,7 +2,9 @@
 
 namespace GES\Botlock\Manager;
 
-use function GES\Botlock\randStr;
+use GES\Botlock\Config\Env;
+use GES\Botlock\Config\KernelConfig;
+use GES\Botlock\Config\SecretProvider;
 
 class ConfigManager
 {
@@ -35,11 +37,12 @@ class ConfigManager
     private readonly bool $enableIndividualRateLimit;
     private readonly ?int $threatLevelOverride;
 
-    public function __construct() {
-        $this->instanceId = self::env('INSTANCE_ID') ?: \substr(\md5(__DIR__), 0, 8);  // must be first
+    public function __construct(?KernelConfig $kernel = null) {
+        $kernel ??= KernelConfig::fromEnv();
 
-        $this->stateDir = \rtrim(self::env('STATE_DIR', \sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'botlock'), '/\\');
-        $this->secret = \trim($this->loadSecret($this->stateDir));  // secret must come after stateDir
+        $this->instanceId = $kernel->instanceId;
+        $this->stateDir = $kernel->stateDir;
+        $this->secret = (new SecretProvider($this->stateDir, $this->instanceId))->get();
 
         $this->powAlgorithm = $this->loadPowAlgorithm();
         $this->expire = (int) (self::env('EXPIRE') ?: 3600);
@@ -111,45 +114,6 @@ class ConfigManager
         }
 
         return $algorithm;
-    }
-
-    private function loadSecret(?string $fallbackDir = null): string
-    {
-        if ($secret = self::env('SECRET')) {
-            return $secret;
-        }
-
-        if ($fallbackDir === null) {
-            $fallbackDir = \sys_get_temp_dir() . \DIRECTORY_SEPARATOR . 'botlock';
-        }
-
-        if (!@\file_exists($fallbackDir) && !@\is_dir($fallbackDir) && !@\mkdir($fallbackDir)) {
-            throw new \Exception('Fallback secret dir does not exist and could not be created');
-        }
-
-        $secretFilename = 'botlock_secret_' . $this->getInstanceId();
-        $secretFile = $fallbackDir . DIRECTORY_SEPARATOR . $secretFilename;
-
-        if (@\file_exists($secretFile)) {
-            if (!$secret = \file_get_contents($secretFile))
-            {
-                throw new \Exception('Could not read contents of "' . $secretFile . '"');
-            }
-
-            return $secret;
-        }
-
-        if (!@\is_writable($fallbackDir) && !@\chmod($fallbackDir, 0755)) {
-            throw new \Exception('Fallback secret dir is not writable and could not be chmoded');
-        }
-
-        $secret = randStr(32);
-
-        if (!\file_put_contents($secretFile, $secret)) {
-            throw new \Exception('Could not write secret to file "' . $secretFile . '"');
-        }
-
-        return $secret;
     }
 
     private function loadIgnoreIps(): ?array
@@ -231,56 +195,21 @@ class ConfigManager
         return $verifyThese;
     }
 
+    /** @deprecated use Env::get() */
     public static function env(string $name, $default = null): mixed
     {
-        $name = 'BOTLOCK_' . \strtoupper($name);
-        $value = \getenv($name);
-
-        if ($value === false) {
-            return $default;
-        }
-
-        if (\is_string($value)) {
-            return \trim($value);
-        }
-
-        return $value;
+        return Env::get($name, $default);
     }
 
+    /** @deprecated use Env::bool() */
     public static function envBool($name, ?bool $default = null): ?bool
     {
-        $value = self::env($name);
-
-        if (\is_bool($value)) {
-            return $value;
-        }
-
-        if (!\is_string($value) || $value === '') {
-            return $default;
-        }
-
-        // accepts 1/true/on/yes and 0/false/off/no (case-insensitive); anything else falls back to the default
-        return \filter_var($value, \FILTER_VALIDATE_BOOLEAN, \FILTER_NULL_ON_FAILURE) ?? $default;
+        return Env::bool($name, $default);
     }
 
+    /** @deprecated use Env::list() */
     public static function envArray(string $name, ?array $default = null): ?array
     {
-        $value = self::env($name);
-
-        if (!\is_string($value)) {
-            return $default;
-        }
-
-        if (\strlen($value) < 1) {
-            return [];
-        }
-
-        if ($value[0] !== '[' || $value[-1] !== ']') {
-            return \explode(',', $value);
-        }
-
-        $data = \json_decode($value, true) ?: [];
-
-        return \array_values(\array_filter($data, 'is_string'));
+        return Env::list($name, $default);
     }
 }

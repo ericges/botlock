@@ -6,6 +6,7 @@ use GES\Botlock\Http\Middleware\MiddlewareDispatcher;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\PassResponse;
+use GES\Botlock\Config\KernelConfig;
 use GES\Botlock\Manager\BotTestManager;
 use GES\Botlock\Manager\ConfigManager;
 use GES\Botlock\Manager\ThreatAwarenessManager;
@@ -28,12 +29,12 @@ readonly class Kernel
 {
     public static function boot(string $botlockRoot): static
     {
-        // Read before anything that can throw: decides how a boot failure is handled.
-        $failOpen = (bool) ConfigManager::envBool('FAIL_OPEN', false);
+        // Cannot throw; read first so a boot failure knows whether to fail open.
+        $kernelConfig = KernelConfig::fromEnv();
 
         try
         {
-            $config = new ConfigManager();
+            $config = new ConfigManager($kernelConfig);
             $botDetect = new BotTestManager($config);
             $whitelist = new WhitelistManager($config);
             $rateLimiter = new ThreatAwarenessManager($config);
@@ -42,7 +43,7 @@ readonly class Kernel
         }
         catch (\Throwable $th)
         {
-            if ($failOpen) {
+            if ($kernelConfig->failOpen) {
                 return static::passThrough($botlockRoot, $th->getMessage());
             }
 
