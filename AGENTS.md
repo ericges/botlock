@@ -18,7 +18,7 @@ Use four-space indentation, strict type declarations in new PHP files, typed pro
 
 ## Testing Guidelines
 
-There is currently no automated test suite or coverage threshold. Before submitting, run Composer validation and the full PHP syntax check, then exercise affected request paths through DDEV. For middleware changes, verify pass-through behavior plus relevant `_botlock` actions such as `challenge`, `verify`, `reset`, or `status`. New tests should use PHPUnit in a top-level `tests/` directory and mirror the `src/` namespace layout.
+Unit tests live in `tests/` (PHPUnit 11, namespace `GES\Botlock\Tests`, mirroring `src/`); run them with `ddev composer test`. `tests/Support/` holds the `InMemoryThreatStateStore` double and a `Requests` factory; prefer constructing the `Config\*` value objects directly over `putenv()`. Before submitting, run the tests, Composer validation and the full PHP syntax check, then exercise affected request paths through DDEV. For middleware changes, verify pass-through behavior plus relevant `_botlock` actions such as `challenge`, `verify`, `reset`, or `status`. CI (`.github/workflows/ci.yaml`) runs the same checks on PHP 8.2–8.4 for every push and pull request.
 
 ## Commit & Pull Request Guidelines
 

@@ -6,3 +6,6 @@ botlock*.phar
 .ddev
 !.ddev/config.yaml
 !.ddev/php/php-phar.ini
+
+# PHPUnit
+.phpunit.cache/
