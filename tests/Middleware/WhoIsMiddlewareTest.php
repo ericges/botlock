@@ -132,6 +132,16 @@ final class WhoIsMiddlewareTest extends TestCase
         self::assertStringContainsString('hop 10.0.0.2 is not a trusted proxy', (string) $response->getHeader(self::WARNING));
     }
 
+    public function testUnlistedPublicHopIsTakenForTheClient(): void
+    {
+        // An unlisted proxy with a public address (e.g. a forgotten CDN) is indistinguishable
+        // from a visitor, so the chain walk stops there without a warning.
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ', 192.0.2.50']);
+
+        self::assertSame('192.0.2.50', $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
     public function testMalformedEntryFallsBackWithWarning(): void
     {
         [$request, $response] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ', not-an-ip']);
