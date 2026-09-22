@@ -134,6 +134,23 @@
             color: var(--success-color);
         }
 
+        .verify-button {
+            background-color: var(--title-color);
+            color: var(--card-bg);
+            border: none;
+            padding: 0.8rem 2rem;
+            font-size: 1em;
+            border-radius: .25rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .verify-button:hover,
+        .verify-button:focus-visible {
+            opacity: .85;
+        }
+
     </style>
 </head>
 <body>
@@ -181,6 +198,10 @@
             mainHeading: "Verifying you are human…",
             infoParagraph: "Please wait while we perform a quick security check. This helps protect our service from bad bots.",
             footerNote: "This check is automated and should only take a moment.",
+            // Manual start
+            confirmHeading: "Security Check",
+            confirmParagraph: "Please confirm that you are not a robot to continue.",
+            verifyButton: "Verify",
             // Error messages
             errorHeading: "Verification Failed",
             errorMessage: "We couldn't verify your request at this time. This might be a temporary issue.",
@@ -196,6 +217,10 @@
             mainHeading: "Überprüfe, ob Sie ein Mensch sind …",
             infoParagraph: "Bitte warten Sie, während wir eine kurze Sicherheitsüberprüfung durchführen. Dies schützt unseren Dienst vor bösartigen Bots.",
             footerNote: "Diese Überprüfung ist automatisiert und sollte nur einen Moment dauern.",
+            // Manueller Start
+            confirmHeading: "Sicherheitsüberprüfung",
+            confirmParagraph: "Bitte bestätigen Sie, dass Sie kein Roboter sind, um fortzufahren.",
+            verifyButton: "Überprüfen",
             // Fehlermeldungen
             errorHeading: "Überprüfung Fehlgeschlagen",
             errorMessage: "Wir konnten Ihre Anfrage derzeit nicht überprüfen. Dies könnte ein vorübergehendes Problem sein.",
@@ -242,7 +267,6 @@
     const footerElement = document.getElementById('footer-note');
 
     const nonce = crypto?.randomUUID();
-    const fup = localStorage.getItem('botlock_fup') || null;
 
     async function sha(text, algo = 'SHA-256') {
         const encoder = new TextEncoder();
@@ -336,11 +360,6 @@
             return null;
         }
 
-        if (fup) {
-            console.error("Fup");
-            return null;
-        }
-
         return { num, sig: signature, slt: salt, exp: expire, alg: algorithm };
     }
 
@@ -387,11 +406,35 @@
             return;
         }
 
-        const { autoStart = false } = challenge;
+        const { auto_start: autoStart = false } = challenge;
         if (!autoStart) {
-            // todo: implement await user confirmation
+            showConfirm(challenge);
+            return;
         }
 
+        await runChallenge(challenge);
+    }
+
+    function showConfirm(challenge) {
+        headingElement.textContent = trans.confirmHeading;
+        infoElement.textContent = trans.confirmParagraph;
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'verify-button';
+        button.textContent = trans.verifyButton;
+        button.addEventListener('click', () => {
+            widgetElement.innerHTML = '<div class="spinner"></div>';
+            headingElement.textContent = trans.mainHeading;
+            infoElement.textContent = trans.infoParagraph;
+            runChallenge(challenge);
+        }, { once: true });
+
+        widgetElement.replaceChildren(button);
+        button.focus();
+    }
+
+    async function runChallenge(challenge) {
         const res = await solveChallenge(challenge);
         if (res === null) {
             showError();
