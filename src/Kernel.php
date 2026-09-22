@@ -12,10 +12,13 @@ use GES\Botlock\Manager\ThreatAwarenessManager;
 use GES\Botlock\Manager\WhitelistManager;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
 use GES\Botlock\Middleware\ErrorMiddleware;
-use GES\Botlock\Middleware\StatusMiddleware;
 use GES\Botlock\Middleware\VerifyCrawlerMiddleware;
 use GES\Botlock\Middleware\WhoIsMiddleware;
-use GES\Botlock\Middleware\ProofOfWorkMiddleware;
+use GES\Botlock\Middleware\ActionMiddleware;
+use GES\Botlock\Action\ChallengeAction;
+use GES\Botlock\Action\ResetAction;
+use GES\Botlock\Action\StatusAction;
+use GES\Botlock\Action\VerifyAction;
 use GES\Botlock\Middleware\ThreatEvaluationMiddleware;
 use GES\Botlock\Middleware\SessionMiddleware;
 use GES\Botlock\Middleware\ThreatPassMiddleware;
@@ -85,8 +88,12 @@ readonly class Kernel
             ->add(new VerifyCrawlerMiddleware($this->detective, $this->config))
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->config))
-            ->add(new StatusMiddleware())
-            ->add(new ProofOfWorkMiddleware($this->detective, $this->config))
+            ->add(new ActionMiddleware([
+                'GET challenge' => new ChallengeAction($this->detective, $this->config),
+                'POST verify' => new VerifyAction($this->config),
+                'POST reset' => new ResetAction(),
+                'GET status' => new StatusAction(),
+            ]))
             ->add(new ChallengeDocumentMiddleware($this->botlockRoot))
         ;
 
