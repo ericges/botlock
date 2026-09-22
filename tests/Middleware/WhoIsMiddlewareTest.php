@@ -175,12 +175,12 @@ final class WhoIsMiddlewareTest extends TestCase
         [$request] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ':51234']);
         self::assertSame(self::FORWARDED, $request->context->clientIp);
 
-        [$request, $response] = $this->trusted(['X-Forwarded-For' => '[2001:db8::7]:443, 10.0.0.2'], extraProxies: ['10.0.0.0/8']);
-        self::assertSame('2001:db8::7', $request->context->clientIp);
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => '[2001:4860:4860::7]:443, 10.0.0.2'], extraProxies: ['10.0.0.0/8']);
+        self::assertSame('2001:4860:4860::7', $request->context->clientIp);
         self::assertFalse($response->hasHeader(self::WARNING));
 
-        [$request] = $this->trusted(['X-Forwarded-For' => '[2001:db8::7]']);
-        self::assertSame('2001:db8::7', $request->context->clientIp);
+        [$request] = $this->trusted(['X-Forwarded-For' => '[2001:4860:4860::7]']);
+        self::assertSame('2001:4860:4860::7', $request->context->clientIp);
     }
 
     public function testForwardedForIsAuthoritativeOverRealIp(): void
