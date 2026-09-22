@@ -8,15 +8,15 @@ on:
 permissions:
   contents: write
 
+env:
+  PROJECT_NAME: botlock
+  PHAR_FILENAME: botlock.phar
+  PHP_VERSION: '8.2'
+
 jobs:
   build-phar:
-    name: Build PHAR and Upload to Release
+    name: Test, build and publish PHAR
     runs-on: ubuntu-latest
-
-    env:
-      PROJECT_NAME: botlock
-      PHAR_FILENAME: botlock.phar
-      PHP_VERSION: '8.2'
 
     steps:
       - name: Checkout code
@@ -28,22 +28,31 @@ jobs:
           php-version: ${{ env.PHP_VERSION }}
           extensions: mbstring, zip, phar
           tools: composer
+          coverage: none
           ini-values: phar.readonly=0
 
-      - name: Get Composer Cache Directory
+      - name: Get Composer cache directory
         id: composer-cache
-        run: |
-          echo "dir=$(composer config cache-files-dir)" >> $GITHUB_OUTPUT
+        run: echo "dir=$(composer config cache-files-dir)" >> "$GITHUB_OUTPUT"
 
       - name: Cache Composer dependencies
         uses: actions/cache@v4
         with:
           path: ${{ steps.composer-cache.outputs.dir }}
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          key: ${{ runner.os }}-php${{ env.PHP_VERSION }}-composer-${{ hashFiles('**/composer.lock') }}
           restore-keys: |
-            ${{ runner.os }}-composer-
+            ${{ runner.os }}-php${{ env.PHP_VERSION }}-composer-
 
-      - name: Install Composer dependencies
+      - name: Validate composer.json
+        run: composer validate --no-check-publish --strict
+
+      - name: Install dependencies (with dev)
+        run: composer install --no-progress --no-interaction --prefer-dist
+
+      - name: Run tests
+        run: composer test
+
+      - name: Install dependencies (production only)
         run: composer install --no-progress --no-interaction --prefer-dist --no-dev --optimize-autoloader
 
       - name: Build the PHAR archive
@@ -51,18 +60,64 @@ jobs:
 
       - name: Verify PHAR file exists
         run: |
-          if [ ! -f "${{ env.PHAR_FILENAME }}" ]; then
-            echo "::error::PHAR file '${{ env.PHAR_FILENAME }}' not found after build!"
+          if [ ! -f "$PHAR_FILENAME" ]; then
+            echo "::error::PHAR file '$PHAR_FILENAME' not found after build!"
             exit 1
           fi
-          echo "PHAR file found: ${{ env.PHAR_FILENAME }}"
+          ls -l "$PHAR_FILENAME"
 
-      - name: Upload PHAR to Release
-        uses: actions/upload-release-asset@v1
+      - name: Smoke test the PHAR
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BOTLOCK_ENABLED: 'yes'
+          BOTLOCK_THREAT_LEVEL_OVERRIDE: '2'
+          BOTLOCK_STATE_DIR: ${{ runner.temp }}/botlock-state
+        run: |
+          # Serve the repo's demo index.php with the freshly built PHAR prepended
+          # and expect the challenge page (401 + session cookie) from a bare request.
+          php -S 127.0.0.1:8099 -t . -d "auto_prepend_file=phar://$PWD/$PHAR_FILENAME" > server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
+          sleep 2
+
+          STATUS=$(curl -s -o body.html -D headers.txt -w '%{http_code}' http://127.0.0.1:8099/)
+          echo "HTTP status: $STATUS"
+
+          if [ "$STATUS" != "401" ]; then
+            echo "::error::Expected 401 challenge from the PHAR, got $STATUS"
+            cat headers.txt body.html server.log
+            exit 1
+          fi
+
+          if ! grep -qi '^set-cookie: BOTLOCKSESS=' headers.txt; then
+            echo "::error::No BOTLOCKSESS cookie in the challenge response"
+            cat headers.txt server.log
+            exit 1
+          fi
+
+          if grep -qiE 'php (fatal|warning|parse)' server.log; then
+            echo "::error::PHP errors while serving from the PHAR"
+            cat server.log
+            exit 1
+          fi
+
+          echo "PHAR boots and issues a challenge."
+
+      - name: Upload PHAR to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          ASSET="$PROJECT_NAME-$TAG.phar"
+          cp "$PHAR_FILENAME" "$ASSET"
+          gh release upload "$TAG" "$ASSET" --clobber --repo "$GITHUB_REPOSITORY"
+          echo "Uploaded $ASSET to release $TAG"
+
+      - name: Upload PHAR as workflow artifact
+        if: github.event_name != 'release'
+        uses: actions/upload-artifact@v4
         with:
-          upload_url: ${{ github.event.release.upload_url }}
-          asset_path: ./${{ env.PHAR_FILENAME }}
-          asset_name: ${{ env.PROJECT_NAME }}-${{ github.event.release.tag_name }}.phar
-          asset_content_type: application/octet-stream
+          name: ${{ env.PROJECT_NAME }}-${{ github.sha }}.phar
+          path: ${{ env.PHAR_FILENAME }}
+          if-no-files-found: error
+          retention-days: 14

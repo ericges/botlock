@@ -1,5 +1,6 @@
 # BOTLOCK ❌🤖 PHP Bad Bot Blocker
 
+[![CI](https://github.com/ericges/botlock/actions/workflows/ci.yaml/badge.svg)](https://github.com/ericges/botlock/actions/workflows/ci.yaml)
 [![Build and Release PHAR](https://github.com/ericges/botlock/actions/workflows/release-phar.yaml/badge.svg)](https://github.com/ericges/botlock/actions/workflows/release-phar.yaml)
 
 BOTLOCK is a PHP script that blocks bad bots and scrapers from accessing your website. It uses a JavaScript challenge which most bots don't support. In the future, it will also check the User Agent to block known bad bots. The script is designed to be easy to use and configure.
