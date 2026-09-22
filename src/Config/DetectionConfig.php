@@ -2,6 +2,8 @@
 
 namespace GES\Botlock\Config;
 
+use GES\Botlock\Http\IpMatcher;
+
 /**
  * Who to trust and who to leave alone: exclusions, good-bot names,
  * DNS verification and proxy trust.
@@ -21,8 +23,10 @@ final readonly class DetectionConfig
      * @param string[]                $ignoreUrls       Absolute URL prefixes that bypass botlock
      * @param string[]                $goodBots         CrawlerDetect names treated as good bots
      * @param array<string,string[]>  $verifyBots       Subset of VERIFIABLE_BOTS to verify via DNS
-     * @param string[]                $trustedProxies   Proxy IPs whose forwarding headers are trusted; empty trusts all
+     * @param string[]                $trustedProxies   Proxy IPs or CIDR ranges whose forwarding headers are trusted; empty trusts none
      * @param bool                    $dnsChecks        Master switch for DNS verification
+     *
+     * @throws \InvalidArgumentException on a malformed trusted proxy entry
      */
     public function __construct(
         public array $ignoreIps = [],
@@ -32,8 +36,18 @@ final readonly class DetectionConfig
         public array $verifyBots = self::VERIFIABLE_BOTS,
         public array $trustedProxies = [],
         public bool  $dnsChecks = true,
-    ) {}
+    ) {
+        foreach ($this->trustedProxies as $proxy) {
+            if (!\is_string($proxy) || !IpMatcher::isValidRule($proxy)) {
+                throw new \InvalidArgumentException('Invalid entry in BOTLOCK_TRUSTED_PROXIES: ' . \var_export($proxy, true));
+            }
+        }
+    }
 
+    /**
+     * @throws \InvalidArgumentException on a malformed BOTLOCK_TRUSTED_PROXIES entry
+     * @throws \JsonException on a malformed JSON list value
+     */
     public static function fromEnv(): self
     {
         return new self(
