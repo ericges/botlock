@@ -129,7 +129,9 @@ BOTLOCK_TRUSTED_PROXIES=
 
 The last form (an empty value or `[]`) disables forwarding headers entirely. Consider it when other machines on your private network can reach the application directly and bypass the proxy, because such a peer could spoof `X-Forwarded-For`.
 
-When a forwarding header is present but the peer is not trusted, the header is ignored and the response carries a `Botlock-Warning` header naming the ignored header and the reason, for example `forwarding header X-Forwarded-For ignored: peer 203.0.113.10 is not a trusted proxy`. Check it with `curl -sI -H 'X-Forwarded-For: 198.51.100.7' https://your-site/ | grep Botlock` after deploying behind a proxy.
+When `X-Forwarded-For` arrives from a trusted proxy, BOTLOCK reads the chain from the right: trailing entries that are themselves trusted proxies are skipped and the first remaining entry is the client. Entries a client adds itself sit further left and are never reached, so proxies that append to the header are safe. Every proxy in the chain must therefore be listed, including a CDN in front of your own load balancer; a missing one shows up as `Botlock-Warning: forwarding header X-Forwarded-For ignored: hop 10.1.2.3 is not a trusted proxy`. When `X-Forwarded-For` is present it is authoritative; `X-Real-Ip` and `Client-Ip` are only used when the proxy sets one of them instead. Entries with a port (`203.0.113.7:51234`) and bracketed IPv6 addresses are accepted.
+
+When a forwarding header is present but cannot be used, the connecting address is used instead and the response carries a `Botlock-Warning` header naming the ignored header and the reason, for example `forwarding header X-Forwarded-For ignored: peer 203.0.113.10 is not a trusted proxy`. Check it with `curl -sI -H 'X-Forwarded-For: 198.51.100.7' https://your-site/ | grep Botlock` after deploying behind a proxy.
 
 > **Breaking change:** earlier releases trusted forwarding headers from every source when `BOTLOCK_TRUSTED_PROXIES` was unset. Installations behind a proxy with a public address must now list it, otherwise all visitors share the proxy address and are rate-limited together.
 

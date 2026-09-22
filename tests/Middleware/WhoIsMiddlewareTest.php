@@ -100,9 +100,129 @@ final class WhoIsMiddlewareTest extends TestCase
 
     public function testPrivateForwardedAddressFallsBackToRemoteAddr(): void
     {
-        $request = $this->process(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-For' => '192.168.1.20']);
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-For' => '192.168.1.20']);
 
         self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('hop 192.168.1.20 is not a trusted proxy', (string) $response->getHeader(self::WARNING));
+    }
+
+    // --- X-Forwarded-For chain, read from the right ---
+
+    public function testSpoofedLeftEntryIsIgnoredBehindAppendingProxy(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => '1.2.3.4, ' . self::FORWARDED]);
+
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testListedInternalHopsAreSkipped(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ', 10.0.0.2'], extraProxies: ['10.0.0.0/8']);
+
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testUnlistedInternalHopFallsBackWithWarning(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ', 10.0.0.2']);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('hop 10.0.0.2 is not a trusted proxy', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testMalformedEntryFallsBackWithWarning(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ', not-an-ip']);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('malformed entry at position 2', (string) $response->getHeader(self::WARNING));
+        self::assertStringNotContainsString('not-an-ip', (string) $response->getHeader(self::WARNING));
+
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ',']);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('malformed entry at position 2', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testEntriesLeftOfTheClientAreNeverInspected(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => 'garbage, ' . self::FORWARDED]);
+
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testChainOfOnlyTrustedProxiesFallsBackSilently(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => self::REMOTE]);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testOverlongChainIsRejected(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => \implode(', ', \array_fill(0, 33, self::FORWARDED))]);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('more than 32 entries', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testPortsAndBracketsAreStripped(): void
+    {
+        [$request] = $this->trusted(['X-Forwarded-For' => self::FORWARDED . ':51234']);
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => '[2001:db8::7]:443, 10.0.0.2'], extraProxies: ['10.0.0.0/8']);
+        self::assertSame('2001:db8::7', $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+
+        [$request] = $this->trusted(['X-Forwarded-For' => '[2001:db8::7]']);
+        self::assertSame('2001:db8::7', $request->context->clientIp);
+    }
+
+    public function testForwardedForIsAuthoritativeOverRealIp(): void
+    {
+        [$request, $response] = $this->trusted(['X-Forwarded-For' => '10.0.0.2', 'X-Real-Ip' => self::FORWARDED]);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('hop 10.0.0.2', (string) $response->getHeader(self::WARNING));
+    }
+
+    // --- single-valued headers ---
+
+    public function testRealIpPointingAtTrustedProxyIsIgnored(): void
+    {
+        [$request, $response] = $this->trusted(['X-Real-Ip' => '10.0.0.2'], extraProxies: ['10.0.0.0/8']);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('10.0.0.2 is a trusted proxy', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testPrivateRealIpIsIgnored(): void
+    {
+        [$request, $response] = $this->trusted(['X-Real-Ip' => '192.168.1.20']);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('192.168.1.20 is not a public address', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testMalformedRealIpIsIgnored(): void
+    {
+        [$request, $response] = $this->trusted(['X-Real-Ip' => 'nope', 'Client-Ip' => self::FORWARDED]);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp, 'only the first present single-value header is evaluated');
+        self::assertStringContainsString('X-Real-Ip ignored: malformed value', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testRealIpWithPortIsAccepted(): void
+    {
+        [$request, $response] = $this->trusted(['X-Real-Ip' => self::FORWARDED . ':8443']);
+
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
     }
 
     public function testFingerprintIsStableAcrossHeaderValueOrder(): void
@@ -136,6 +256,16 @@ final class WhoIsMiddlewareTest extends TestCase
         });
 
         self::assertTrue($called);
+    }
+
+    /**
+     * Runs the middleware with REMOTE trusted as a proxy.
+     *
+     * @return array{Request, Response}
+     */
+    private function trusted(array $headers, array $extraProxies = []): array
+    {
+        return $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE, ...$extraProxies]), $headers);
     }
 
     private function process(DetectionConfig $config, array $headers, array $server = []): Request
