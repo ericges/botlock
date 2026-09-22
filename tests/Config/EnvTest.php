@@ -59,11 +59,17 @@ final class EnvTest extends TestCase
         \putenv('BOTLOCK_' . self::NAME . '=');
         self::assertSame([], Env::list(self::NAME), 'explicitly empty differs from unset');
 
-        \putenv('BOTLOCK_' . self::NAME . '=[not json]');
-        self::assertSame([], Env::list(self::NAME), 'bracketed but invalid JSON yields an empty list');
-
         \putenv('BOTLOCK_' . self::NAME . '=[not-a-list');
         self::assertSame(['[not-a-list'], Env::list(self::NAME), 'without a closing bracket it is plain CSV');
+    }
+
+    public function testListRejectsInvalidJsonLoudly(): void
+    {
+        \putenv('BOTLOCK_' . self::NAME . '=[not json]');
+
+        $this->expectException(\JsonException::class);
+
+        Env::list(self::NAME);
     }
 
     public function testIntFallsBackForNonNumeric(): void
