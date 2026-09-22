@@ -3,3 +3,6 @@ vendor/
 remote/
 txt/
 botlock*.phar
+.ddev
+!.ddev/config.yaml
+!.ddev/php/php-phar.ini
