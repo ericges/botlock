@@ -2,11 +2,12 @@
 
 namespace GES\Botlock\Manager;
 
+use GES\Botlock\Config\DetectionConfig;
 use GES\Botlock\Http\Request;
 
 readonly class WhitelistManager
 {
-    public function __construct(private ConfigManager $config) {}
+    public function __construct(private DetectionConfig $config) {}
 
     public function isRequestWhitelisted(Request $request): bool
     {
@@ -28,14 +29,14 @@ readonly class WhitelistManager
 
     public function isIpIgnored(string $ip): bool
     {
-        $ignoreIps = $this->config->getIgnoreIps();
+        $ignoreIps = $this->config->ignoreIps;
 
         return $ip && $ignoreIps && \in_array($ip, $ignoreIps);
     }
 
     public function isUserAgentIgnored(string $userAgent): bool
     {
-        if (!$ignoreUserAgents = $this->config->getIgnoreUserAgents()) {
+        if (!$ignoreUserAgents = $this->config->ignoreUserAgents) {
             return false;
         }
 
@@ -55,7 +56,7 @@ readonly class WhitelistManager
 
     public function isUrlIgnored(string $url): bool
     {
-        if (!$ignoreUrls = $this->config->getIgnoreUrls()) {
+        if (!$ignoreUrls = $this->config->ignoreUrls) {
             return false;
         }
 

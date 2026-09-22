@@ -2,6 +2,7 @@
 
 namespace GES\Botlock\Manager;
 
+use GES\Botlock\Config\RateLimitConfig;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Threat\ThreatStateStore;
 
@@ -30,7 +31,7 @@ class ThreatAwarenessManager
     private array $cachedIndividualRates = [];
 
     public function __construct(
-        private readonly ConfigManager    $config,
+        private readonly RateLimitConfig $config,
         private readonly ThreatStateStore $store,
     ) {}
 
@@ -43,7 +44,7 @@ class ThreatAwarenessManager
             return;
         }
 
-        if ($this->config->isGlobalRateLimitEnabled()) {
+        if ($this->config->enableGlobalRateLimit) {
             $this->incrementGlobalBucket();
         }
 
@@ -51,10 +52,10 @@ class ThreatAwarenessManager
             return;
         }
 
-        if ($this->config->isIndividualRateLimitEnabled())
+        if ($this->config->enableIndividualRateLimit)
         {
             $now = \time();
-            $this->store->recordIndividual($fingerprint, $now, $now - $this->config->getIndividualRateWindowSec());
+            $this->store->recordIndividual($fingerprint, $now, $now - $this->config->individualRateWindowSec);
             $this->maybeCollectGarbage($now);
         }
     }
@@ -92,7 +93,7 @@ class ThreatAwarenessManager
             return $this->cachedIndividualRates[$fingerprint];
         }
 
-        $windowStart = \time() - $this->config->getIndividualRateWindowSec();
+        $windowStart = \time() - $this->config->individualRateWindowSec;
         $rate = $this->store->countIndividual($fingerprint, $windowStart) ?? 0;
 
         return $this->cachedIndividualRates[$fingerprint] = $rate;
@@ -116,9 +117,9 @@ class ThreatAwarenessManager
         $rate = $this->getIndividualRate($fingerprint);
 
         $level = match (true) {
-            $rate >= $this->config->getLevel3ThresholdIndividual() => 3,
-            $rate >= $this->config->getLevel2ThresholdIndividual() => 2,
-            $rate >= $this->config->getLevel1ThresholdIndividual() => 1,
+            $rate >= $this->config->level3ThresholdIndividual => 3,
+            $rate >= $this->config->level2ThresholdIndividual => 2,
+            $rate >= $this->config->level1ThresholdIndividual => 1,
             default => 0,
         };
 
@@ -180,9 +181,9 @@ class ThreatAwarenessManager
         }
 
         $newLevel = match (true) {
-            $score >= $this->config->getLevel3ThresholdGlobal() => 3,
-            $score >= $this->config->getLevel2ThresholdGlobal() => 2,
-            $score >= $this->config->getLevel1ThresholdGlobal() => 1,
+            $score >= $this->config->level3ThresholdGlobal => 3,
+            $score >= $this->config->level2ThresholdGlobal => 2,
+            $score >= $this->config->level1ThresholdGlobal => 1,
             default => 0,
         };
 
@@ -190,7 +191,7 @@ class ThreatAwarenessManager
         $lastChanged = (int) ($state['level_last_changed'] ?? 0);
 
         // Hold a raised level for the grace period before letting it decay.
-        if ($newLevel < $oldLevel && (\time() - $lastChanged) <= $this->config->getLevelDecayGracePeriod()) {
+        if ($newLevel < $oldLevel && (\time() - $lastChanged) <= $this->config->levelDecayGracePeriod) {
             $newLevel = $oldLevel;
         }
 
@@ -203,12 +204,12 @@ class ThreatAwarenessManager
      */
     private function maybeCollectGarbage(int $now): void
     {
-        $probability = $this->config->getGcProbability();
+        $probability = $this->config->gcProbability;
 
         if ($probability <= 0 || \random_int(1, $probability) !== 1) {
             return;
         }
 
-        $this->store->collectGarbage($now - $this->config->getIndividualRateWindowSec());
+        $this->store->collectGarbage($now - $this->config->individualRateWindowSec);
     }
 }

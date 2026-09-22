@@ -2,6 +2,7 @@
 
 namespace GES\Botlock\Manager;
 
+use GES\Botlock\Config\DetectionConfig;
 use Jaybizzle\CrawlerDetect\CrawlerDetect;
 
 class BotTestManager
@@ -9,7 +10,7 @@ class BotTestManager
     private bool $isCrawler;
     private ?string $crawlerMatch = null;
 
-    public function __construct(private readonly ConfigManager $config) {}
+    public function __construct(private readonly DetectionConfig $config) {}
 
     public function isCrawler(): bool
     {
@@ -33,7 +34,7 @@ class BotTestManager
         $match = \strtolower($this->crawlerMatch ?? '');
         $goodBots = \array_map(
             static fn($bot): string => \trim(\strtolower((string) $bot)),
-            $this->config->getGoodBots(),
+            $this->config->goodBots,
         );
 
         return $match && \array_filter($goodBots, static fn($bot): bool => \str_contains($match, $bot));

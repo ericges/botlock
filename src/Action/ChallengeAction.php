@@ -8,7 +8,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\JsonResponse;
 use GES\Botlock\Manager\BotTestManager;
-use GES\Botlock\Manager\ConfigManager;
+use GES\Botlock\Config\ProofOfWorkConfig;
 
 /**
  * GET ?_botlock=challenge — issues a proof-of-work challenge bound to the
@@ -20,7 +20,7 @@ final readonly class ChallengeAction implements ActionHandlerInterface
 
     public function __construct(
         private BotTestManager $detective,
-        private ConfigManager  $config,
+        private ProofOfWorkConfig $config,
     ) {}
 
     /**

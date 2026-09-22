@@ -8,7 +8,10 @@ use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\PassResponse;
 use GES\Botlock\Config\KernelConfig;
 use GES\Botlock\Manager\BotTestManager;
-use GES\Botlock\Manager\ConfigManager;
+use GES\Botlock\Config\DetectionConfig;
+use GES\Botlock\Config\ProofOfWorkConfig;
+use GES\Botlock\Config\RateLimitConfig;
+use GES\Botlock\Config\SecretProvider;
 use GES\Botlock\Manager\ThreatAwarenessManager;
 use GES\Botlock\Manager\WhitelistManager;
 use GES\Botlock\Threat\FileThreatStateStore;
@@ -35,13 +38,17 @@ readonly class Kernel
 
         try
         {
-            $config = new ConfigManager($kernelConfig);
-            $botDetect = new BotTestManager($config);
-            $whitelist = new WhitelistManager($config);
-            $store = new FileThreatStateStore($kernelConfig->stateDir, $kernelConfig->instanceId);
-            $rateLimiter = new ThreatAwarenessManager($config, $store);
+            $secret = (new SecretProvider($kernelConfig->stateDir, $kernelConfig->instanceId))->get();
+            $pow = ProofOfWorkConfig::fromEnv($secret);
+            $detection = DetectionConfig::fromEnv();
+            $rate = RateLimitConfig::fromEnv();
 
-            return new static($botlockRoot, $botDetect, $config, $rateLimiter, $whitelist);
+            $botDetect = new BotTestManager($detection);
+            $whitelist = new WhitelistManager($detection);
+            $store = new FileThreatStateStore($kernelConfig->stateDir, $kernelConfig->instanceId);
+            $rateLimiter = new ThreatAwarenessManager($rate, $store);
+
+            return new static($botlockRoot, $botDetect, $pow, $detection, $rate, $rateLimiter, $whitelist);
         }
         catch (\Throwable $th)
         {
@@ -62,13 +69,15 @@ readonly class Kernel
      */
     public static function passThrough(string $botlockRoot, string $reason): static
     {
-        return new static($botlockRoot, null, null, null, null, $reason);
+        return new static($botlockRoot, null, null, null, null, null, null, $reason);
     }
 
     public function __construct(
         private string                  $botlockRoot,
         private ?BotTestManager         $detective,
-        private ?ConfigManager          $config,
+        private ?ProofOfWorkConfig      $pow,
+        private ?DetectionConfig        $detection,
+        private ?RateLimitConfig        $rate,
         private ?ThreatAwarenessManager $rateLimiter,
         private ?WhitelistManager       $whitelist,
         private ?string                 $bootError = null,
@@ -76,7 +85,7 @@ readonly class Kernel
 
     public function handleRequest(Request $request): void
     {
-        if ($this->bootError !== null || !$this->config) {
+        if ($this->bootError !== null || !$this->pow || !$this->detection || !$this->rate) {
             \header('Botlock-Error: ' . \strtr($this->bootError ?? 'Kernel not booted', ["\r" => ' ', "\n" => ' ']));
             return;
         }
@@ -85,15 +94,15 @@ readonly class Kernel
 
         $middleware
             ->add(new ErrorMiddleware)
-            ->add(new WhoIsMiddleware($this->config))
+            ->add(new WhoIsMiddleware($this->detection))
             ->add(new IgnoreListMiddleware($this->whitelist))
-            ->add(new ThreatEvaluationMiddleware($this->config, $this->rateLimiter))
-            ->add(new VerifyCrawlerMiddleware($this->detective, $this->config))
+            ->add(new ThreatEvaluationMiddleware($this->rate, $this->rateLimiter))
+            ->add(new VerifyCrawlerMiddleware($this->detective, $this->detection))
             ->add(new ThreatPassMiddleware($this->detective))
-            ->add(new SessionMiddleware($this->config))
+            ->add(new SessionMiddleware($this->pow))
             ->add(new ActionMiddleware([
-                'GET challenge' => new ChallengeAction($this->detective, $this->config),
-                'POST verify' => new VerifyAction($this->config),
+                'GET challenge' => new ChallengeAction($this->detective, $this->pow),
+                'POST verify' => new VerifyAction($this->pow),
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),
             ]))

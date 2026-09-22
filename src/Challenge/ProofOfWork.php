@@ -2,14 +2,14 @@
 
 namespace GES\Botlock\Challenge;
 
-use GES\Botlock\Manager\ConfigManager;
+use GES\Botlock\Config\ProofOfWorkConfig;
 use function GES\Botlock\randStr;
 
 class ProofOfWork
 {
     private float $difficulty = 1;
 
-    public function __construct(private readonly ConfigManager $config) {}
+    public function __construct(private readonly ProofOfWorkConfig $config) {}
 
     public function setDifficulty(float $difficulty): static
     {
@@ -30,16 +30,16 @@ class ProofOfWork
     public function create(string $subject): array
     {
         $factor = $this->getDifficulty();
-        $max = \floor($this->config->getMaxNumber() * $factor);
+        $max = \floor($this->config->maxNumber * $factor);
         $max = \max(100, $max);   // >= 100
         $min = \floor($max / 10);  // 10% of max, >= 10
 
         $number = \random_int($min, $max);
         $salt = randStr(15);
-        $expire = $this->config->getExpire();
-        $expire = $expire > 0 ? time() + $this->config->getExpire() : 0;
+        $expire = $this->config->expire;
+        $expire = $expire > 0 ? time() + $this->config->expire : 0;
 
-        $powAlgorithm = $this->config->getPowAlgorithm();
+        $powAlgorithm = $this->config->algorithm;
 
         if (!$target = $this->hashTarget($powAlgorithm, $number, $salt, $expire)) {
             throw new \RuntimeException('Failed to create challenge');
@@ -81,7 +81,7 @@ class ProofOfWork
             return false;
         }
 
-        if ($algorithm !== $this->config->getPowAlgorithm()) {
+        if ($algorithm !== $this->config->algorithm) {
             return false;
         }
 
@@ -99,12 +99,12 @@ class ProofOfWork
 
     private function sign(string $target, string $subject): string
     {
-        return \hash_hmac('sha384', $subject . "\0" . $target, $this->config->getSecret());
+        return \hash_hmac('sha384', $subject . "\0" . $target, $this->config->secret);
     }
 
     private function hashTarget(string $algorithm, int $number, string $salt, int $expire): ?string
     {
-        if (!\in_array($algorithm, ConfigManager::POW_ALLOWED_ALGORITHMS)) {
+        if (!\in_array($algorithm, ProofOfWorkConfig::ALLOWED_ALGORITHMS)) {
             return null;
         }
 

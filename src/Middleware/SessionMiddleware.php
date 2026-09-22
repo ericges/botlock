@@ -2,7 +2,7 @@
 
 namespace GES\Botlock\Middleware;
 
-use GES\Botlock\Manager\ConfigManager;
+use GES\Botlock\Config\ProofOfWorkConfig;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
@@ -10,7 +10,7 @@ use GES\Botlock\Http\Session;
 
 readonly class SessionMiddleware implements MiddlewareInterface
 {
-    public function __construct(private ConfigManager $config) {}
+    public function __construct(private ProofOfWorkConfig $config) {}
 
     /** {@inheritDoc} */
     public function process(Request $request, callable $next): Response
@@ -20,8 +20,8 @@ readonly class SessionMiddleware implements MiddlewareInterface
         }
 
         $session = new Session(
-            secret: $this->config->getSecret(),
-            ttl: $this->config->getExpire(),
+            secret: $this->config->secret,
+            ttl: $this->config->expire,
             sub: $sub,
             origin: $request->getOrigin(),
             host: (string) $request->getHost(),

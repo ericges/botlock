@@ -3,7 +3,7 @@
 namespace GES\Botlock\Middleware;
 
 use GES\Botlock\Manager\BotTestManager;
-use GES\Botlock\Manager\ConfigManager;
+use GES\Botlock\Config\DetectionConfig;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
@@ -13,17 +13,17 @@ readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
 {
     public function __construct(
         private BotTestManager $detective,
-        private ConfigManager  $config,
+        private DetectionConfig $config,
     ) {}
 
     public function process(Request $request, callable $next): Response
     {
-        if (!$this->detective->isCrawler() || !$this->config->getDnsChecks()) {
+        if (!$this->detective->isCrawler() || !$this->config->dnsChecks) {
             return $next($request);
         }
 
         $ip = $request->context->clientIp;
-        $verifyBots = $this->config->getVerifyBots();
+        $verifyBots = $this->config->verifyBots;
         $userAgent = $request->getHeader('User-Agent');
 
         if (!$ip || !$userAgent || !$verifyBots) {

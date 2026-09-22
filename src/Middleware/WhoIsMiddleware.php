@@ -2,21 +2,21 @@
 
 namespace GES\Botlock\Middleware;
 
-use GES\Botlock\Manager\ConfigManager;
+use GES\Botlock\Config\DetectionConfig;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 
 readonly class WhoIsMiddleware implements MiddlewareInterface
 {
-    public function __construct(private ConfigManager $config) {}
+    public function __construct(private DetectionConfig $config) {}
 
     /**
      * @throws \Exception
      */
     public function process(Request $request, callable $next): Response
     {
-        if ($ip = $this->getReliableClientIp($request, $this->config->getTrustedProxies())) {
+        if ($ip = $this->getReliableClientIp($request, $this->config->trustedProxies)) {
             $request->context->clientIp = $ip;
         }
 

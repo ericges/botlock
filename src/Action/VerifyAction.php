@@ -7,7 +7,7 @@ use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\JsonResponse;
-use GES\Botlock\Manager\ConfigManager;
+use GES\Botlock\Config\ProofOfWorkConfig;
 
 /**
  * POST ?_botlock=verify — checks a submitted proof-of-work solution against
@@ -15,7 +15,7 @@ use GES\Botlock\Manager\ConfigManager;
  */
 final readonly class VerifyAction implements ActionHandlerInterface
 {
-    public function __construct(private ConfigManager $config) {}
+    public function __construct(private ProofOfWorkConfig $config) {}
 
     /**
      * @throws JsonResponseException
