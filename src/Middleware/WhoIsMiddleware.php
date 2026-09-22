@@ -122,7 +122,7 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
     {
         $reason = match (true) {
             $remoteAddr === null => 'remote address is not a valid IP',
-            empty($this->config->trustedProxies) => 'no trusted proxies configured (BOTLOCK_TRUSTED_PROXIES)',
+            empty($this->config->trustedProxies) => 'forwarding headers disabled (BOTLOCK_TRUSTED_PROXIES is empty)',
             default => "peer $remoteAddr is not a trusted proxy",
         };
 

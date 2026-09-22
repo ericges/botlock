@@ -22,7 +22,23 @@ final class WhoIsMiddlewareTest extends TestCase
 
         self::assertSame(self::REMOTE, $request->context->clientIp);
         self::assertStringContainsString('X-Forwarded-For', (string) $response->getHeader(self::WARNING));
-        self::assertStringContainsString('BOTLOCK_TRUSTED_PROXIES', (string) $response->getHeader(self::WARNING));
+        self::assertStringContainsString('BOTLOCK_TRUSTED_PROXIES is empty', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testPrivatePeerIsTrustedByDefault(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(), ['X-Forwarded-For' => self::FORWARDED], ['REMOTE_ADDR' => '172.18.0.5']);
+
+        self::assertSame(self::FORWARDED, $request->context->clientIp);
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testPublicPeerIsNotTrustedByDefault(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(), ['X-Forwarded-For' => self::FORWARDED]);
+
+        self::assertSame(self::REMOTE, $request->context->clientIp);
+        self::assertStringContainsString('peer ' . self::REMOTE, (string) $response->getHeader(self::WARNING));
     }
 
     public function testForwardedHeaderIsIgnoredFromUntrustedPeer(): void

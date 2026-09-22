@@ -112,21 +112,26 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_IGNORE_URLS` | Empty | List of absolute URL prefixes that bypass BOTLOCK. |
 | `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots. |
 | `BOTLOCK_VERIFY_BOTS` | `google` | Bot providers to verify using DNS. Currently only `google` is supported. Set an empty value or `[]` to disable provider verification. |
-| `BOTLOCK_TRUSTED_PROXIES` | Empty | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip` and `Client-Ip` headers. When empty, forwarding headers are ignored and the connecting address is used. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
+| `BOTLOCK_TRUSTED_PROXIES` | Loopback, private and link-local ranges | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip` and `Client-Ip` headers. Unset trusts peers in `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7` and `fe80::/10`. An empty value or `[]` disables forwarding headers entirely. An explicit list replaces the default. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
 | `BOTLOCK_DNS_CHECKS` | Enabled | Enables DNS verification for providers selected by `BOTLOCK_VERIFY_BOTS`. |
 
 #### Reverse proxies
 
-BOTLOCK rate-limits and fingerprints visitors by their IP address. Behind a reverse proxy, load balancer or CDN every request arrives from the proxy, and the real client address only travels in a forwarding header such as `X-Forwarded-For`. Any client can send such a header, so BOTLOCK only reads it when the directly connected peer is listed in `BOTLOCK_TRUSTED_PROXIES`, either as a single address or as a CIDR range:
+BOTLOCK rate-limits and fingerprints visitors by their IP address. Behind a reverse proxy, load balancer or CDN every request arrives from the proxy, and the real client address only travels in a forwarding header such as `X-Forwarded-For`. Any client can send such a header, so BOTLOCK only reads it when the directly connected peer is a trusted proxy.
+
+By default, peers on loopback, private (RFC 1918), link-local and IPv6 unique-local addresses are trusted, which covers the usual same-host or same-network reverse proxy, Docker or Kubernetes ingress and cloud load balancers inside a VPC. A proxy with a public address, such as a CDN, must be listed explicitly. Setting `BOTLOCK_TRUSTED_PROXIES` replaces the default list; single addresses and CIDR ranges may be mixed:
 
 ```
 BOTLOCK_TRUSTED_PROXIES=10.0.0.5
 BOTLOCK_TRUSTED_PROXIES=10.0.0.0/8,2001:db8::/32
+BOTLOCK_TRUSTED_PROXIES=
 ```
 
-When a forwarding header is present but the peer is not trusted, the header is ignored and the response carries a `Botlock-Warning` header naming the ignored header and the reason, for example `forwarding header X-Forwarded-For ignored: no trusted proxies configured (BOTLOCK_TRUSTED_PROXIES)`. Check it with `curl -sI -H 'X-Forwarded-For: 198.51.100.7' https://your-site/ | grep Botlock` after deploying behind a proxy.
+The last form (an empty value or `[]`) disables forwarding headers entirely. Consider it when other machines on your private network can reach the application directly and bypass the proxy, because such a peer could spoof `X-Forwarded-For`.
 
-> **Breaking change:** earlier releases trusted forwarding headers from every source when `BOTLOCK_TRUSTED_PROXIES` was empty. Installations behind a reverse proxy must now set the variable, otherwise all visitors share the proxy address and are rate-limited together.
+When a forwarding header is present but the peer is not trusted, the header is ignored and the response carries a `Botlock-Warning` header naming the ignored header and the reason, for example `forwarding header X-Forwarded-For ignored: peer 203.0.113.10 is not a trusted proxy`. Check it with `curl -sI -H 'X-Forwarded-For: 198.51.100.7' https://your-site/ | grep Botlock` after deploying behind a proxy.
+
+> **Breaking change:** earlier releases trusted forwarding headers from every source when `BOTLOCK_TRUSTED_PROXIES` was unset. Installations behind a proxy with a public address must now list it, otherwise all visitors share the proxy address and are rate-limited together.
 
 ### Threat and rate-limit settings
 
