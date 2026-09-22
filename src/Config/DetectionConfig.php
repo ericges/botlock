@@ -2,6 +2,8 @@
 
 namespace GES\Botlock\Config;
 
+use GES\Botlock\Http\IpMatcher;
+
 /**
  * Who to trust and who to leave alone: exclusions, good-bot names,
  * DNS verification and proxy trust.
@@ -16,13 +18,31 @@ final readonly class DetectionConfig
     ];
 
     /**
+     * Peers trusted to supply forwarding headers when BOTLOCK_TRUSTED_PROXIES is unset:
+     * loopback, RFC 1918 private, link-local and IPv6 unique-local ranges (the same
+     * list Symfony and Laravel trust by default).
+     */
+    public const DEFAULT_TRUSTED_PROXIES = [
+        '127.0.0.0/8',
+        '10.0.0.0/8',
+        '172.16.0.0/12',
+        '192.168.0.0/16',
+        '169.254.0.0/16',
+        '::1/128',
+        'fc00::/7',
+        'fe80::/10',
+    ];
+
+    /**
      * @param string[]                $ignoreIps        Exact client IPs that bypass botlock
      * @param string[]                $ignoreUserAgents User-Agent substrings that bypass botlock (case-insensitive)
      * @param string[]                $ignoreUrls       Absolute URL prefixes that bypass botlock
      * @param string[]                $goodBots         CrawlerDetect names treated as good bots
      * @param array<string,string[]>  $verifyBots       Subset of VERIFIABLE_BOTS to verify via DNS
-     * @param string[]                $trustedProxies   Proxy IPs whose forwarding headers are trusted; empty trusts all
+     * @param string[]                $trustedProxies   Proxy IPs or CIDR ranges whose forwarding headers are trusted; empty trusts none, unset env uses DEFAULT_TRUSTED_PROXIES
      * @param bool                    $dnsChecks        Master switch for DNS verification
+     *
+     * @throws \InvalidArgumentException on a malformed trusted proxy entry
      */
     public function __construct(
         public array $ignoreIps = [],
@@ -30,10 +50,20 @@ final readonly class DetectionConfig
         public array $ignoreUrls = [],
         public array $goodBots = self::DEFAULT_GOOD_BOTS,
         public array $verifyBots = self::VERIFIABLE_BOTS,
-        public array $trustedProxies = [],
+        public array $trustedProxies = self::DEFAULT_TRUSTED_PROXIES,
         public bool  $dnsChecks = true,
-    ) {}
+    ) {
+        foreach ($this->trustedProxies as $proxy) {
+            if (!\is_string($proxy) || !IpMatcher::isValidRule($proxy)) {
+                throw new \InvalidArgumentException('Invalid entry in BOTLOCK_TRUSTED_PROXIES: ' . \var_export($proxy, true));
+            }
+        }
+    }
 
+    /**
+     * @throws \InvalidArgumentException on a malformed BOTLOCK_TRUSTED_PROXIES entry
+     * @throws \JsonException on a malformed JSON list value
+     */
     public static function fromEnv(): self
     {
         return new self(
@@ -42,7 +72,7 @@ final readonly class DetectionConfig
             ignoreUrls: self::cleanList(Env::list('IGNORE_URLS')),
             goodBots: self::cleanList(Env::list('GOOD_BOTS')) ?: self::DEFAULT_GOOD_BOTS,
             verifyBots: self::resolveVerifyBots(Env::list('VERIFY_BOTS')),
-            trustedProxies: self::cleanList(Env::list('TRUSTED_PROXIES')),
+            trustedProxies: self::resolveTrustedProxies(Env::list('TRUSTED_PROXIES')),
             dnsChecks: (bool) Env::bool('DNS_CHECKS', true),
         );
     }
@@ -68,6 +98,19 @@ final readonly class DetectionConfig
         }
 
         return $result;
+    }
+
+    /**
+     * @param string[]|null $entries from the environment; null means "not configured"
+     * @return string[] unset falls back to DEFAULT_TRUSTED_PROXIES, an empty value trusts nobody
+     */
+    private static function resolveTrustedProxies(?array $entries): array
+    {
+        if ($entries === null) {
+            return self::DEFAULT_TRUSTED_PROXIES;
+        }
+
+        return self::cleanList($entries);
     }
 
     /**
