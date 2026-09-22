@@ -17,14 +17,14 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
     public function process(Request $request, callable $next): Response
     {
         if ($ip = $this->getReliableClientIp($request, $this->config->getTrustedProxies())) {
-            $request->bind('clientIp', $ip);
+            $request->context->clientIp = $ip;
         }
 
         if (!$fingerprint = $this->fingerprint($request)) {
             throw new \Exception('Cannot create fingerprint');
         }
 
-        $request->bind('fingerprint', $fingerprint);
+        $request->context->fingerprint = $fingerprint;
 
         return $next($request);
     }
@@ -121,7 +121,7 @@ readonly class WhoIsMiddleware implements MiddlewareInterface
         $payloadParts = [];
 
         // --- IP ADDRESSES ---
-        $ip = $request->clientIp ?? $request->getServerParam('REMOTE_ADDR', '');
+        $ip = $request->context->clientIp ?? $request->getServerParam('REMOTE_ADDR', '');
         if (\filter_var($ip, \FILTER_VALIDATE_IP)) {
             $payloadParts[] = 'ip=' . $ip;
         }

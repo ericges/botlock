@@ -21,11 +21,11 @@ readonly class WhitelistMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        if ($request->threatLevel === 0) {
+        if ($request->context->threatLevel === 0) {
             return new Response\PassResponse;
         }
 
-        if (\is_int($request->threatLevelIndividual) && $request->threatLevelIndividual < 2 && $this->detective->isGoodBot()) {
+        if (\is_int($request->context->threatLevelIndividual) && $request->context->threatLevelIndividual < 2 && $this->detective->isGoodBot()) {
             return new Response\PassResponse;
         }
 

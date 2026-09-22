@@ -2,21 +2,12 @@
 
 namespace GES\Botlock\Http;
 
-/**
- * @property int     $threatLevel
- * @property int     $threatLevelGlobal
- * @property int     $threatLevelIndividual
- * @property int     $individualRate
- * @property string  $clientIp
- * @property string  $fingerprint
- * @property Session $session
- */
 class Request
 {
     private readonly string $method;
     private readonly array $urlParts;
     private readonly array $normalizedHeaders;
-    private array $bindings = [];
+    public readonly RequestContext $context;
 
     public function __construct(
         string                  $method,
@@ -35,6 +26,7 @@ class Request
 
         $this->method = \strtoupper(\trim($method));
         $this->urlParts = $urlParts;
+        $this->context = new RequestContext();
 
         $normalizedHeaders = [];
         foreach ($this->rawHeaders as $name => $value) {
@@ -242,17 +234,5 @@ class Request
     public function getUrlWithoutParameters(): ?string
     {
         return $this->getAbsoluteUrl($this->urlParts['path'] ?? '');
-    }
-
-    public function bind(string $name, mixed $value): static
-    {
-        $this->bindings[$name] = $value;
-
-        return $this;
-    }
-
-    public function __get(string $name): mixed
-    {
-        return $this->bindings[$name] ?? null;
     }
 }

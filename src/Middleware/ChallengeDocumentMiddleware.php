@@ -13,12 +13,12 @@ readonly class ChallengeDocumentMiddleware implements MiddlewareInterface
 
     public function process(Request $request, callable $next): Response
     {
-        if ($request->session->get('grant', false))
+        if ($request->context->session->get('grant', false))
         {
             return $next($request);
         }
 
-        $request->session->commit();
+        $request->context->session->commit();
 
         return new HtmlFileResponse($this->projectRoot . '/assets/challenge.html', 401);
     }

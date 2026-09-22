@@ -54,11 +54,11 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
             $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
         }
 
-        $data = $pow->create($request->fingerprint);
+        $data = $pow->create($request->context->fingerprint);
         $data['auto_start'] = $goodActor;
 
-        $request->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
-        $request->session->commit();
+        $request->context->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
+        $request->context->session->commit();
 
         return new Response\JsonResponse(200, $data);
     }
@@ -68,7 +68,7 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
      */
     public function handlePostChallengeRequest(Request $request): Response
     {
-        if (!$nonceHash = $request->session->get('nh')) {
+        if (!$nonceHash = $request->context->session->get('nh')) {
             throw new JsonResponseException('Invalid session data', 400);
         }
 
@@ -85,11 +85,11 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
         $statusCode = 401;
 
         $challenge = new ProofOfWork($this->config);
-        if ($ok = $challenge->verify($data, $request->fingerprint))
+        if ($ok = $challenge->verify($data, $request->context->fingerprint))
         {
-            $request->session->set('grant', true);
-            $request->session->remove('nh');
-            $request->session->commit();
+            $request->context->session->set('grant', true);
+            $request->context->session->remove('nh');
+            $request->context->session->commit();
             $statusCode = 200;
         }
 
@@ -98,8 +98,8 @@ readonly class ProofOfWorkMiddleware implements MiddlewareInterface
 
     public function handleResetRequest(Request $request): Response
     {
-        $request->session->clear();
-        $request->session->commit();
+        $request->context->session->clear();
+        $request->context->session->commit();
 
         if (\is_string($location = $request->getPost('location'))
             && $location !== ''

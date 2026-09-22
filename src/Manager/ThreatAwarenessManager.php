@@ -116,7 +116,7 @@ class ThreatAwarenessManager
             $this->incrementGlobalBucket();
         }
 
-        if (!$fingerprint = $request->fingerprint) {
+        if (!$fingerprint = $request->context->fingerprint) {
             return;
         }
 

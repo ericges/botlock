@@ -2,46 +2,44 @@
 
 namespace GES\Botlock\Http;
 
-use GES\Botlock\Manager\ConfigManager;
 use GES\Botlock\JWT;
 
 class Session
 {
     public final const COOKIE_NAME = 'BOTLOCKSESS';
 
-    private string $sub;
     private array $data = [];
     private bool $commit = false;
 
+    /**
+     * @param string      $secret    Secret used to sign the session JWT
+     * @param int         $ttl       Session lifetime in seconds
+     * @param string      $sub       Subject the session is bound to (client fingerprint)
+     * @param string      $origin    Request origin, used as JWT issuer
+     * @param string      $host      Request host, used for the legacy cookie removal
+     * @param bool        $secure    Whether the request is HTTPS (cookie Secure flag)
+     * @param string|null $cookieJwt Existing session cookie value, if any
+     */
     public function __construct(
-        private readonly ConfigManager $config,
-        private readonly Request       $request,
+        private readonly string $secret,
+        private readonly int    $ttl,
+        private readonly string $sub,
+        private readonly string $origin,
+        private readonly string $host,
+        private readonly bool   $secure,
+        ?string                 $cookieJwt = null,
     ) {
-        if (!$sub = $this->request->fingerprint)
-        {
-            throw new \RuntimeException('Invalid request');
+        if ($this->sub === '') {
+            throw new \InvalidArgumentException('Session subject must not be empty');
         }
 
-        if ($this->request->hasCookie(self::COOKIE_NAME))
+        if ($cookieJwt !== null && $cookieJwt !== '')
         {
-            $payload = JWT::tryGetPayload(
-                $this->request->getCookie(self::COOKIE_NAME),
-                $this->config->getSecret(),
-                $sub,
-                $this->request->getOrigin(),
-            );
+            $payload = JWT::tryGetPayload($cookieJwt, $this->secret, $this->sub, $this->origin);
 
-            if ($payload)
-            {
-                $this->sub = $sub;
-                $this->data = $payload['data'] ?? [];
+            if ($payload) {
+                $this->data = \is_array($payload['data'] ?? null) ? $payload['data'] : [];
             }
-        }
-
-        if (!isset($this->sub))
-        {
-            $this->sub = $sub;
-            $this->data = [];
         }
     }
 
@@ -98,9 +96,9 @@ class Session
 
         $jwt = JWT::create(
             payload: $payload,
-            secret: $this->config->getSecret(),
-            issuer: $this->request->getOrigin(),
-            ttl: $this->config->getExpire(),
+            secret: $this->secret,
+            issuer: $this->origin,
+            ttl: $this->ttl,
         );
 
         return new Cookie(
@@ -109,7 +107,7 @@ class Session
             expires: 0,
             path: '/',
             domain: null,
-            secure: $this->request->isSecure(),
+            secure: $this->secure,
             httpOnly: true,
             sameSite: 'Strict',
         );
@@ -122,8 +120,8 @@ class Session
             value: '',
             expires: 1,
             path: '/',
-            domain: $this->request->getHost(),
-            secure: $this->request->isSecure(),
+            domain: $this->host,
+            secure: $this->secure,
             httpOnly: true,
             sameSite: 'Strict',
         );

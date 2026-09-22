@@ -22,7 +22,7 @@ readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        $ip = $request->clientIp;
+        $ip = $request->context->clientIp;
         $verifyBots = $this->config->getVerifyBots();
         $userAgent = $request->getHeader('User-Agent');
 
@@ -36,14 +36,14 @@ readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
         };
 
         $newThreatLevel = match ($verified) {
-            true => \max($request->threatLevel - 1, 0),  // reduce by 1
-            false => \max($request->threatLevel + 1, 2), // set to 2 or higher
+            true => \max(($request->context->threatLevel ?? 0) - 1, 0),  // reduce by 1
+            false => \max(($request->context->threatLevel ?? 0) + 1, 2), // set to 2 or higher
             default => null,
         };
 
         if (\is_int($newThreatLevel)) {
-            $request->bind('threatLevel', $newThreatLevel);
-            $request->bind('threatLevelIndividual', $newThreatLevel);
+            $request->context->threatLevel = $newThreatLevel;
+            $request->context->threatLevelIndividual = $newThreatLevel;
         }
 
         return $next($request);

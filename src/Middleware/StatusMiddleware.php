@@ -21,12 +21,12 @@ class StatusMiddleware implements MiddlewareInterface
     {
         $status = [
             'user_agent' => $request->getHeader('User-Agent'),
-            'subject' => $request->fingerprint,
-            'threat_level' => $request->threatLevel ?? null,
-            'threat_level_global' => $request->threatLevelGlobal ?? null,
-            'threat_level_individual' => $request->threatLevelIndividual ?? null,
-            'individual_rate' => $request->individualRate ?? null,
-            'passed' => $request->session?->get('grant') ?? null,
+            'subject' => $request->context->fingerprint,
+            'threat_level' => $request->context->threatLevel,
+            'threat_level_global' => $request->context->threatLevelGlobal,
+            'threat_level_individual' => $request->context->threatLevelIndividual,
+            'individual_rate' => $request->context->individualRate,
+            'passed' => $request->context->session?->get('grant'),
         ];
 
         return new Response\JsonResponse(200, $status);

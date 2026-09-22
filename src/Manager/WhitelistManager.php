@@ -10,7 +10,7 @@ readonly class WhitelistManager
 
     public function isRequestWhitelisted(Request $request): bool
     {
-        if ($request->clientIp && $this->isIpIgnored($request->clientIp)) {
+        if ($request->context->clientIp && $this->isIpIgnored($request->context->clientIp)) {
             return true;
         }
 

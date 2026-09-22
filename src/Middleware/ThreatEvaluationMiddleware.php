@@ -19,14 +19,14 @@ readonly class ThreatEvaluationMiddleware implements MiddlewareInterface
     {
         if (!\is_null($override = $this->config->getThreatLevelOverride()))
         {
-            $request->bind('threatLevel', $override);
+            $request->context->threatLevel = $override;
 
             return $next($request);
         }
 
         if (!$this->config->isRateLimitEnabled())
         {
-            $request->bind('threatLevel', 1);
+            $request->context->threatLevel = 1;
 
             return $next($request);
         }
@@ -36,24 +36,24 @@ readonly class ThreatEvaluationMiddleware implements MiddlewareInterface
         if ($this->config->isGlobalRateLimitEnabled())
         {
             $globalThreatLevel = $this->rateLimiter->getGlobalThreatLevel();
-            $request->bind('threatLevelGlobal', $globalThreatLevel);
+            $request->context->threatLevelGlobal = $globalThreatLevel;
         }
 
         if ($this->config->isIndividualRateLimitEnabled())
         {
-            if (!$fingerprint = $request->fingerprint) {
+            if (!$fingerprint = $request->context->fingerprint) {
                 throw new \RuntimeException('Fingerprint not set');
             }
 
             $individualRate = $this->rateLimiter->getIndividualRate($fingerprint);
-            $request->bind('individualRate', $individualRate);
+            $request->context->individualRate = $individualRate;
 
             $individualThreatLevel = $this->rateLimiter->getIndividualThreatLevel($fingerprint);
-            $request->bind('threatLevelIndividual', $individualThreatLevel);
+            $request->context->threatLevelIndividual = $individualThreatLevel;
         }
 
         $threatLevel = \max($globalThreatLevel ?? 0, $individualThreatLevel ?? 0);
-        $request->bind('threatLevel', $threatLevel);
+        $request->context->threatLevel = $threatLevel;
 
         return $next($request);
     }

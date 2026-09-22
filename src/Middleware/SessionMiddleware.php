@@ -6,7 +6,6 @@ use GES\Botlock\Manager\ConfigManager;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
-use GES\Botlock\JWT;
 use GES\Botlock\Http\Session;
 
 readonly class SessionMiddleware implements MiddlewareInterface
@@ -16,8 +15,21 @@ readonly class SessionMiddleware implements MiddlewareInterface
     /** {@inheritDoc} */
     public function process(Request $request, callable $next): Response
     {
-        $session = new Session($this->config, $request);
-        $request->bind('session', $session);
+        if (!$sub = $request->context->fingerprint) {
+            throw new \RuntimeException('Fingerprint not set');
+        }
+
+        $session = new Session(
+            secret: $this->config->getSecret(),
+            ttl: $this->config->getExpire(),
+            sub: $sub,
+            origin: $request->getOrigin(),
+            host: (string) $request->getHost(),
+            secure: $request->isSecure(),
+            cookieJwt: $request->getCookie(Session::COOKIE_NAME),
+        );
+
+        $request->context->session = $session;
 
         $response = $next($request);
 
