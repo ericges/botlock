@@ -54,6 +54,14 @@ final class RequestTest extends TestCase
             ['SERVER_NAME' => 'fallback.test', 'SERVER_PORT' => '80'],
             'http://fallback.test', 'fallback.test',
         ];
+        yield 'no SERVER_PORT' => [
+            ['HTTP_HOST' => 'example.test'],
+            'http://example.test', 'example.test',
+        ];
+        yield 'https without SERVER_PORT' => [
+            ['HTTPS' => 'on', 'HTTP_HOST' => 'example.test'],
+            'https://example.test', 'example.test',
+        ];
     }
 
     public function testBotlockActionIsMethodPlusSanitizedName(): void
