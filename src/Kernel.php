@@ -18,7 +18,8 @@ use GES\Botlock\Middleware\WhoIsMiddleware;
 use GES\Botlock\Middleware\ProofOfWorkMiddleware;
 use GES\Botlock\Middleware\ThreatEvaluationMiddleware;
 use GES\Botlock\Middleware\SessionMiddleware;
-use GES\Botlock\Middleware\WhitelistMiddleware;
+use GES\Botlock\Middleware\ThreatPassMiddleware;
+use GES\Botlock\Middleware\IgnoreListMiddleware;
 
 readonly class Kernel
 {
@@ -79,9 +80,10 @@ readonly class Kernel
         $middleware
             ->add(new ErrorMiddleware)
             ->add(new WhoIsMiddleware($this->config))
+            ->add(new IgnoreListMiddleware($this->whitelist))
             ->add(new ThreatEvaluationMiddleware($this->config, $this->rateLimiter))
             ->add(new VerifyCrawlerMiddleware($this->detective, $this->config))
-            ->add(new WhitelistMiddleware($this->detective, $this->whitelist))
+            ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->config))
             ->add(new StatusMiddleware())
             ->add(new ProofOfWorkMiddleware($this->detective, $this->config))

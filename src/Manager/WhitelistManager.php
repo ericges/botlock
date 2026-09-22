@@ -39,11 +39,13 @@ readonly class WhitelistManager
             return false;
         }
 
+        $userAgent = \strtolower($userAgent);
+
         foreach ($ignoreUserAgents as $ignoredUaStr)
         {
             $ignoredUaStr = \strtolower(\trim($ignoredUaStr));
 
-            if (\str_contains($userAgent, $ignoredUaStr)) {
+            if ($ignoredUaStr !== '' && \str_contains($userAgent, $ignoredUaStr)) {
                 return true;
             }
         }
