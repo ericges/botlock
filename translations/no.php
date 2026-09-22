@@ -1,0 +1,21 @@
+<?php declare(strict_types=1);
+
+// Norwegian challenge page strings. Keys must match TranslationLoader::KEYS.
+return [
+    'pageTitle' => 'Sikkerhetskontroll',
+    'mainHeading' => 'Vi kontrollerer at du er et menneske…',
+    'infoParagraph' => 'Vent mens vi utfører en rask sikkerhetskontroll. Dette bidrar til å beskytte tjenesten vår mot skadelige boter.',
+    'footerNote' => 'Denne kontrollen er automatisk og bør bare ta et øyeblikk.',
+    'confirmHeading' => 'Sikkerhetskontroll',
+    'confirmParagraph' => 'Bekreft at du ikke er en robot for å fortsette.',
+    'verifyButton' => 'Bekreft',
+    'errorHeading' => 'Verifiseringen mislyktes',
+    'errorMessage' => 'Vi kunne ikke verifisere forespørselen din nå. Dette kan være et midlertidig problem.',
+    'errorWidget' => 'Det oppstod en feil',
+    'errorFooter' => 'Prøv å laste inn siden på nytt, eller kontakt kundestøtte hvis problemet vedvarer.',
+    'successHeading' => 'Verifiseringen var vellykket',
+    'successMessage' => 'Takk. Du har bestått sikkerhetskontrollen.',
+    'successFooter' => 'Du blir videresendt om kort tid…',
+    'noscriptHeading' => 'JavaScript kreves for sikkerhetskontrollen.',
+    'noscriptText' => 'Aktiver JavaScript i nettleserinnstillingene, og last inn siden på nytt.',
+];

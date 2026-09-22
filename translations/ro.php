@@ -1,0 +1,21 @@
+<?php declare(strict_types=1);
+
+// Romanian challenge page strings. Keys must match TranslationLoader::KEYS.
+return [
+    'pageTitle' => 'Verificare de securitate',
+    'mainHeading' => 'Verificăm dacă sunteți o persoană…',
+    'infoParagraph' => 'Vă rugăm să așteptați cât timp efectuăm o verificare rapidă de securitate. Aceasta ne ajută să ne protejăm serviciul împotriva boților rău intenționați.',
+    'footerNote' => 'Această verificare este automată și ar trebui să dureze doar câteva momente.',
+    'confirmHeading' => 'Verificare de securitate',
+    'confirmParagraph' => 'Pentru a continua, vă rugăm să confirmați că nu sunteți robot.',
+    'verifyButton' => 'Verificați',
+    'errorHeading' => 'Verificare eșuată',
+    'errorMessage' => 'Nu am putut verifica solicitarea dvs. în acest moment. Este posibil să fie o problemă temporară.',
+    'errorWidget' => 'A apărut o eroare',
+    'errorFooter' => 'Încercați să reîmprospătați pagina sau contactați echipa de asistență dacă problema persistă.',
+    'successHeading' => 'Verificare reușită',
+    'successMessage' => 'Vă mulțumim. Ați trecut de verificarea de securitate.',
+    'successFooter' => 'Veți fi redirecționat în scurt timp…',
+    'noscriptHeading' => 'JavaScript este necesar pentru verificarea de securitate.',
+    'noscriptText' => 'Activați JavaScript în setările browserului și reîmprospătați pagina.',
+];

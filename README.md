@@ -81,7 +81,7 @@ Then, at the beginning of your PHP script, after requiring Composer's autoload f
     ->handleRequest(\GES\Botlock\Http\Request::fromGlobals());
 ```
 
-The argument to `boot()` is the directory that contains BOTLOCK's `assets/` folder, i.e. the package root.
+The argument to `boot()` is the package root, i.e. the directory that contains BOTLOCK's `templates/` and `translations/` folders.
 
 > [!NOTE]
 > Not prepending the script to all requests will prevent the script from blocking bad bots accessing static files (e.g. images, CSS, JS).
@@ -98,12 +98,16 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_ENABLED` | Disabled | Enables BOTLOCK. This must be enabled when using `bootstrap.php` or the PHAR as an `auto_prepend_file`. |
 | `BOTLOCK_FAIL_OPEN` | Disabled | When enabled, boot errors (for example an unwritable state directory) let the request through to your application with a `Botlock-Error` header instead of answering `500`. Disabled means BOTLOCK fails closed and blocks the request. |
 | `BOTLOCK_INSTANCE_ID` | MD5 hash of the source directory | Identifies this BOTLOCK instance and separates its secret and global rate-limit state from other instances using the same state directory. |
-| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret and rate-limit state files. |
+| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files and the cached challenge pages (`botlock_challenge_<instance-id>_<lang>_<version>.html`). |
 | `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated and stored as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. |
 | `BOTLOCK_POW_ALGORITHM` | `sha256` | Hash algorithm used for proof-of-work challenges. Allowed values are `sha256`, `sha384`, and `sha512`. |
 | `BOTLOCK_EXPIRE` | `3600` | Challenge and session lifetime in seconds. |
 | `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
 | `BOTLOCK_CRAWLER_FACTOR` | `15` | Multiplies proof-of-work difficulty for crawlers that are not listed as good bots. The effective minimum is `1`. |
+
+### Language
+
+The challenge page is served in the language negotiated from the browser's `Accept-Language` header: language ranges are ranked by their `q` value, matched on the primary subtag (`de-AT` selects `de`), and `nb`/`nn` map to `no`. When none of the shipped languages in `translations/` are acceptable, English is used. There is no setting for this. The response carries `Content-Language` and `Vary: Accept-Language`. Each language is rendered once and then served from a cached file in `BOTLOCK_STATE_DIR`; the cache refreshes itself when the template or a translation file changes.
 
 ### Bot detection, proxies, and exclusions
 
@@ -199,7 +203,9 @@ This serves the repository at `https://botlock.ddev.site` with Apache and PHP 8.
 | `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge`, `verify`, `reset` and `status`. |
 | `src/Config/` | Typed configuration objects, each with a `fromEnv()` factory reading `BOTLOCK_*` variables. |
 | `src/Manager/`, `src/Threat/`, `src/Challenge/` | Bot detection, rate-limit state and proof-of-work logic. |
-| `assets/challenge.html` | The browser challenge page. |
+| `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
+| `translations/` | One `<code>.php` file per language returning the challenge page strings. |
+| `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering and the rendered-page cache. |
 | `bootstrap.php` | The prepend entry point, also used as the PHAR stub. |
 | `build-phar.php` | Builds the release archive. |
 
@@ -208,7 +214,7 @@ This serves the repository at `https://botlock.ddev.site` with Apache and PHP 8.
 ```bash
 ddev composer test                          # PHPUnit
 ddev composer validate --no-check-publish   # Composer metadata
-ddev exec sh -c "find src -name '*.php' -print0 | xargs -0 -n1 php -l"
+ddev exec sh -c "find src tests templates translations -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
 Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory and `InMemoryThreatStateStore` from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.

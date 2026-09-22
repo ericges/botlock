@@ -2,14 +2,14 @@
 
 ## Project Structure & Module Organization
 
-Botlock is a PHP 8.2+ library distributed through Composer and as a PHAR. Production code lives in `src/` under the `GES\Botlock` PSR-4 namespace. Request processing is assembled in `src/Kernel.php`; middleware belongs in `src/Middleware/`, `?_botlock=` action handlers in `src/Action/`, HTTP abstractions in `src/Http/` (per-request state travels in `Http\RequestContext`), typed configuration objects in `src/Config/`, detection and threat services in `src/Manager/`, rate-limit persistence behind `Threat\ThreatStateStore` in `src/Threat/`, and proof-of-work logic in `src/Challenge/`. The browser challenge document is `assets/challenge.html`. `bootstrap.php` is the prepend entry point and PHAR stub, `index.php` is the local demonstration page, and `build-phar.php` creates the release artifact. The "Developers" section of `README.md` is the public counterpart of this file; keep the two in sync when commands or layout change.
+Botlock is a PHP 8.2+ library distributed through Composer and as a PHAR. Production code lives in `src/` under the `GES\Botlock` PSR-4 namespace. Request processing is assembled in `src/Kernel.php`; middleware belongs in `src/Middleware/`, `?_botlock=` action handlers in `src/Action/`, HTTP abstractions in `src/Http/` (per-request state travels in `Http\RequestContext`), typed configuration objects in `src/Config/`, detection and threat services in `src/Manager/`, rate-limit persistence behind `Threat\ThreatStateStore` in `src/Threat/`, and proof-of-work logic in `src/Challenge/`. The browser challenge document is the PHP template `templates/challenge.php`; its strings live in `translations/<code>.php`, are selected server-side by `I18n\LanguageNegotiator` from `Accept-Language`, and each language is rendered once and cached in the state directory by `Template\RenderedPageCache`. `bootstrap.php` is the prepend entry point and PHAR stub, `index.php` is the local demonstration page, and `build-phar.php` creates the release artifact. The "Developers" section of `README.md` is the public counterpart of this file; keep the two in sync when commands or layout change.
 
 ## Build, Test, and Development Commands
 
 - `ddev start` launches the Apache/PHP 8.3 development site at `https://botlock.ddev.site`. The checked-in `.htaccess` and `.user.ini` prepend `bootstrap.php`, enable BOTLOCK and pin `BOTLOCK_THREAT_LEVEL_OVERRIDE=2`, so every request is challenged. The host has no PHP binary; run PHP and Composer through `ddev`.
 - `ddev composer install` installs the locked dependency set and generates autoload files.
 - `ddev composer validate --no-check-publish` checks Composer metadata.
-- `ddev exec sh -c "find src -name '*.php' -print0 | xargs -0 -n1 php -l"` syntax-checks every source file.
+- `ddev exec sh -c "find src tests templates translations -name '*.php' -print0 | xargs -0 -n1 php -l"` syntax-checks every PHP file, including the template and translations.
 - `ddev exec php build-phar.php` builds `botlock.phar`; the container sets `phar.readonly=0` via `.ddev/php/php-phar.ini`. The archive is generated and must not be committed. Release archives are built by `.github/workflows/release-phar.yaml` when a GitHub release is created.
 
 ## Coding Style & Naming Conventions
@@ -22,4 +22,4 @@ Unit tests live in `tests/` (PHPUnit 11, namespace `GES\Botlock\Tests`, mirrorin
 
 ## Commit & Pull Request Guidelines
 
-Recent commits use short, lowercase imperative summaries such as `add botlock action handling` and `refactor crawler awareness`. Keep commits focused and avoid committing `vendor/`, `botlock.phar`, IDE files, or runtime state. Pull requests should explain behavior changes, list validation performed, link related issues, and include screenshots only when `assets/challenge.html` or the demo UI changes. Call out configuration or security implications for new `BOTLOCK_*` settings.
+Recent commits use short, lowercase imperative summaries such as `add botlock action handling` and `refactor crawler awareness`. Keep commits focused and avoid committing `vendor/`, `botlock.phar`, IDE files, or runtime state. Pull requests should explain behavior changes, list validation performed, link related issues, and include screenshots only when `templates/challenge.php`, `translations/` or the demo UI changes. Call out configuration or security implications for new `BOTLOCK_*` settings.

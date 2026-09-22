@@ -28,6 +28,10 @@ use GES\Botlock\Middleware\ThreatEvaluationMiddleware;
 use GES\Botlock\Middleware\SessionMiddleware;
 use GES\Botlock\Middleware\ThreatPassMiddleware;
 use GES\Botlock\Middleware\IgnoreListMiddleware;
+use GES\Botlock\I18n\LanguageNegotiator;
+use GES\Botlock\I18n\TranslationLoader;
+use GES\Botlock\Template\RenderedPageCache;
+use GES\Botlock\Template\TemplateRenderer;
 
 readonly class Kernel
 {
@@ -47,8 +51,9 @@ readonly class Kernel
             $whitelist = new WhitelistManager($detection);
             $store = new FileThreatStateStore($kernelConfig->stateDir, $kernelConfig->instanceId);
             $rateLimiter = new ThreatAwarenessManager($rate, $store);
+            $pageCache = new RenderedPageCache($kernelConfig->stateDir, $kernelConfig->instanceId);
 
-            return new static($botlockRoot, $botDetect, $pow, $detection, $rate, $rateLimiter, $whitelist);
+            return new static($botlockRoot, $botDetect, $pow, $detection, $rate, $rateLimiter, $whitelist, $pageCache);
         }
         catch (\Throwable $th)
         {
@@ -69,7 +74,7 @@ readonly class Kernel
      */
     public static function passThrough(string $botlockRoot, string $reason): static
     {
-        return new static($botlockRoot, null, null, null, null, null, null, $reason);
+        return new static($botlockRoot, null, null, null, null, null, null, null, $reason);
     }
 
     public function __construct(
@@ -80,16 +85,18 @@ readonly class Kernel
         private ?RateLimitConfig        $rate,
         private ?ThreatAwarenessManager $rateLimiter,
         private ?WhitelistManager       $whitelist,
+        private ?RenderedPageCache      $pageCache,
         private ?string                 $bootError = null,
     ) {}
 
     public function handleRequest(Request $request): void
     {
-        if ($this->bootError !== null || !$this->pow || !$this->detection || !$this->rate) {
+        if ($this->bootError !== null || !$this->pow || !$this->detection || !$this->rate || !$this->pageCache) {
             \header('Botlock-Error: ' . \strtr($this->bootError ?? 'Kernel not booted', ["\r" => ' ', "\n" => ' ']));
             return;
         }
 
+        $translations = new TranslationLoader($this->botlockRoot . '/translations');
         $middleware = new MiddlewareDispatcher();
 
         $middleware
@@ -106,7 +113,13 @@ readonly class Kernel
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),
             ]))
-            ->add(new ChallengeDocumentMiddleware($this->botlockRoot))
+            ->add(new ChallengeDocumentMiddleware(
+                new LanguageNegotiator($translations->supported()),
+                $translations,
+                new TemplateRenderer(),
+                $this->pageCache,
+                $this->botlockRoot . '/templates/challenge.php',
+            ))
         ;
 
         $response = $middleware->dispatch($request);

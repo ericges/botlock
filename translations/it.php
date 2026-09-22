@@ -1,0 +1,21 @@
+<?php declare(strict_types=1);
+
+// Italian challenge page strings. Keys must match TranslationLoader::KEYS.
+return [
+    'pageTitle' => 'Verifica di sicurezza',
+    'mainHeading' => 'Stiamo verificando che tu sia una persona…',
+    'infoParagraph' => 'Attendi mentre eseguiamo una rapida verifica di sicurezza. Questo ci aiuta a proteggere il nostro servizio dai bot dannosi.',
+    'footerNote' => 'Questa verifica è automatica e dovrebbe richiedere solo qualche istante.',
+    'confirmHeading' => 'Verifica di sicurezza',
+    'confirmParagraph' => 'Per continuare, conferma di non essere un robot.',
+    'verifyButton' => 'Verifica',
+    'errorHeading' => 'Verifica non riuscita',
+    'errorMessage' => 'Al momento non è stato possibile verificare la tua richiesta. Potrebbe trattarsi di un problema temporaneo.',
+    'errorWidget' => 'Si è verificato un errore',
+    'errorFooter' => 'Prova a ricaricare la pagina o contatta l’assistenza se il problema persiste.',
+    'successHeading' => 'Verifica completata',
+    'successMessage' => 'Grazie. Hai superato la verifica di sicurezza.',
+    'successFooter' => 'Sarai reindirizzato a breve…',
+    'noscriptHeading' => 'JavaScript è necessario per eseguire la verifica di sicurezza.',
+    'noscriptText' => 'Abilita JavaScript nelle impostazioni del browser e ricarica la pagina.',
+];
