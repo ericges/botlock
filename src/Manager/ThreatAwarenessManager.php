@@ -3,116 +3,47 @@
 namespace GES\Botlock\Manager;
 
 use GES\Botlock\Http\Request;
-use Throwable;
+use GES\Botlock\Threat\ThreatStateStore;
 
+/**
+ * Turns raw request counts into threat levels 0–3.
+ *
+ * Global level: requests are counted in one-minute buckets over the last
+ * five minutes, weighted so recent minutes count more, and compared to the
+ * configured thresholds. Once raised, a level is held for the decay grace
+ * period before it may drop again.
+ *
+ * Individual level: plain request count per fingerprint within the
+ * individual rate window, compared to the individual thresholds.
+ *
+ * Persistence is delegated to a ThreatStateStore; when the store cannot be
+ * read the manager stays protective and reports level 1.
+ */
 class ThreatAwarenessManager
 {
-    // Constants for thresholds, windows, etc. - fetch from Config
-    private const INDIVIDUAL_STATE_DIR = 'ua';
-    private const LOCK_TIMEOUT_MS = 100; // Max time to wait for a lock
-
-    private string $stateDir;
-    private int $individualRateWindowSec;
-    private int $level1ThresholdGlobal;
-    private int $level2ThresholdGlobal;
-    private int $level3ThresholdGlobal;
-    private int $level1ThresholdIndividual;
-    private int $level2ThresholdIndividual;
-    private int $level3ThresholdIndividual;
-    private int $levelDecayGracePeriod;
+    private const GLOBAL_WINDOW_SEC = 300;
+    private const BUCKET_SEC = 60;
+    private const UNAVAILABLE_LEVEL = 1;
 
     private ?int $cachedGlobalThreatLevel = null;
     private array $cachedIndividualThreatLevels = [];
     private array $cachedIndividualRates = [];
 
-    public function __construct(private readonly ConfigManager $config)
-    {
-        // Fetch config values
-        $this->stateDir = $this->config->getStateDir();
-        $this->individualRateWindowSec = $this->config->getIndividualRateWindowSec();
-        // ... (load all thresholds and grace period from config) ...
-        $this->level1ThresholdGlobal = $this->config->getLevel1ThresholdGlobal();
-        $this->level2ThresholdGlobal = $this->config->getLevel2ThresholdGlobal();
-        $this->level3ThresholdGlobal = $this->config->getLevel3ThresholdGlobal();
-        $this->level1ThresholdIndividual = $this->config->getLevel1ThresholdIndividual();
-        $this->level2ThresholdIndividual = $this->config->getLevel2ThresholdIndividual();
-        $this->level3ThresholdIndividual = $this->config->getLevel3ThresholdIndividual();
-        $this->levelDecayGracePeriod = $this->config->getLevelDecayGracePeriod();
-
-        if (!\is_dir($this->stateDir) && !mkdir($this->stateDir, 0775, true) && !is_dir($this->stateDir)) {
-            throw new \RuntimeException("State directory '{$this->stateDir}' is not writable or cannot be created.");
-        }
-
-        if (!\is_writable($this->stateDir)) {
-            throw new \RuntimeException("State directory '{$this->stateDir}' is not writable.");
-        }
-    }
-
-    /**
-     * File locking mechanism to ensure thread-safe access.
-     */
-    private function executeWithLock(string $filePath, callable $callback, string $mode = 'c+'): mixed
-    {
-        if (!$file = @\fopen($filePath, $mode)) {
-            /* Log Error: cannot open state file */
-            return null;
-        }
-
-        $startTime = \microtime(true);
-        $lockType = ($mode === 'r') ? \LOCK_SH : \LOCK_EX;
-        $locked = false;
-
-        while (\microtime(true) - $startTime < (self::LOCK_TIMEOUT_MS / 1000))
-        {
-            if (\flock($file, $lockType | \LOCK_NB))
-                // Non-blocking attempt
-            {
-                $locked = true;
-                break;
-            }
-
-            \usleep(5000); // Wait 5ms before retrying
-        }
-
-        if ($locked)
-        {
-            try {
-                $result = $callback($file);
-                if ($mode !== 'r') { // Ensure data written on write modes
-                    fflush($file);
-                }
-            } catch (Throwable $e) {
-                /* Log Error: Callback failed */
-                $result = null; // Indicate failure
-            } finally {
-                \flock($file, LOCK_UN); // Release lock
-            }
-        }
-        else
-        {
-            /* Log Warning: could not get lock, maybe return default state or skip? */
-            $result = null; // Indicate failure
-            // Consider alternative action on lock failure - e.g., temporary higher threat?
-        }
-
-        \fclose($file);
-        return $result;
-    }
+    public function __construct(
+        private readonly ConfigManager    $config,
+        private readonly ThreatStateStore $store,
+    ) {}
 
     /**
      * Records the current request for both global and individual tracking.
      */
     public function recordRequest(Request $request): void
     {
-        if (!$this->config->isRateLimitEnabled())
-            // Skip if rate limiting is disabled
-        {
+        if (!$this->config->isRateLimitEnabled()) {
             return;
         }
 
-        if ($this->config->isGlobalRateLimitEnabled())
-            // 1. Update Global State (only increments the current bucket)
-        {
+        if ($this->config->isGlobalRateLimitEnabled()) {
             $this->incrementGlobalBucket();
         }
 
@@ -121,15 +52,15 @@ class ThreatAwarenessManager
         }
 
         if ($this->config->isIndividualRateLimitEnabled())
-            // 2. Update Individual State
         {
-            $this->updateIndividualTimestamps($fingerprint);
+            $now = \time();
+            $this->store->recordIndividual($fingerprint, $now, $now - $this->config->getIndividualRateWindowSec());
+            $this->maybeCollectGarbage($now);
         }
     }
 
     /**
-     * Calculates and returns the current global threat level.
-     * Uses per-request caching.
+     * Current global threat level. Cached per request.
      */
     public function getGlobalThreatLevel(): int
     {
@@ -137,151 +68,23 @@ class ThreatAwarenessManager
             return $this->cachedGlobalThreatLevel;
         }
 
-        $filePath = $this->getGlobalStateFilePath();
-
-        // Use shared lock if possible for reading global level
-        $state = $this->executeWithLock($filePath, $this->getGlobalThreatLevelLogic(...), 'r');
+        $state = $this->store->readGlobal();
 
         if ($state === null) {
-            // Remain protective when the global state cannot be read.
-            $this->cachedGlobalThreatLevel = 1;
-        } else {
-            $this->cachedGlobalThreatLevel = $state['current_level'] ?? 0;
+            return $this->cachedGlobalThreatLevel = self::UNAVAILABLE_LEVEL;
         }
 
-        return $this->cachedGlobalThreatLevel;
-    }
+        [, $level] = $this->calcOldAndNewLevelsGlobal($state);
 
-    private function getGlobalThreatLevelLogic($file): array
-    {
-        $rawContent = \stream_get_contents($file);
-        $state = \json_decode($rawContent, true);
-        $now = \time();
-
-        if (!\is_array($state) || !isset($state['traffic_buckets']))
-        {
-            return ['current_level' => 0, 'level_last_changed' => $now, 'traffic_buckets' => []];
-            // No need to calculate rate if state was just initialized
-        }
-
-        [, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
-        $state['current_level'] = $newLevel;
-
-        return $state; // Return the calculated level and state
+        return $this->cachedGlobalThreatLevel = $level;
     }
 
     /**
-     * Increments the count for the current time bucket in the global state file.
-     * This also prunes expired buckets and updates the persisted threat level.
-     */
-    private function incrementGlobalBucket(): void
-    {
-        $filePath = $this->getGlobalStateFilePath();
-        // Use exclusive lock as we are modifying the file
-        $level = $this->executeWithLock($filePath, $this->incrementGlobalBucketLogic(...));
-
-        $this->cachedGlobalThreatLevel = $level ?? 1;
-    }
-
-    private function incrementGlobalBucketLogic($file): int
-    {
-        $rawContent = \stream_get_contents($file);
-        $state = \json_decode($rawContent, true);
-        $now = \time();
-
-        // Initialize if empty or invalid
-        if (!\is_array($state) || !isset($state['traffic_buckets'])) {
-            $state = ['current_level' => 0, 'level_last_changed' => $now, 'traffic_buckets' => []];
-        }
-
-        // Increment current bucket
-        $currentBucketKey = \floor($now / 60);
-        $state['traffic_buckets'][$currentBucketKey] = ($state['traffic_buckets'][$currentBucketKey] ?? 0) + 1;
-
-        $this->updateGlobalState($state);
-
-        // Write back the potentially modified state
-        $encodedState = \json_encode($state, \JSON_THROW_ON_ERROR);
-        if (!\ftruncate($file, 0)
-            || !\rewind($file)
-            || \fwrite($file, $encodedState) !== \strlen($encodedState))
-        {
-            throw new \RuntimeException('Could not persist global threat state.');
-        }
-
-        return (int) ($state['current_level'] ?? 0);
-    }
-
-    public function updateGlobalState(array &$state): void
-    {
-        $now = \time();
-
-        $rateStartTime = $now - 300;  // keep rates of last 5 minutes
-        $minBucketKey = \floor($rateStartTime / 60);
-
-        foreach ($state['traffic_buckets'] ?? [] as $key => $count)
-            // Prune old buckets and calculate rate
-        {
-            if ($key < $minBucketKey) {
-                unset($state['traffic_buckets'][$key]);
-            }
-        }
-
-        [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
-
-        if ($newLevel !== $oldLevel)
-            // If level changed, update timestamp and level in state
-        {
-            $state['current_level'] = $newLevel;
-            $state['level_last_changed'] = $now;
-            $this->cachedGlobalThreatLevel = $newLevel; // Update cache immediately
-        }
-    }
-
-    private function calcOldAndNewLevelsGlobal(array $state): array
-    {
-        $buckets = $state['traffic_buckets'] ?? [];
-        \ksort($buckets);
-        $buckets = \array_values($buckets);
-        $amount = \count($buckets);
-
-        $getWeight = static function (int $n) use ($amount): float {
-            // Calculate distance from the end (0 = last element, 1 = second last, etc.)
-            $x = ($amount - 1) - $n;
-            return (-0.05 * $x + 1.05) ** 8;
-        };
-
-        $score = 0;
-        foreach ($buckets as $i => $count)
-            // Prune old buckets and calculate rate
-        {
-            $score += $count * $getWeight($i);
-        }
-
-        // Update Threat Level Logic (Copied from getGlobalThreatLevel - needs refactoring ideally)
-        $newLevel = match (true) {
-            $score >= $this->level3ThresholdGlobal => 3,
-            $score >= $this->level2ThresholdGlobal => 2,
-            $score >= $this->level1ThresholdGlobal => 1,
-            default => 0,
-        };
-
-        $oldLevel = $state['current_level'] ?? 0;
-        if ($newLevel < $oldLevel && (\time() - ($state['level_last_changed'] ?? 0)) <= $this->levelDecayGracePeriod)
-            // Apply decay logic but keep higher level during grace period
-        {
-            $newLevel = $oldLevel;
-        }
-
-        return [$oldLevel, $newLevel];
-    }
-
-    /**
-     * Calculates and returns the request rate for an individual fingerprint.
+     * Requests from this fingerprint within the individual window. Cached per request.
      */
     public function getIndividualRate(string $fingerprint): int
     {
-        if (!$fingerprint) {
+        if ($fingerprint === '') {
             return 0;
         }
 
@@ -289,132 +92,123 @@ class ThreatAwarenessManager
             return $this->cachedIndividualRates[$fingerprint];
         }
 
-        $filePath = $this->getIndividualFilePath($fingerprint);
+        $windowStart = \time() - $this->config->getIndividualRateWindowSec();
+        $rate = $this->store->countIndividual($fingerprint, $windowStart) ?? 0;
 
-        // Use shared lock for reading
-        $individualRate = (int) $this->executeWithLock($filePath, $this->getIndividualRateLogic(...), 'r');
-
-        return $this->cachedIndividualRates[$fingerprint] = $individualRate;
-    }
-
-    private function getIndividualRateLogic($file): int
-    {
-        $windowStart = \time() - $this->individualRateWindowSec;
-        $count = 0;
-
-        while (($line = fgets($file)) !== false)
-        {
-            $ts = (int) trim($line);
-
-            if ($ts >= $windowStart) {
-                $count++;
-            }
-        }
-
-        return $count;
+        return $this->cachedIndividualRates[$fingerprint] = $rate;
     }
 
     /**
-     * Calculates and returns the current threat level for an individual fingerprint
-     * based on their request rate within the individual time window.
-     * Uses per-request caching.
-     *
-     * @param string $fingerprint The client fingerprint.
-     * @return int The calculated threat level (0, 1, or 3 based on configured thresholds).
+     * Threat level (0–3) for one fingerprint, derived from its request rate.
+     * Unlike the global level there is no decay hold: the level follows the
+     * rolling window directly.
      */
     public function getIndividualThreatLevel(string $fingerprint): int
     {
-        if (empty($fingerprint)) {
-            return 1;
+        if ($fingerprint === '') {
+            return self::UNAVAILABLE_LEVEL;
         }
 
         if (isset($this->cachedIndividualThreatLevels[$fingerprint])) {
             return $this->cachedIndividualThreatLevels[$fingerprint];
         }
 
-        // 1. Get the current individual rate (count of requests within the window)
-        $individualRate = $this->getIndividualRate($fingerprint);
+        $rate = $this->getIndividualRate($fingerprint);
 
-        // 2. Determine the threat level based on the rate and individual thresholds.
-        // Note: $individualRate is the total count within $individualRateWindowSec.
-        // Ensure your thresholds ($levelXThresholdIndividual) are set based on this window.
         $level = match (true) {
-            $individualRate >= $this->level3ThresholdIndividual => 3,
-            $individualRate >= $this->level2ThresholdIndividual => 2,
-            $individualRate >= $this->level1ThresholdIndividual => 1,
+            $rate >= $this->config->getLevel3ThresholdIndividual() => 3,
+            $rate >= $this->config->getLevel2ThresholdIndividual() => 2,
+            $rate >= $this->config->getLevel1ThresholdIndividual() => 1,
             default => 0,
         };
 
-        // Note: No decay logic is implemented here as the individual state
-        // file format doesn't store previous level or change timestamps.
-        // Adding decay would require changing the individual state storage format.
-
-        $this->cachedIndividualThreatLevels[$fingerprint] = $level;
-
-        return $level;
+        return $this->cachedIndividualThreatLevels[$fingerprint] = $level;
     }
 
     /**
-     * Adds the current timestamp to the individual fingerprint file and prunes old ones.
+     * Adds this request to the current global bucket, prunes buckets outside
+     * the window and re-evaluates the persisted level, all under one lock.
      */
-    private function updateIndividualTimestamps(string $fingerprint): void
-    {
-        if (empty($fingerprint)) return;
-
-        $filePath = $this->getIndividualFilePath($fingerprint);
-        $dirPath = \dirname($filePath);
-
-        if (!\is_dir($dirPath))
-        {
-            $oldUmask = \umask(0);
-            if (!mkdir($dirPath, 0775, true) && !is_dir($dirPath))
-            {
-                throw new \RuntimeException(sprintf('Directory "%s" was not created', $dirPath));
-            }
-            \umask($oldUmask);
-        }
-
-        // Exclusive lock needed for writing
-        $this->executeWithLock($filePath, $this->updateIndividualTimestampsLogic(...));
-    }
-
-    private function updateIndividualTimestampsLogic($file): void
+    private function incrementGlobalBucket(): void
     {
         $now = \time();
-        $windowStart = $now - $this->individualRateWindowSec;
-        $timestamps = [];
 
-        while (($line = \fgets($file)) !== false)
-        {
-            $ts = (int) \trim($line);
+        $state = $this->store->updateGlobal(function (array $state) use ($now): array {
+            $state += ['current_level' => 0, 'level_last_changed' => $now, 'traffic_buckets' => []];
 
-            if ($ts >= $windowStart) { // Keep only relevant timestamps
-                $timestamps[] = $ts;
+            $bucket = (string) \intdiv($now, self::BUCKET_SEC);
+            $state['traffic_buckets'][$bucket] = ($state['traffic_buckets'][$bucket] ?? 0) + 1;
+
+            $minBucket = \intdiv($now - self::GLOBAL_WINDOW_SEC, self::BUCKET_SEC);
+            foreach (\array_keys($state['traffic_buckets']) as $key) {
+                if ((int) $key < $minBucket) {
+                    unset($state['traffic_buckets'][$key]);
+                }
             }
-        }
 
-        $timestamps[] = $now; // Add current request
+            [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
 
-        // Write back pruned + new data
-        \ftruncate($file, 0);
-        \rewind($file);
+            if ($newLevel !== $oldLevel) {
+                $state['current_level'] = $newLevel;
+                $state['level_last_changed'] = $now;
+            }
 
-        foreach ($timestamps as $ts) {
-            \fwrite($file, $ts . "\n");
-        }
+            return $state;
+        });
+
+        $this->cachedGlobalThreatLevel = $state === null
+            ? self::UNAVAILABLE_LEVEL
+            : (int) ($state['current_level'] ?? 0);
     }
 
-    private function getIndividualFilePath(string $fingerprint): string
+    /**
+     * @return array{0:int,1:int} [previously persisted level, level the buckets warrant now]
+     */
+    private function calcOldAndNewLevelsGlobal(array $state): array
     {
-        $hashDir = substr($fingerprint, 0, 2);
-        return $this->stateDir
-            . \DIRECTORY_SEPARATOR . self::INDIVIDUAL_STATE_DIR
-            . \DIRECTORY_SEPARATOR . $hashDir
-            . \DIRECTORY_SEPARATOR . $fingerprint . '.lst';
+        $buckets = $state['traffic_buckets'] ?? [];
+        \ksort($buckets);
+        $buckets = \array_values($buckets);
+        $amount = \count($buckets);
+
+        // Newest bucket weighs 1.05^8 ≈ 1.48, each older minute a bit less.
+        $weight = static fn(int $index): float => (-0.05 * (($amount - 1) - $index) + 1.05) ** 8;
+
+        $score = 0.0;
+        foreach ($buckets as $index => $count) {
+            $score += $count * $weight($index);
+        }
+
+        $newLevel = match (true) {
+            $score >= $this->config->getLevel3ThresholdGlobal() => 3,
+            $score >= $this->config->getLevel2ThresholdGlobal() => 2,
+            $score >= $this->config->getLevel1ThresholdGlobal() => 1,
+            default => 0,
+        };
+
+        $oldLevel = (int) ($state['current_level'] ?? 0);
+        $lastChanged = (int) ($state['level_last_changed'] ?? 0);
+
+        // Hold a raised level for the grace period before letting it decay.
+        if ($newLevel < $oldLevel && (\time() - $lastChanged) <= $this->config->getLevelDecayGracePeriod()) {
+            $newLevel = $oldLevel;
+        }
+
+        return [$oldLevel, $newLevel];
     }
 
-    private function getGlobalStateFilePath(): string
+    /**
+     * Runs the store's garbage collection on roughly one request in
+     * BOTLOCK_GC_PROBABILITY; 0 disables it.
+     */
+    private function maybeCollectGarbage(int $now): void
     {
-        return $this->stateDir . \DIRECTORY_SEPARATOR . 'botlock_state_' . $this->config->getInstanceId() . '.json';
+        $probability = $this->config->getGcProbability();
+
+        if ($probability <= 0 || \random_int(1, $probability) !== 1) {
+            return;
+        }
+
+        $this->store->collectGarbage($now - $this->config->getIndividualRateWindowSec());
     }
 }

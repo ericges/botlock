@@ -11,6 +11,7 @@ use GES\Botlock\Manager\BotTestManager;
 use GES\Botlock\Manager\ConfigManager;
 use GES\Botlock\Manager\ThreatAwarenessManager;
 use GES\Botlock\Manager\WhitelistManager;
+use GES\Botlock\Threat\FileThreatStateStore;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
 use GES\Botlock\Middleware\ErrorMiddleware;
 use GES\Botlock\Middleware\VerifyCrawlerMiddleware;
@@ -37,7 +38,8 @@ readonly class Kernel
             $config = new ConfigManager($kernelConfig);
             $botDetect = new BotTestManager($config);
             $whitelist = new WhitelistManager($config);
-            $rateLimiter = new ThreatAwarenessManager($config);
+            $store = new FileThreatStateStore($kernelConfig->stateDir, $kernelConfig->instanceId);
+            $rateLimiter = new ThreatAwarenessManager($config, $store);
 
             return new static($botlockRoot, $botDetect, $config, $rateLimiter, $whitelist);
         }

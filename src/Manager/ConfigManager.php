@@ -36,6 +36,7 @@ class ConfigManager
     private readonly bool $enableGlobalRateLimit;
     private readonly bool $enableIndividualRateLimit;
     private readonly ?int $threatLevelOverride;
+    private readonly int $gcProbability;
 
     public function __construct(?KernelConfig $kernel = null) {
         $kernel ??= KernelConfig::fromEnv();
@@ -70,6 +71,7 @@ class ConfigManager
         $this->level1ThresholdIndividual = (int) self::env('LEVEL_1_THRESHOLD_INDIVIDUAL', 60);
         $this->level2ThresholdIndividual = (int) self::env('LEVEL_2_THRESHOLD_INDIVIDUAL', 90);
         $this->level3ThresholdIndividual = (int) self::env('LEVEL_3_THRESHOLD_INDIVIDUAL', 120);
+        $this->gcProbability = \max(0, Env::int('GC_PROBABILITY', 1000));  // 1 in N requests sweeps stale state files; 0 disables
 
         $this->enableRateLimit = ($this->enableGlobalRateLimit || $this->enableIndividualRateLimit)
             && self::envBool('ENABLE_RATE_LIMIT', true);
@@ -98,6 +100,7 @@ class ConfigManager
     public function getLevel3ThresholdIndividual(): int { return $this->level3ThresholdIndividual; }
     public function getLevelDecayGracePeriod(): int { return $this->levelDecayGracePeriod; }
     public function getThreatLevelOverride(): ?int { return $this->threatLevelOverride; }
+    public function getGcProbability(): int { return $this->gcProbability; }
     public function isRateLimitEnabled(): bool { return $this->enableRateLimit; }
     public function isGlobalRateLimitEnabled(): bool { return $this->enableGlobalRateLimit; }
     public function isIndividualRateLimitEnabled(): bool { return $this->enableIndividualRateLimit; }

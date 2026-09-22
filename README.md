@@ -142,3 +142,4 @@ three elevated levels.
 | `BOTLOCK_LEVEL_1_THRESHOLD_INDIVIDUAL` | `60` | Requests per individual window that activate threat level 1. |
 | `BOTLOCK_LEVEL_2_THRESHOLD_INDIVIDUAL` | `90` | Requests per individual window that activate threat level 2. |
 | `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL` | `120` | Requests per individual window that activate threat level 3. |
+| `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. `0` disables the sweep. |
