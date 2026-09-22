@@ -41,11 +41,12 @@ class Request
         $secure = \strtolower($_SERVER['HTTPS'] ?? '') === 'on' || $_SERVER['SERVER_PORT'] === '443';
 
         $scheme = $secure ? 'https' : 'http';
-        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'];
+        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
         $port = (string) ($_SERVER['SERVER_PORT'] ?? '');
         $uri = '/' . \ltrim($_SERVER['REQUEST_URI'] ?? '', '/');
 
-        if ($port && !\in_array($port, ['80', '443'])) {
+        // HTTP_HOST usually carries the port already; only add SERVER_PORT when it does not.
+        if ($port && !\in_array($port, ['80', '443'], true) && !\preg_match('/:\d+$/', $host)) {
             $host .= ':' . $port;
         }
 
