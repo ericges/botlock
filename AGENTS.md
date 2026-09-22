@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-Botlock is a PHP 8.2+ library distributed through Composer and as a PHAR. Production code lives in `src/` under the `GES\Botlock` PSR-4 namespace. Request processing is assembled in `src/Kernel.php`; middleware belongs in `src/Middleware/`, HTTP abstractions in `src/Http/`, configuration and detection services in `src/Manager/`, and proof-of-work logic in `src/Challenge/`. The browser challenge document is `assets/challenge.html`. `bootstrap.php` is the prepend entry point, `index.php` is the local demonstration page, and `build-phar.php` creates the release artifact.
+Botlock is a PHP 8.2+ library distributed through Composer and as a PHAR. Production code lives in `src/` under the `GES\Botlock` PSR-4 namespace. Request processing is assembled in `src/Kernel.php`; middleware belongs in `src/Middleware/`, `?_botlock=` action handlers in `src/Action/`, HTTP abstractions in `src/Http/` (per-request state travels in `Http\RequestContext`), typed configuration objects in `src/Config/`, detection and threat services in `src/Manager/`, rate-limit persistence behind `Threat\ThreatStateStore` in `src/Threat/`, and proof-of-work logic in `src/Challenge/`. The browser challenge document is `assets/challenge.html`. `bootstrap.php` is the prepend entry point, `index.php` is the local demonstration page, and `build-phar.php` creates the release artifact.
 
 ## Build, Test, and Development Commands
 

@@ -74,8 +74,11 @@ composer require ericges/botlock
 Then, at the beginning of your PHP script, after requiring Composer's autoload file, add the following line:
 
 ```php
-\GES\Botlock\Kernel::boot()->handleRequest();
+\GES\Botlock\Kernel::boot(__DIR__ . '/vendor/ericges/botlock')
+    ->handleRequest(\GES\Botlock\Http\Request::fromGlobals());
 ```
+
+The argument to `boot()` is the directory that contains BOTLOCK's `assets/` folder, i.e. the package root.
 
 > [!NOTE]
 > Not prepending the script to all requests will prevent the script from blocking bad bots accessing static files (e.g. images, CSS, JS).
@@ -126,7 +129,8 @@ challenge. The three elevated threat levels behave as follows:
 
 Clients that have already completed the challenge retain access for the configured
 `BOTLOCK_EXPIRE` lifetime. Explicit IP, User-Agent, and URL exclusions bypass all
-three elevated levels.
+three elevated levels and are not counted toward any threshold, so monitoring
+checks or your own addresses never raise the threat level.
 
 | Environment variable | Default | Description |
 | --- | --- | --- |
