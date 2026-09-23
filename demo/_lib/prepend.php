@@ -1,21 +1,33 @@
 <?php declare(strict_types=1);
 
 /**
- * Demo-only prepend file: configures BOTLOCK through putenv() and then
- * prepends the library exactly like a production install would.
+ * Demo-only prepend file: configures BOTLOCK through putenv() from the
+ * settings chosen in the control panel, then prepends the library
+ * exactly like a production install would.
  *
  * Nothing sets BOTLOCK_* via Apache SetEnv, because FastCGI parameters
  * would shadow the values written here. PHP reverts putenv() changes at
  * the end of every request.
  */
 
-$demoRoot = dirname(__DIR__, 2);
+require_once __DIR__ . '/Settings.php';
 
-putenv('BOTLOCK_ENABLED=yes');
-putenv('BOTLOCK_INSTANCE_ID=demo');
-putenv('BOTLOCK_STATE_DIR=' . $demoRoot . '/.demo/state');
-putenv('BOTLOCK_THREAT_LEVEL_OVERRIDE=2');
+(static function (): void {
+    $demoRoot = \dirname(__DIR__, 2);
+    $settings = new \GES\Botlock\Demo\Settings($demoRoot);
 
-require $demoRoot . '/bootstrap.php';
+    \putenv('BOTLOCK_ENABLED=yes');
+    \putenv('BOTLOCK_INSTANCE_ID=demo');
+    \putenv('BOTLOCK_STATE_DIR=' . $settings->stateDir());
 
-unset($demoRoot);
+    // The control endpoint must stay reachable whatever the settings are.
+    if (($_SERVER['SCRIPT_NAME'] ?? '') === '/_demo.php') {
+        return;
+    }
+
+    foreach (\GES\Botlock\Demo\Settings::toEnv($settings->load()) as $name => $value) {
+        \putenv($name . '=' . $value);
+    }
+
+    require $demoRoot . '/bootstrap.php';
+})();
