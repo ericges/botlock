@@ -97,6 +97,7 @@ $demoData = [
         </div>
         <div class="topbar-cell topbar-level" data-chip-level-cell title="Effective threat level of the selected identity">
             <span class="topbar-label">Level</span>
+            <span class="topbar-dot" aria-hidden="true"></span>
             <span class="topbar-value"><strong data-chip-level>—</strong> <span data-chip-level-text>status pending</span></span>
         </div>
         <div class="topbar-cell" title="Whether the selected identity holds a grant from a solved challenge">
