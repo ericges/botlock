@@ -301,3 +301,39 @@ button:disabled {
     opacity: .6;
     cursor: progress;
 }
+
+.recipes {
+    display: grid;
+    gap: 1rem;
+}
+
+.recipe {
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    padding: .75rem 1rem;
+    min-width: 0;
+}
+
+.recipe-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+}
+
+.recipe-head button {
+    padding: .3rem .8rem;
+    font-size: .8em;
+}
+
+.recipe pre {
+    background: var(--color-background-inset);
+    border-radius: 4px;
+    padding: .5rem .75rem;
+    margin: .5rem 0;
+    overflow-x: auto;
+}
+
+.recipe .hint {
+    margin: 0;
+}

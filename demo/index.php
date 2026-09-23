@@ -25,6 +25,50 @@ $notices = [
 $notice = $notices[$_GET['demo'] ?? ''] ?? null;
 
 $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
+
+$secure = ($_SERVER['HTTPS'] ?? '') === 'on' || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+$origin = ($secure ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'botlock.ddev.site');
+$googlebot = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+$nonce = '00000000-0000-4000-8000-000000000000';
+
+$recipes = [
+    [
+        'title' => 'How BOTLOCK sees curl',
+        'command' => "curl -sk '{$origin}/?_botlock=status'",
+        'hint' => 'Each client gets its own fingerprint (subject) and individual rate.',
+    ],
+    [
+        'title' => 'Get challenged',
+        'command' => "curl -sk -o /dev/null -w '%{http_code}\\n' '{$origin}/'",
+        'hint' => '401 while the effective threat level is 1 or higher, 200 at level 0.',
+    ],
+    [
+        'title' => 'Claim to be Googlebot',
+        'command' => "curl -sk -A '{$googlebot}' '{$origin}/?_botlock=status'",
+        'hint' => 'The reverse-DNS check fails for your address: crawler_verification is failed or unverified, and the request is challenged.',
+    ],
+    [
+        'title' => 'Compare challenge difficulty',
+        'command' => "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'AhrefsBot/7.0' '{$origin}/?_botlock=challenge'\n"
+            . "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0' '{$origin}/?_botlock=challenge'",
+        'hint' => 'Crawlers that are not good bots (curl itself included) get max multiplied by BOTLOCK_CRAWLER_FACTOR. The nonce header is required; any UUID works.',
+    ],
+    [
+        'title' => 'Forward a client address',
+        'command' => "ddev exec curl -s -H 'X-Forwarded-For: 203.0.113.7' 'http://localhost/?_botlock=status'",
+        'hint' => 'Runs inside the container: the DDEV router replaces X-Forwarded-For, but loopback is a trusted proxy. The subject changes with the forwarded address.',
+    ],
+    [
+        'title' => 'Reset the session',
+        'command' => "curl -sk -X POST '{$origin}/?_botlock=reset'",
+        'hint' => 'Answers JSON without a location field; the button above redirects instead.',
+    ],
+    [
+        'title' => 'Restore the demo defaults',
+        'command' => "curl -sk '{$origin}/_demo.php?reset=1'",
+        'hint' => 'The escape hatch; never protected by BOTLOCK.',
+    ],
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -100,6 +144,24 @@ $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
         <code>.demo/state/</code>. <strong>Rotate secret</strong> deletes the generated signing
         secret; BOTLOCK creates a new one and every issued grant becomes invalid.
     </p>
+
+    <h2>curl recipes</h2>
+    <p class="hint">
+        For the paths a browser cannot take. <code>-k</code> skips certificate checks and can be
+        dropped when DDEV's mkcert CA is trusted.
+    </p>
+    <div class="recipes">
+        <?php foreach ($recipes as $recipe): ?>
+            <div class="recipe">
+                <div class="recipe-head">
+                    <strong><?= $e($recipe['title']) ?></strong>
+                    <button type="button" data-copy>Copy</button>
+                </div>
+                <pre><code><?= $e($recipe['command']) ?></code></pre>
+                <p class="hint"><?= $e($recipe['hint']) ?></p>
+            </div>
+        <?php endforeach ?>
+    </div>
 
     <h2>Presets</h2>
     <form method="post" action="/_demo.php" class="presets">

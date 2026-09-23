@@ -100,3 +100,18 @@
         window.botlockDemo?.refreshStatus();
     });
 })();
+
+document.querySelectorAll('[data-copy]').forEach((button) => {
+    button.addEventListener('click', async () => {
+        const command = button.closest('.recipe').querySelector('code').textContent;
+
+        try {
+            await navigator.clipboard.writeText(command);
+            button.textContent = 'Copied';
+        } catch {
+            button.textContent = 'Copy failed';
+        }
+
+        setTimeout(() => { button.textContent = 'Copy'; }, 1500);
+    });
+});
