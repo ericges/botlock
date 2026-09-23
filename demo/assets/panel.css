@@ -113,6 +113,8 @@ p {
 }
 
 .brand {
+    flex-shrink: 0;
+    white-space: nowrap;
     font-weight: 700;
     letter-spacing: .06em;
 }
@@ -583,9 +585,17 @@ input[type="checkbox"] {
     font-family: var(--font-mono);
     font-size: 12px;
     white-space: nowrap;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.chip [data-chip-text] {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .chip-dot {
+    flex-shrink: 0;
     width: 8px;
     height: 8px;
     border-radius: 50%;
