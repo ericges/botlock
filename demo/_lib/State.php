@@ -5,8 +5,9 @@ namespace GES\Botlock\Demo;
 use GES\Botlock\Config\SecretProvider;
 
 /**
- * Maintenance of the demo state directory (rate-limit state, rendered
- * challenge pages and the generated signing secret).
+ * Maintenance of the demo state directory (rate-limit state, pending
+ * challenge tickets, rendered challenge pages and the generated signing
+ * secret).
  */
 final readonly class State
 {
@@ -16,8 +17,8 @@ final readonly class State
     ) {}
 
     /**
-     * Deletes rate-limit state and cached challenge pages, keeping the
-     * secret so that existing grants stay valid.
+     * Deletes rate-limit state, challenge tickets and cached challenge
+     * pages, keeping the secret so that existing grants stay valid.
      */
     public function clear(): void
     {

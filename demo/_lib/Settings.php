@@ -30,6 +30,7 @@ final class Settings
         'LEVEL_1_THRESHOLD_INDIVIDUAL' => '10',
         'LEVEL_2_THRESHOLD_INDIVIDUAL' => '20',
         'LEVEL_3_THRESHOLD_INDIVIDUAL' => '30',
+        'LEVEL_4_THRESHOLD_INDIVIDUAL' => '40',
         'INDIVIDUAL_RATE_WINDOW_SEC' => '60',
         'LEVEL_1_THRESHOLD_GLOBAL' => '60',
         'LEVEL_2_THRESHOLD_GLOBAL' => '120',
@@ -48,7 +49,7 @@ final class Settings
     public static function schema(): array
     {
         return [
-            'THREAT_LEVEL_OVERRIDE' => ['group' => 'Mode', 'type' => self::TYPE_ENUM, 'options' => ['0', '1', '2', '3'], 'label' => 'Threat level override', 'default' => 'unset (rate-based)', 'help' => 'Fixed level that replaces rate evaluation.'],
+            'THREAT_LEVEL_OVERRIDE' => ['group' => 'Mode', 'type' => self::TYPE_ENUM, 'options' => ['0', '1', '2', '3', '4'], 'label' => 'Threat level override', 'default' => 'unset (rate-based)', 'help' => 'Fixed level that replaces rate evaluation.'],
             'ENABLE_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Rate limiting', 'default' => 'yes'],
             'ENABLE_GLOBAL_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Global rate limit', 'default' => 'yes'],
             'ENABLE_INDIVIDUAL_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Individual rate limit', 'default' => 'yes'],
@@ -60,6 +61,7 @@ final class Settings
             'LEVEL_1_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 1', 'default' => '60', 'help' => 'Requests per window.'],
             'LEVEL_2_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 2', 'default' => '90'],
             'LEVEL_3_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 3', 'default' => '120'],
+            'LEVEL_4_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 4', 'default' => '180', 'help' => 'Answered with 429, no challenge.'],
             'INDIVIDUAL_RATE_WINDOW_SEC' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual window (s)', 'default' => '60'],
             'GC_PROBABILITY' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'GC probability (1 in N)', 'default' => '1000', 'help' => '0 disables the sweep.'],
 
@@ -67,6 +69,7 @@ final class Settings
             'MAX_NUMBER' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Max number', 'default' => '50000', 'help' => 'Base difficulty.'],
             'CRAWLER_FACTOR' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Crawler factor', 'default' => '15'],
             'EXPIRE' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Session lifetime (s)', 'default' => '3600'],
+            'MIN_SOLVE_MS' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Minimum solve time (ms)', 'default' => '1000', 'help' => 'Between issuing and verifying.'],
 
             'IGNORE_IPS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Ignore IPs', 'default' => 'none'],
             'IGNORE_USER_AGENTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Ignore User-Agents', 'default' => 'none', 'help' => 'Case-insensitive substrings.'],

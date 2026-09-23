@@ -16,6 +16,7 @@
     --level-1: #d4a72c;
     --level-2: #f0883e;
     --level-3: #f85149;
+    --level-4: #db61a2;
     --level-none: #3a4047;
     --font-ui: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
@@ -38,6 +39,7 @@
         --level-1: #8f5f00;
         --level-2: #b04600;
         --level-3: #cf222e;
+        --level-4: #bf3989;
         --level-none: #d0d5db;
         color-scheme: light;
     }
@@ -207,6 +209,11 @@ p {
 .badge[data-state="challenge"] {
     color: var(--level-2);
     border-color: var(--level-2);
+}
+
+.badge[data-state="blocked"] {
+    color: var(--level-4);
+    border-color: var(--level-4);
 }
 
 .badge[data-state="error"] {
@@ -706,10 +713,12 @@ input[type="checkbox"] {
 .topbar-status[data-level="1"] .topbar-dot { background: var(--level-1); }
 .topbar-status[data-level="2"] .topbar-dot { background: var(--level-2); }
 .topbar-status[data-level="3"] .topbar-dot { background: var(--level-3); }
+.topbar-status[data-level="4"] .topbar-dot { background: var(--level-4); }
 .topbar-status[data-level="0"] [data-chip-level] { color: var(--level-0); }
 .topbar-status[data-level="1"] [data-chip-level] { color: var(--level-1); }
 .topbar-status[data-level="2"] [data-chip-level] { color: var(--level-2); }
 .topbar-status[data-level="3"] [data-chip-level] { color: var(--level-3); }
+.topbar-status[data-level="4"] [data-chip-level] { color: var(--level-4); }
 .topbar-status[data-grant="yes"] [data-chip-grant] { color: var(--level-0); }
 .topbar-status[data-grant="no"] [data-chip-grant] { color: var(--muted); }
 
@@ -762,9 +771,11 @@ input[type="checkbox"] {
 .meter-row[data-level="1"] .meter-value { color: var(--level-1); }
 .meter-row[data-level="2"] .meter-value { color: var(--level-2); }
 .meter-row[data-level="3"] .meter-value { color: var(--level-3); }
+.meter-row[data-level="4"] .meter-value { color: var(--level-4); }
 .meter-row[data-level="1"] .meter i.on { background: var(--level-1); }
 .meter-row[data-level="2"] .meter i.on { background: var(--level-2); }
 .meter-row[data-level="3"] .meter i.on { background: var(--level-3); }
+.meter-row[data-level="4"] .meter i.on { background: var(--level-4); }
 
 .rate {
     margin: .4rem 0 0;
@@ -789,6 +800,7 @@ input[type="checkbox"] {
 .history .level-1 { fill: var(--level-1); }
 .history .level-2 { fill: var(--level-2); }
 .history .level-3 { fill: var(--level-3); }
+.history .level-4 { fill: var(--level-4); }
 .history .level-none { fill: var(--level-none); }
 
 .history p {
@@ -966,6 +978,7 @@ input[type="checkbox"] {
 
 .log-entry .status.ok { color: var(--level-0); }
 .log-entry .status.challenge { color: var(--level-2); }
+.log-entry .status.blocked { color: var(--level-4); }
 .log-entry .status.fail { color: var(--danger); }
 
 .log-entry .source {

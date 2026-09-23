@@ -39,7 +39,7 @@ $recipes = [
     [
         'title' => 'Get challenged',
         'command' => "curl -sk -o /dev/null -w '%{http_code}\\n' '{$origin}/protected/'",
-        'hint' => '401 while the effective threat level is 1 or higher, 200 at level 0.',
+        'hint' => '401 while the effective threat level is 1 to 3, 429 at level 4, 200 at level 0.',
     ],
     [
         'title' => 'Claim to be Googlebot',
@@ -47,10 +47,10 @@ $recipes = [
         'hint' => 'The reverse-DNS check fails for your address: crawler_verification is failed or unverified, and the request is challenged.',
     ],
     [
-        'title' => 'Compare challenge difficulty',
+        'title' => 'Compare challenge requirements',
         'command' => "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'AhrefsBot/7.0' '{$origin}/protected/?_botlock=challenge'\n"
             . "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0' '{$origin}/protected/?_botlock=challenge'",
-        'hint' => 'Crawlers that are not good bots (curl itself included) get max multiplied by BOTLOCK_CRAWLER_FACTOR. The nonce header is required; any UUID works.',
+        'hint' => 'int names what the client has to do first: none (the proof of work is included), click or slider (it follows from POST ?_botlock=challenge). Crawlers that are not good bots (curl itself included) always have to interact, and their max is multiplied by BOTLOCK_CRAWLER_FACTOR. The nonce header is required; any UUID works.',
     ],
     [
         'title' => 'Forward a client address',
@@ -126,7 +126,7 @@ $demoData = [
                 <?php foreach (['threat_level' => 'Effective', 'threat_level_global' => 'Global', 'threat_level_individual' => 'Individual'] as $field => $label): ?>
                     <div class="meter-row<?= $field === 'threat_level' ? ' is-main' : '' ?>" data-meter="<?= $e($field) ?>">
                         <span class="meter-label"><?= $e($label) ?></span>
-                        <span class="meter" aria-hidden="true"><i></i><i></i><i></i></span>
+                        <span class="meter" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
                         <span class="meter-value" data-meter-value>—</span>
                         <span class="meter-text muted" data-meter-text></span>
                     </div>
@@ -146,6 +146,7 @@ $demoData = [
             <dl class="kv">
                 <div><dt>crawler_verification</dt><dd data-field="crawler_verification">—</dd></div>
                 <div><dt>passed</dt><dd data-field="passed">—</dd></div>
+                <div><dt>grant_level</dt><dd data-field="grant_level">—</dd></div>
                 <div><dt>subject</dt><dd data-field="subject">—</dd></div>
                 <div><dt>user_agent</dt><dd data-field="user_agent">—</dd></div>
             </dl>
