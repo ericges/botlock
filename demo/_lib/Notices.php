@@ -14,6 +14,7 @@ final class Notices
         'reset' => 'Settings reset to the demo defaults.',
         'cleared' => 'Rate-limit state and cached challenge pages deleted.',
         'rotated' => 'Secret rotated. Every issued grant is invalid now.',
+        'log-cleared' => 'Request log cleared.',
     ];
 
     public static function message(?string $notice): ?string

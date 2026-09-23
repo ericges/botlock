@@ -307,7 +307,10 @@ $demoData = [
 
         <section class="block frame-block" data-frame-block>
             <div class="block-head">
-                <h2>Protected page</h2>
+                <div class="tabs" role="tablist">
+                    <button type="button" role="tab" aria-selected="true" aria-controls="panel-frame" data-tab="frame">Protected page</button>
+                    <button type="button" role="tab" aria-selected="false" aria-controls="panel-log" data-tab="log">Request log <span class="muted" data-log-count></span></button>
+                </div>
                 <div class="block-tools">
                     <span class="badge" data-frame-state>loading</span>
                     <button type="button" class="icon" data-frame-reload title="Reload the frame" aria-label="Reload the frame">⟳</button>
@@ -315,8 +318,25 @@ $demoData = [
                        title="Open in a new tab" aria-label="Open the protected page in a new tab">↗</a>
                 </div>
             </div>
-            <p class="frame-url"><code data-frame-url>/protected/</code></p>
-            <iframe data-frame src="/protected/" title="Protected page as BOTLOCK serves it"></iframe>
+
+            <div class="tab-panel" id="panel-frame" role="tabpanel" data-panel="frame">
+                <p class="frame-url"><code data-frame-url>/protected/</code></p>
+                <iframe data-frame src="/protected/" title="Protected page as BOTLOCK serves it"></iframe>
+            </div>
+
+            <div class="tab-panel log-panel" id="panel-log" role="tabpanel" data-panel="log" hidden>
+                <div class="log-toolbar">
+                    <label class="toggle"><input type="checkbox" data-log-all> include status, burst and reset requests</label>
+                    <form method="post" action="/_demo.php" data-action-form>
+                        <button type="submit" name="action" value="clear-log" class="small">Clear log</button>
+                    </form>
+                </div>
+                <p class="muted" data-log-note hidden>
+                    "This browser" requests the protected page directly, so they are not logged. Pick a forged identity to see its exchanges.
+                </p>
+                <p class="muted" data-log-empty>No relayed requests yet.</p>
+                <div class="log" data-log></div>
+            </div>
         </section>
     </aside>
 </main>

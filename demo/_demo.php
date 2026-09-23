@@ -6,9 +6,11 @@
  *
  * Form posts are redirected back to the panel; requests accepting JSON
  * (the panel's fetch calls) get the outcome and the stored settings.
- * GET /_demo.php?reset=1 restores the defaults (escape hatch).
+ * GET /_demo.php?reset=1 restores the defaults (escape hatch);
+ * GET /_demo.php?log=1 returns the forge relay's request log.
  */
 
+use GES\Botlock\Demo\ForgeLog;
 use GES\Botlock\Demo\Notices;
 use GES\Botlock\Demo\Presets;
 use GES\Botlock\Demo\Settings;
@@ -19,9 +21,11 @@ require_once __DIR__ . '/_lib/Settings.php';
 require_once __DIR__ . '/_lib/Presets.php';
 require_once __DIR__ . '/_lib/State.php';
 require_once __DIR__ . '/_lib/Notices.php';
+require_once __DIR__ . '/_lib/ForgeLog.php';
 
 $settings = new Settings(\dirname(__DIR__));
 $state = new State($settings->stateDir(), Settings::INSTANCE_ID);
+$log = new ForgeLog($settings->forgeLogFile());
 $wantsJson = \str_contains($_SERVER['HTTP_ACCEPT'] ?? '', 'application/json');
 
 $fail = static function (int $status, string $error) use ($wantsJson): never {
@@ -35,6 +39,12 @@ $fail = static function (int $status, string $error) use ($wantsJson): never {
     \header('Content-Type: text/plain; charset=utf-8');
     exit($error);
 };
+
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['log'])) {
+    \header('Content-Type: application/json');
+    \header('Cache-Control: no-store');
+    exit(\json_encode(['ok' => true, 'entries' => $log->all()], \JSON_UNESCAPED_SLASHES | \JSON_INVALID_UTF8_SUBSTITUTE));
+}
 
 $action = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (string) ($_POST['action'] ?? '')
@@ -71,6 +81,11 @@ try
         case 'rotate-secret':
             $state->rotateSecret();
             $notice = 'rotated';
+            break;
+
+        case 'clear-log':
+            $log->clear();
+            $notice = 'log-cleared';
             break;
     }
 }

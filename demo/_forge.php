@@ -145,6 +145,7 @@ $error = $body === false ? \curl_error($curl) : null;
 
 $log = new ForgeLog((new Settings(\dirname(__DIR__)))->forgeLogFile());
 $entry = [
+    'id' => \bin2hex(\random_bytes(4)),
     'time' => \date('H:i:s'),
     'source' => $source,
     'ua' => $identity->ua,

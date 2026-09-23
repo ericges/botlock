@@ -22,6 +22,7 @@ const demo = (() => {
         showPreset: () => {},
         /** Reloads the protected-page frame if auto-reload is on (or when forced). */
         reloadFrame: () => {},
+        refreshLog: async () => {},
     };
 })();
 
@@ -426,8 +427,12 @@ const effectiveInt = (key) => {
             demo.setValues(result.values);
             showPreset(result.preset);
             toast(result.message);
-            demo.refreshStatus();
-            demo.reloadFrame();
+            demo.refreshLog();
+
+            if (result.notice !== 'log-cleared') {
+                demo.refreshStatus();
+                demo.reloadFrame();
+            }
         });
     });
 
@@ -474,6 +479,7 @@ if (new URLSearchParams(location.search).has('demo')) {
         state.dataset.state = current;
         state.textContent = current === 'error' ? 'other response' : current;
         demo.refreshStatus();
+        demo.refreshLog();
     });
 
     const url = block.querySelector('[data-frame-url]');
@@ -518,6 +524,120 @@ if (new URLSearchParams(location.search).has('demo')) {
         demo.refreshStatus();
         demo.reloadFrame();
     });
+})();
+
+/* Frame tabs and the relay's request log */
+
+(() => {
+    const block = document.querySelector('[data-frame-block]');
+    const list = document.querySelector('[data-log]');
+
+    if (!block || !list) {
+        return;
+    }
+
+    const POLL_INTERVAL_MS = 2000;
+    const tabs = block.querySelectorAll('[data-tab]');
+    const panels = block.querySelectorAll('[data-panel]');
+    const count = block.querySelector('[data-log-count]');
+    const includeAll = block.querySelector('[data-log-all]');
+    const note = block.querySelector('[data-log-note]');
+    const empty = block.querySelector('[data-log-empty]');
+    let timer = null;
+    let rendered = '';
+
+    const element = (tag, className, text) => {
+        const node = document.createElement(tag);
+        if (className) {
+            node.className = className;
+        }
+        if (text !== undefined) {
+            node.textContent = text;
+        }
+        return node;
+    };
+
+    const statusClass = (status) => {
+        if (status === 401) {
+            return 'challenge';
+        }
+
+        return status >= 200 && status < 400 ? 'ok' : 'fail';
+    };
+
+    const entryNode = (entry, open) => {
+        const details = element('details', 'log-entry');
+        const summary = element('summary');
+        const detail = element('div', 'log-detail');
+
+        details.dataset.id = entry.id ?? '';
+        details.open = open;
+        summary.append(
+            element('span', '', entry.time),
+            element('span', 'source', entry.source),
+            element('span', '', entry.method),
+            element('span', 'target', entry.target),
+            element('span', `status ${statusClass(entry.status)}`, String(entry.status)),
+            element('span', 'meta', `${entry.ms} ms`),
+        );
+        summary.querySelector('.target').title = entry.target;
+
+        detail.append(
+            element('h3', '', 'Sent to BOTLOCK'),
+            element('pre', '', (entry.request ?? []).join('\n')),
+            element('h3', '', 'Response headers (before cookie and Location rewriting)'),
+            element('pre', '', (entry.response ?? []).join('\n') || '—'),
+            element('h3', '', `Body (${entry.bytes} bytes${entry.bytes > (entry.body ?? '').length ? ', truncated' : ''})`),
+            element('pre', '', entry.body || '—'),
+        );
+        details.append(summary, detail);
+
+        return details;
+    };
+
+    const refresh = async () => {
+        note.hidden = demo.identity.fields !== null;
+
+        try {
+            const response = await fetch('/_demo.php?log=1', {cache: 'no-store', credentials: 'same-origin'});
+            const entries = (await response.json()).entries ?? [];
+            const shown = entries.filter((entry) => includeAll.checked || entry.source === 'frame').reverse();
+            const signature = shown.map((entry) => entry.id).join(',');
+
+            count.textContent = shown.length ? `(${shown.length})` : '';
+            empty.hidden = shown.length > 0;
+
+            if (signature === rendered) {
+                return;
+            }
+
+            const open = new Set([...list.querySelectorAll('details[open]')].map((node) => node.dataset.id));
+            list.replaceChildren(...shown.map((entry) => entryNode(entry, open.has(entry.id))));
+            rendered = signature;
+        } catch (error) {
+            count.textContent = '(?)';
+        }
+    };
+
+    const show = (name) => {
+        tabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.tab === name)));
+        panels.forEach((panel) => { panel.hidden = panel.dataset.panel !== name; });
+
+        clearInterval(timer);
+        timer = name === 'log' ? setInterval(refresh, POLL_INTERVAL_MS) : null;
+
+        if (name === 'log') {
+            refresh();
+        }
+    };
+
+    tabs.forEach((tab) => tab.addEventListener('click', () => show(tab.dataset.tab)));
+    includeAll.addEventListener('change', () => {
+        rendered = '';
+        refresh();
+    });
+
+    demo.refreshLog = refresh;
 })();
 
 /* Identity: which client the frame, status, burst and reset act as */
