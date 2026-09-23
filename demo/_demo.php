@@ -1,9 +1,8 @@
 <?php declare(strict_types=1);
 
 /**
- * Control endpoint of the demo panel. prepend.php does not run BOTLOCK
- * for this script, so settings can always be changed or reset, even
- * when they lock the panel itself out.
+ * Control endpoint of the demo panel. Like the dashboard it lies outside
+ * the protected area, so settings can always be changed or reset.
  *
  * Form posts are redirected back to the panel; requests accepting JSON
  * (the panel's fetch calls) get the outcome and the stored settings.
@@ -98,6 +97,4 @@ echo \json_encode([
     'message' => Notices::message($notice),
     'values' => $values,
     'preset' => Presets::match($values),
-    // The rotated secret invalidates the grant: only a page load shows the challenge.
-    'reload' => $notice === 'rotated',
 ], \JSON_UNESCAPED_SLASHES);

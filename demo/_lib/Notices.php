@@ -13,7 +13,7 @@ final class Notices
         'preset' => 'Preset applied. It takes effect from the next request on.',
         'reset' => 'Settings reset to the demo defaults.',
         'cleared' => 'Rate-limit state and cached challenge pages deleted.',
-        'rotated' => 'Secret rotated. Your grant is no longer valid, so this page had to challenge you again.',
+        'rotated' => 'Secret rotated. Every issued grant is invalid now.',
     ];
 
     public static function message(?string $notice): ?string

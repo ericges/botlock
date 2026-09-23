@@ -31,33 +31,33 @@ $nonce = '00000000-0000-4000-8000-000000000000';
 $recipes = [
     [
         'title' => 'How BOTLOCK sees curl',
-        'command' => "curl -sk '{$origin}/?_botlock=status'",
+        'command' => "curl -sk '{$origin}/protected/?_botlock=status'",
         'hint' => 'Each client gets its own fingerprint (subject) and individual rate.',
     ],
     [
         'title' => 'Get challenged',
-        'command' => "curl -sk -o /dev/null -w '%{http_code}\\n' '{$origin}/'",
+        'command' => "curl -sk -o /dev/null -w '%{http_code}\\n' '{$origin}/protected/'",
         'hint' => '401 while the effective threat level is 1 or higher, 200 at level 0.',
     ],
     [
         'title' => 'Claim to be Googlebot',
-        'command' => "curl -sk -A '{$googlebot}' '{$origin}/?_botlock=status'",
+        'command' => "curl -sk -A '{$googlebot}' '{$origin}/protected/?_botlock=status'",
         'hint' => 'The reverse-DNS check fails for your address: crawler_verification is failed or unverified, and the request is challenged.',
     ],
     [
         'title' => 'Compare challenge difficulty',
-        'command' => "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'AhrefsBot/7.0' '{$origin}/?_botlock=challenge'\n"
-            . "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0' '{$origin}/?_botlock=challenge'",
+        'command' => "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'AhrefsBot/7.0' '{$origin}/protected/?_botlock=challenge'\n"
+            . "curl -sk -H 'Botlock-Nonce: {$nonce}' -A 'Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0' '{$origin}/protected/?_botlock=challenge'",
         'hint' => 'Crawlers that are not good bots (curl itself included) get max multiplied by BOTLOCK_CRAWLER_FACTOR. The nonce header is required; any UUID works.',
     ],
     [
         'title' => 'Forward a client address',
-        'command' => "ddev exec curl -s -H 'X-Forwarded-For: 203.0.113.7' 'http://localhost/?_botlock=status'",
+        'command' => "ddev exec curl -s -H 'X-Forwarded-For: 203.0.113.7' 'http://localhost/protected/?_botlock=status'",
         'hint' => 'Runs inside the container: the DDEV router replaces X-Forwarded-For, but loopback is a trusted proxy. The subject changes with the forwarded address.',
     ],
     [
         'title' => 'Reset the session',
-        'command' => "curl -sk -X POST '{$origin}/?_botlock=reset'",
+        'command' => "curl -sk -X POST '{$origin}/protected/?_botlock=reset'",
         'hint' => 'Answers JSON without a location field; the Reset challenge tool redirects instead.',
     ],
     [
@@ -189,7 +189,7 @@ $demoData = [
     </div>
 
     <aside class="pane pane-live">
-        <section class="block" data-status="/?_botlock=status">
+        <section class="block" data-status="/protected/?_botlock=status">
             <div class="block-head">
                 <h2>Status</h2>
                 <div class="block-tools">
@@ -235,7 +235,7 @@ $demoData = [
 
         <section class="block">
             <h2>Tools</h2>
-            <div class="tool" data-burst="/">
+            <div class="tool" data-burst="/protected/">
                 <label for="burst-count">Burst</label>
                 <input type="number" id="burst-count" min="1" max="200" value="20" data-burst-count>
                 <button type="button" data-burst-start>Send</button>
@@ -250,7 +250,7 @@ $demoData = [
                     <button type="submit" name="action" value="clear-state" title="Delete rate-limit counters and cached challenge pages">Clear state</button>
                     <button type="submit" name="action" value="rotate-secret" title="Delete the signing secret; every grant becomes invalid">Rotate secret</button>
                 </form>
-                <form method="post" action="?_botlock=reset">
+                <form method="post" action="/protected/?_botlock=reset">
                     <input type="hidden" name="location" value="<?= $e($_SERVER['REQUEST_URI']) ?>">
                     <button type="submit" title="Clear the BOTLOCK session via ?_botlock=reset">Reset challenge</button>
                 </form>

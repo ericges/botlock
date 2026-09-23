@@ -367,7 +367,7 @@ const effectiveInt = (key) => {
     update();
 })();
 
-/* Presets and tools: post in place, reload only when the grant is gone */
+/* Presets and tools: post in place */
 
 (() => {
     const presetButtons = document.querySelectorAll('button[name="preset"]');
@@ -393,12 +393,6 @@ const effectiveInt = (key) => {
             buttons.forEach((button) => { button.disabled = false; });
 
             if (!result) {
-                return;
-            }
-
-            if (result.reload) {
-                // The grant is gone: a page load shows the challenge, then the notice.
-                location.assign(`/?demo=${encodeURIComponent(result.notice)}`);
                 return;
             }
 

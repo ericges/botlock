@@ -697,3 +697,11 @@ input[type="checkbox"] {
 .savebar.is-dirty [data-savebar-text] {
     color: var(--level-1);
 }
+
+/* Protected page (shown in the dashboard frame) */
+
+.protected-page .passed {
+    margin: 0 0 .5rem;
+    font-size: 18px;
+    color: var(--level-0);
+}

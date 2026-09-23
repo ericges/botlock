@@ -3,7 +3,8 @@
 /**
  * Demo-only prepend file: configures BOTLOCK through putenv() from the
  * settings chosen in the control panel, then prepends the library
- * exactly like a production install would.
+ * exactly like a production install would, but only for the protected
+ * area under /protected/. The dashboard and its endpoints stay open.
  *
  * Nothing sets BOTLOCK_* via Apache SetEnv, because FastCGI parameters
  * would shadow the values written here. PHP reverts putenv() changes at
@@ -20,8 +21,7 @@ require_once __DIR__ . '/Settings.php';
     \putenv('BOTLOCK_INSTANCE_ID=' . \GES\Botlock\Demo\Settings::INSTANCE_ID);
     \putenv('BOTLOCK_STATE_DIR=' . $settings->stateDir());
 
-    // The control endpoint must stay reachable whatever the settings are.
-    if (($_SERVER['SCRIPT_NAME'] ?? '') === '/_demo.php') {
+    if (!\str_starts_with($_SERVER['SCRIPT_NAME'] ?? '', '/protected/')) {
         return;
     }
 
