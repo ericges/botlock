@@ -6,7 +6,7 @@ Botlock is a PHP 8.2+ library distributed through Composer and as a PHAR. Produc
 
 ## Build, Test, and Development Commands
 
-- `ddev start` launches the Apache/PHP 8.3 development site at `https://botlock.ddev.site`, serving `demo/`. Its `.user.ini` prepends the demo shim, which runs BOTLOCK for `/protected/` only and by default applies the rate-limit sandbox preset (tiny individual thresholds 5/10/15 per minute), so a few requests escalate the threat level; change settings on the page instead of adding `SetEnv` lines (those would shadow `putenv()`). `/_demo.php?reset=1` restores the defaults. The host has no PHP binary; run PHP and Composer through `ddev`.
+- `ddev start` launches the Apache/PHP 8.3 development site at `https://botlock.ddev.site`, serving `demo/`. Its `.user.ini` prepends the demo shim, which runs BOTLOCK for `/protected/` only and by default applies the rate-limit sandbox preset (low individual thresholds 10/20/30 per minute), so a few requests escalate the threat level; change settings on the page instead of adding `SetEnv` lines (those would shadow `putenv()`). `/_demo.php?reset=1` restores the defaults. The host has no PHP binary; run PHP and Composer through `ddev`.
 - `ddev composer install` installs the locked dependency set and generates autoload files.
 - `ddev composer validate --no-check-publish` checks Composer metadata.
 - `ddev exec sh -c "find src tests templates translations demo -name '*.php' -print0 | xargs -0 -n1 php -l"` syntax-checks every PHP file, including the template, translations and demo.

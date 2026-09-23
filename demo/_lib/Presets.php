@@ -16,7 +16,7 @@ final class Presets
         return [
             'sandbox' => [
                 'label' => 'Rate-limit sandbox',
-                'description' => 'Rate-based levels with tiny thresholds (5/10/15 requests per minute), so a request burst escalates within seconds. The demo default.',
+                'description' => 'Rate-based levels with low thresholds (10/20/30 requests per minute), so a request burst escalates within seconds. The demo default.',
                 'values' => Settings::DEFAULTS,
             ],
             'challenge' => [
