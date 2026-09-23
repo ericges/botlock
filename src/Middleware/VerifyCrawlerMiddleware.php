@@ -56,7 +56,7 @@ final readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
         $context->crawlerVerification = $this->verifier->verify($provider, $ip);
 
         if ($context->crawlerVerification === CrawlerVerification::Failed) {
-            $context->threatLevel = \min(3, \max(2, $context->threatLevel ?? 0));
+            $context->threatLevel = \max(2, $context->threatLevel ?? 0);
         }
 
         return $next($request);

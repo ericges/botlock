@@ -7,7 +7,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Threat\ThreatStateStore;
 
 /**
- * Turns raw request counts into threat levels 0–3.
+ * Turns raw request counts into threat levels: 0–3 globally, 0–4 per client.
  *
  * Global level: requests are counted in one-minute buckets over the current
  * and the previous five minutes, weighted so recent minutes count more, and
@@ -16,7 +16,9 @@ use GES\Botlock\Threat\ThreatStateStore;
  * may drop.
  *
  * Individual level: plain request count per fingerprint within the
- * individual rate window, compared to the individual thresholds.
+ * individual rate window, compared to the individual thresholds. Only
+ * this scope reaches level 4, which blocks the client outright; a global
+ * level 4 would block every visitor during a traffic spike.
  *
  * Persistence is delegated to a ThreatStateStore; when the store cannot be
  * read or written the manager stays protective and reports level 1 for the
@@ -115,7 +117,7 @@ class ThreatAwarenessManager
     }
 
     /**
-     * Threat level (0–3) for one fingerprint, derived from its request rate.
+     * Threat level (0–4) for one fingerprint, derived from its request rate.
      * Unlike the global level there is no decay hold: the level follows the
      * rolling window directly. Unavailable state yields UNAVAILABLE_LEVEL.
      */
@@ -136,6 +138,7 @@ class ThreatAwarenessManager
         }
 
         $level = match (true) {
+            $rate >= $this->config->level4ThresholdIndividual => 4,
             $rate >= $this->config->level3ThresholdIndividual => 3,
             $rate >= $this->config->level2ThresholdIndividual => 2,
             $rate >= $this->config->level1ThresholdIndividual => 1,

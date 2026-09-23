@@ -46,13 +46,13 @@ final class ThreatAwarenessManagerTest extends TestCase
     public function testIndividualLevelFollowsThresholds(): void
     {
         $store = new InMemoryThreatStateStore();
-        $config = new RateLimitConfig(level1ThresholdIndividual: 2, level2ThresholdIndividual: 3, level3ThresholdIndividual: 4, gcProbability: 0);
+        $config = new RateLimitConfig(level1ThresholdIndividual: 2, level2ThresholdIndividual: 3, level3ThresholdIndividual: 4, level4ThresholdIndividual: 6, gcProbability: 0);
 
         $request = Requests::make();
         $request->context->fingerprint = self::FP;
 
-        // thresholds 2/3/4 requests per window
-        foreach ([0 => 0, 1 => 0, 2 => 1, 3 => 2, 4 => 3, 9 => 3] as $hits => $expectedLevel) {
+        // thresholds 2/3/4/6 requests per window
+        foreach ([0 => 0, 1 => 0, 2 => 1, 3 => 2, 4 => 3, 5 => 3, 6 => 4, 9 => 4] as $hits => $expectedLevel) {
             $manager = new ThreatAwarenessManager($config, $store);
             $store->individual = [self::FP => \array_fill(0, $hits, \time())];
 
@@ -79,6 +79,7 @@ final class ThreatAwarenessManagerTest extends TestCase
         self::assertSame(1, $this->globalLevelFor($config, [$bucket => 82]));   // 121.1
         self::assertSame(2, $this->globalLevelFor($config, [$bucket => 204])); // 301.4
         self::assertSame(3, $this->globalLevelFor($config, [$bucket => 407])); // 601.3
+        self::assertSame(3, $this->globalLevelFor($config, [$bucket => 100000]), 'the global level never reaches 4');
     }
 
     public function testOlderBucketsWeighLess(): void

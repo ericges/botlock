@@ -20,7 +20,7 @@ final class RequestContext
     /** SHA-256 over IP and stable request headers; identifies the client. */
     public ?string $fingerprint = null;
 
-    /** Effective threat level (0–3), the max of global and individual. */
+    /** Effective threat level (0–4), the max of global and individual. */
     public ?int $threatLevel = null;
 
     public ?int $threatLevelGlobal = null;

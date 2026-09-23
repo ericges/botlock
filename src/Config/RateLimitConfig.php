@@ -7,8 +7,11 @@ namespace GES\Botlock\Config;
  */
 final readonly class RateLimitConfig
 {
+    /** Highest threat level; only the individual rate can reach it. */
+    public const MAX_LEVEL = 4;
+
     public function __construct(
-        /** Fixed threat level that replaces rate evaluation entirely when set. */
+        /** Fixed threat level (clamped to 0–4) that replaces rate evaluation entirely when set. */
         public ?int $threatLevelOverride = null,
         public bool $enableGlobalRateLimit = true,
         public bool $enableIndividualRateLimit = true,
@@ -26,6 +29,8 @@ final readonly class RateLimitConfig
         public int  $level1ThresholdIndividual = 60,
         public int  $level2ThresholdIndividual = 90,
         public int  $level3ThresholdIndividual = 120,
+        /** Requests per individual window that activate level 4: answered with 429, no challenge. */
+        public int  $level4ThresholdIndividual = 180,
         /** One request in this many sweeps stale per-client state; 0 disables. */
         public int  $gcProbability = 1000,
     ) {}
@@ -35,7 +40,7 @@ final readonly class RateLimitConfig
         $override = Env::get('THREAT_LEVEL_OVERRIDE');
 
         return new self(
-            threatLevelOverride: \is_null($override) ? null : (int) $override,
+            threatLevelOverride: \is_null($override) ? null : \min(self::MAX_LEVEL, \max(0, (int) $override)),
             enableGlobalRateLimit: (bool) Env::bool('ENABLE_GLOBAL_RATE_LIMIT', true),
             enableIndividualRateLimit: (bool) Env::bool('ENABLE_INDIVIDUAL_RATE_LIMIT', true),
             enableRateLimit: (bool) Env::bool('ENABLE_RATE_LIMIT', true),
@@ -47,6 +52,7 @@ final readonly class RateLimitConfig
             level1ThresholdIndividual: Env::int('LEVEL_1_THRESHOLD_INDIVIDUAL', 60),
             level2ThresholdIndividual: Env::int('LEVEL_2_THRESHOLD_INDIVIDUAL', 90),
             level3ThresholdIndividual: Env::int('LEVEL_3_THRESHOLD_INDIVIDUAL', 120),
+            level4ThresholdIndividual: Env::int('LEVEL_4_THRESHOLD_INDIVIDUAL', 180),
             gcProbability: \max(0, Env::int('GC_PROBABILITY', 1000)),
         );
     }

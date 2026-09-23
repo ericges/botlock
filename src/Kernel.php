@@ -26,6 +26,7 @@ use GES\Botlock\Action\StatusAction;
 use GES\Botlock\Action\VerifyAction;
 use GES\Botlock\Middleware\ThreatEvaluationMiddleware;
 use GES\Botlock\Middleware\SessionMiddleware;
+use GES\Botlock\Middleware\ThreatBlockMiddleware;
 use GES\Botlock\Middleware\ThreatPassMiddleware;
 use GES\Botlock\Middleware\IgnoreListMiddleware;
 use GES\Botlock\I18n\LanguageNegotiator;
@@ -105,6 +106,7 @@ readonly class Kernel
             ->add(new IgnoreListMiddleware($this->whitelist))
             ->add(new ThreatEvaluationMiddleware($this->rate, $this->rateLimiter))
             ->add(new VerifyCrawlerMiddleware($this->detective, $this->detection))
+            ->add(new ThreatBlockMiddleware($this->rate))
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))
             ->add(new ActionMiddleware([

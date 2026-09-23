@@ -71,9 +71,9 @@ final class VerifyCrawlerMiddlewareTest extends TestCase
         }
     }
 
-    public function testFailedVerificationRaisesToAtLeastLevelTwoAndNeverAboveThree(): void
+    public function testFailedVerificationRaisesToAtLeastLevelTwoAndNeverLowers(): void
     {
-        foreach ([null => 2, 0 => 2, 1 => 2, 2 => 2, 3 => 3] as $level => $expected) {
+        foreach ([null => 2, 0 => 2, 1 => 2, 2 => 2, 3 => 3, 4 => 4] as $level => $expected) {
             $request = $this->request(threatLevel: $level === '' ? null : $level, individual: 0);
 
             $this->process(self::GOOGLEBOT, $request, new StubCrawlerVerifier(CrawlerVerification::Failed));

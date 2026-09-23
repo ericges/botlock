@@ -75,6 +75,25 @@ final class ThreatEvaluationMiddlewareTest extends TestCase
         self::assertSame([], $store->global);
     }
 
+    public function testIndividualRateReachesLevelFour(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $store->individual = [self::FP => \array_fill(0, 4, \time())];
+        $config = new RateLimitConfig(
+            level1ThresholdIndividual: 2,
+            level2ThresholdIndividual: 3,
+            level3ThresholdIndividual: 4,
+            level4ThresholdIndividual: 5,
+            gcProbability: 0,
+        );
+
+        $request = $this->evaluate($config, $store);
+
+        self::assertSame(5, $request->context->individualRate);
+        self::assertSame(4, $request->context->threatLevelIndividual);
+        self::assertSame(4, $request->context->threatLevel);
+    }
+
     public function testEffectiveLevelIsTheHigherOfGlobalAndIndividual(): void
     {
         $store = new InMemoryThreatStateStore();
