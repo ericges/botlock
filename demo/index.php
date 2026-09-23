@@ -69,7 +69,7 @@ $recipes = [
 $demoData = [
     'schema' => Settings::schema(),
     'values' => $values,
-    'presets' => \array_map(static fn(array $preset): string => $preset['label'], Presets::all()),
+    'presets' => \array_map(static fn(array $preset): array => \array_diff_key($preset, ['values' => true]), Presets::all()),
     'preset' => $activePreset,
 ];
 ?>

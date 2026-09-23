@@ -16,6 +16,7 @@ const demo = (() => {
         /** Saved settings; updated after every in-place save or preset. */
         values: data.values,
         refreshStatus: async () => {},
+        showPreset: () => {},
     };
 })();
 
@@ -349,6 +350,7 @@ const effectiveInt = (key) => {
 
         if (result) {
             demo.setValues(result.values);
+            demo.showPreset(result.preset);
             toast(result.message);
             demo.refreshStatus();
         }
@@ -364,6 +366,57 @@ const effectiveInt = (key) => {
 
     update();
 })();
+
+/* Presets and tools: post in place, reload only when the grant is gone */
+
+(() => {
+    const presetButtons = document.querySelectorAll('button[name="preset"]');
+    const presetLabel = document.querySelector('[data-preset-label]');
+
+    const showPreset = (id) => {
+        demo.preset = id;
+        presetButtons.forEach((button) => button.setAttribute('aria-pressed', String(button.value === id)));
+        presetLabel.textContent = id ? demo.presets[id].description : 'Custom settings: no preset matches.';
+    };
+
+    document.querySelectorAll('[data-action-form]').forEach((form) => {
+        form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+
+            // Read the submitter before disabling it; disabled buttons are not submitted.
+            const body = new FormData(form, event.submitter);
+            const buttons = form.id ? document.querySelectorAll(`[form="${form.id}"]`) : form.querySelectorAll('button');
+            buttons.forEach((button) => { button.disabled = true; });
+
+            const result = await postAction(body);
+
+            buttons.forEach((button) => { button.disabled = false; });
+
+            if (!result) {
+                return;
+            }
+
+            if (result.reload) {
+                // The grant is gone: a page load shows the challenge, then the notice.
+                location.assign(`/?demo=${encodeURIComponent(result.notice)}`);
+                return;
+            }
+
+            demo.setValues(result.values);
+            showPreset(result.preset);
+            toast(result.message);
+            demo.refreshStatus();
+        });
+    });
+
+    demo.showPreset = showPreset;
+})();
+
+/* Drop ?demo=<notice> after showing its banner, so a reload does not repeat it. */
+
+if (new URLSearchParams(location.search).has('demo')) {
+    history.replaceState(null, '', location.pathname);
+}
 
 /* Request burst */
 
