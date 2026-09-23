@@ -19,7 +19,8 @@ use GES\Botlock\Http\Response;
  * authoritative; X-Real-Ip and Client-Ip are only used when a proxy sets one of
  * them instead. X-Forwarded-Proto from a trusted proxy (or BOTLOCK_EXTERNAL_SCHEME,
  * which wins) sets the scheme the visitor actually used, so a TLS-terminating
- * proxy still yields a Secure session cookie and an https issuer. Whenever a
+ * proxy still yields a Secure session cookie and an https issuer; its last value
+ * is used, since that is the one the trusted proxy wrote. Whenever a
  * forwarding header is present but cannot be used, the connecting address or
  * scheme is used and the reason is reported in the Botlock-Warning response header.
  */
@@ -31,7 +32,7 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
     /** Comma-separated chain (client, proxy1, proxy2, ...) that appending proxies extend on the right. */
     private const CHAIN_HEADER = 'X-Forwarded-For';
 
-    /** Scheme of the client-facing hop; appending proxies extend it on the right like X-Forwarded-For. */
+    /** Scheme seen by the proxy; appending proxies extend it on the right like X-Forwarded-For, so the last value is theirs. */
     private const PROTO_HEADER = 'X-Forwarded-Proto';
 
     /** Single-valued headers set by a proxy that does not use X-Forwarded-For, in order of preference. */
@@ -105,8 +106,10 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
             return $this->ignoredHeaderWarning(self::PROTO_HEADER, $remoteAddr);
         }
 
-        // Leftmost entry is the client-facing hop; later proxies append their own.
-        $scheme = \strtolower(\trim(\explode(',', $header)[0]));
+        // Rightmost entry is what the trusted proxy that connected to us observed;
+        // a client can prepend values but never append behind the proxy's own.
+        $entries = \explode(',', $header);
+        $scheme = \strtolower(\trim($entries[\array_key_last($entries)]));
 
         if (!\in_array($scheme, DetectionConfig::EXTERNAL_SCHEMES, true)) {
             // Not echoed: arbitrary request bytes do not belong in a response header

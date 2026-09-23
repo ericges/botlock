@@ -302,11 +302,24 @@ final class WhoIsMiddlewareTest extends TestCase
         self::assertStringNotContainsString('ftp', (string) $response->getHeader(self::WARNING));
     }
 
-    public function testForwardedProtoChainUsesTheClientFacingHop(): void
+    public function testForwardedProtoChainUsesTheTrustedProxysOwnValue(): void
     {
+        // The proxy that connected to us appended "http": its inbound leg was plain HTTP.
         [$request] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-Proto' => 'https, http'], url: 'http://example.test/');
+        self::assertFalse($request->isSecure());
+
+        [$request] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-Proto' => 'http, https'], url: 'http://example.test/');
+        self::assertTrue($request->isSecure());
+    }
+
+    public function testClientPrependedForwardedProtoCannotDowngrade(): void
+    {
+        // Client sends "X-Forwarded-Proto: http"; an appending trusted proxy adds its own "https".
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-Proto' => 'http, https'], url: 'http://example.test/');
 
         self::assertTrue($request->isSecure());
+        self::assertSame('https://example.test', $request->getOrigin());
+        self::assertFalse($response->hasHeader(self::WARNING));
     }
 
     public function testTrustedProxyMayDowngradeToHttp(): void
