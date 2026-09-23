@@ -128,7 +128,10 @@ const effectiveInt = (key) => {
     const SVG_NS = 'http://www.w3.org/2000/svg';
 
     const chip = document.querySelector('[data-chip]');
-    const chipText = document.querySelector('[data-chip-text]');
+    const chipIdentity = chip.querySelector('[data-chip-identity]');
+    const chipLevel = chip.querySelector('[data-chip-level]');
+    const chipLevelText = chip.querySelector('[data-chip-level-text]');
+    const chipGrant = chip.querySelector('[data-chip-grant]');
     const fields = status.querySelectorAll('[data-field]');
     const headers = status.querySelector('[data-status-headers]');
     const updated = status.querySelector('[data-status-updated]');
@@ -176,10 +179,14 @@ const effectiveInt = (key) => {
     const renderChip = (data) => {
         const level = data?.threat_level;
 
-        chip.dataset.level = isLevel(level) ? String(level) : '';
-        chipText.textContent = `${demo.identity.label} · ` + (data
-            ? `L${isLevel(level) ? level : '?'} · ${isLevel(level) ? LEVEL_TEXT[level] : 'not evaluated'} · grant ${data.passed ? '✓' : '✗'}`
-            : 'status unavailable');
+        const known = isLevel(level);
+
+        chip.dataset.level = known ? String(level) : '';
+        chip.dataset.grant = data?.passed ? 'yes' : 'no';
+        chipIdentity.textContent = demo.identity.label;
+        chipLevel.textContent = data ? (known ? String(level) : '?') : '—';
+        chipLevelText.textContent = data ? (known ? LEVEL_TEXT[level] : 'not evaluated') : 'status unavailable';
+        chipGrant.textContent = data ? (data.passed ? '✓ passed' : '✗ none') : '—';
     };
 
     const renderHistory = () => {

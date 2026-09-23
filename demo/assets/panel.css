@@ -634,6 +634,15 @@ input[type="checkbox"] {
 }
 
 @media (max-width: 560px) {
+    .topbar-label,
+    [data-chip-level-text] {
+        display: none;
+    }
+
+    .topbar-cell {
+        padding: 0 .6rem;
+    }
+
     .field {
         grid-template-columns: minmax(0, 1fr) 3.5rem;
         justify-content: stretch;
@@ -652,37 +661,53 @@ input[type="checkbox"] {
 
 /* Level meters, chip and history */
 
-.chip {
-    display: inline-flex;
+.topbar-status {
+    display: flex;
+    align-self: stretch;
+    min-width: 0;
+    margin: 0 -1rem 0 auto;
+}
+
+.topbar-cell {
+    display: flex;
     align-items: center;
-    gap: .45rem;
-    padding: .15rem .6rem;
-    border: 1px solid var(--line);
-    border-radius: 999px;
-    font-family: var(--font-mono);
-    font-size: 12px;
+    gap: .5rem;
+    min-width: 0;
+    padding: 0 1rem;
+    border-left: 1px solid var(--line);
     white-space: nowrap;
+}
+
+.topbar-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.topbar-value {
     min-width: 0;
     overflow: hidden;
-}
-
-.chip [data-chip-text] {
-    overflow: hidden;
     text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    font-size: 12px;
 }
 
-.chip-dot {
-    flex-shrink: 0;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--level-none);
+.topbar-level {
+    box-shadow: inset 0 -2px 0 var(--level-none);
 }
 
-.chip[data-level="0"] .chip-dot { background: var(--level-0); }
-.chip[data-level="1"] .chip-dot { background: var(--level-1); }
-.chip[data-level="2"] .chip-dot { background: var(--level-2); }
-.chip[data-level="3"] .chip-dot { background: var(--level-3); }
+.topbar-status[data-level="0"] .topbar-level { box-shadow: inset 0 -2px 0 var(--level-0); }
+.topbar-status[data-level="1"] .topbar-level { box-shadow: inset 0 -2px 0 var(--level-1); }
+.topbar-status[data-level="2"] .topbar-level { box-shadow: inset 0 -2px 0 var(--level-2); }
+.topbar-status[data-level="3"] .topbar-level { box-shadow: inset 0 -2px 0 var(--level-3); }
+.topbar-status[data-level="0"] [data-chip-level] { color: var(--level-0); }
+.topbar-status[data-level="1"] [data-chip-level] { color: var(--level-1); }
+.topbar-status[data-level="2"] [data-chip-level] { color: var(--level-2); }
+.topbar-status[data-level="3"] [data-chip-level] { color: var(--level-3); }
+.topbar-status[data-grant="yes"] [data-chip-grant] { color: var(--level-0); }
+.topbar-status[data-grant="no"] [data-chip-grant] { color: var(--muted); }
 
 .meters {
     margin-bottom: .75rem;

@@ -90,8 +90,19 @@ $demoData = [
 
 <header class="topbar">
     <div class="brand">BOTLOCK <span>demo</span></div>
-    <div class="chip" data-chip title="Selected identity with its effective threat level and grant">
-        <span class="chip-dot"></span><span data-chip-text>status pending</span>
+    <div class="topbar-status" data-chip aria-live="polite">
+        <div class="topbar-cell">
+            <span class="topbar-label">Identity</span>
+            <span class="topbar-value" data-chip-identity>—</span>
+        </div>
+        <div class="topbar-cell topbar-level" data-chip-level-cell title="Effective threat level of the selected identity">
+            <span class="topbar-label">Level</span>
+            <span class="topbar-value"><strong data-chip-level>—</strong> <span data-chip-level-text>status pending</span></span>
+        </div>
+        <div class="topbar-cell" title="Whether the selected identity holds a grant from a solved challenge">
+            <span class="topbar-label">Grant</span>
+            <span class="topbar-value" data-chip-grant>—</span>
+        </div>
     </div>
 </header>
 
