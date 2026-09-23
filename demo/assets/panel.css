@@ -215,3 +215,29 @@ legend {
         font-size: 1.8em;
     }
 }
+
+.presets {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+    gap: .75rem;
+    margin-bottom: .75rem;
+}
+
+button.preset {
+    display: flex;
+    flex-direction: column;
+    gap: .3rem;
+    text-align: left;
+    text-transform: none;
+    letter-spacing: normal;
+    border: 2px solid transparent;
+}
+
+button.preset span {
+    font-size: .85em;
+    line-height: 1.4;
+}
+
+button.preset.active {
+    border-color: var(--color-accent);
+}

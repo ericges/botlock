@@ -1,11 +1,14 @@
 <?php declare(strict_types=1);
 
+use GES\Botlock\Demo\Presets;
 use GES\Botlock\Demo\Settings;
 
 require_once __DIR__ . '/_lib/Settings.php';
+require_once __DIR__ . '/_lib/Presets.php';
 
 $demo = new Settings(\dirname(__DIR__));
 $values = $demo->load();
+$activePreset = Presets::match($values);
 
 $groups = [];
 foreach (Settings::schema() as $key => $field) {
@@ -14,6 +17,7 @@ foreach (Settings::schema() as $key => $field) {
 
 $notices = [
     'saved' => 'Settings saved. They apply from the next request on.',
+    'preset' => 'Preset applied. It takes effect from the next request on.',
     'reset' => 'Settings reset to the demo defaults.',
 ];
 $notice = $notices[$_GET['demo'] ?? ''] ?? null;
@@ -44,6 +48,22 @@ $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
     <?php if ($notice): ?>
         <p class="notice"><?= $e($notice) ?></p>
     <?php endif ?>
+
+    <h2>Presets</h2>
+    <form method="post" action="/_demo.php" class="presets">
+        <input type="hidden" name="action" value="preset">
+        <?php foreach (Presets::all() as $id => $preset): ?>
+            <button type="submit" name="preset" value="<?= $e($id) ?>"
+                    class="preset<?= $id === $activePreset ? ' active' : '' ?>"
+                    <?= $id === $activePreset ? 'aria-current="true"' : '' ?>>
+                <strong><?= $e($preset['label']) ?></strong>
+                <span><?= $e($preset['description']) ?></span>
+            </button>
+        <?php endforeach ?>
+    </form>
+    <p class="hint">
+        <?= $activePreset ? 'Active preset: ' . $e(Presets::all()[$activePreset]['label']) . '.' : 'Custom settings (no preset matches).' ?>
+    </p>
 
     <h2>Settings</h2>
     <p class="hint">

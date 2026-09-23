@@ -8,9 +8,11 @@
  * GET /_demo.php?reset=1 restores the defaults (escape hatch).
  */
 
+use GES\Botlock\Demo\Presets;
 use GES\Botlock\Demo\Settings;
 
 require_once __DIR__ . '/_lib/Settings.php';
+require_once __DIR__ . '/_lib/Presets.php';
 
 $settings = new Settings(\dirname(__DIR__));
 
@@ -27,6 +29,13 @@ try
         case 'save':
             $settings->save(Settings::fromForm($_POST));
             $notice = 'saved';
+            break;
+
+        case 'preset':
+            if (null !== ($values = Presets::values((string) ($_POST['preset'] ?? '')))) {
+                $settings->save($values);
+                $notice = 'preset';
+            }
             break;
 
         case 'reset':
