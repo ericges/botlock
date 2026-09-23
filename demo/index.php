@@ -1,10 +1,12 @@
 <?php declare(strict_types=1);
 
+use GES\Botlock\Demo\Notices;
 use GES\Botlock\Demo\Presets;
 use GES\Botlock\Demo\Settings;
 
 require_once __DIR__ . '/_lib/Settings.php';
 require_once __DIR__ . '/_lib/Presets.php';
+require_once __DIR__ . '/_lib/Notices.php';
 
 $demo = new Settings(\dirname(__DIR__));
 $values = $demo->load();
@@ -15,14 +17,7 @@ foreach (Settings::schema() as $key => $field) {
     $groups[$field['group']][$key] = $field;
 }
 
-$notices = [
-    'saved' => 'Settings saved. They apply from the next request on.',
-    'preset' => 'Preset applied. It takes effect from the next request on.',
-    'reset' => 'Settings reset to the demo defaults.',
-    'cleared' => 'Rate-limit state and cached challenge pages deleted.',
-    'rotated' => 'Secret rotated. Your grant is no longer valid, so this page had to challenge you again.',
-];
-$notice = $notices[$_GET['demo'] ?? ''] ?? null;
+$notice = Notices::message(\is_string($_GET['demo'] ?? null) ? $_GET['demo'] : null);
 
 $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
 
