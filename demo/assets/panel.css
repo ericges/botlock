@@ -325,9 +325,9 @@ input[type="checkbox"] {
 
 .field {
     display: grid;
-    grid-template-columns: minmax(9rem, 14rem) minmax(0, 26rem) 1.5rem;
+    grid-template-columns: minmax(9rem, 14rem) minmax(0, 26rem) 3.5rem;
     grid-template-areas:
-        "label control marker"
+        "label control state"
         ".     meta    meta";
     justify-content: start;
     column-gap: .75rem;
@@ -350,9 +350,29 @@ input[type="checkbox"] {
     gap: .25rem;
 }
 
+.field-state {
+    grid-area: state;
+    display: flex;
+    align-items: center;
+    gap: .4rem;
+}
+
+.field-state button {
+    width: 22px;
+    visibility: hidden;
+}
+
+.field.is-set .field-state button,
+.field:hover .field-state button,
+.field:focus-within .field-state button {
+    visibility: visible;
+}
+
+.field.is-dirty {
+    box-shadow: inset 3px 0 0 var(--level-1);
+}
+
 .marker {
-    grid-area: marker;
-    justify-self: center;
     width: 7px;
     height: 7px;
     border-radius: 50%;
@@ -536,10 +556,10 @@ input[type="checkbox"] {
 
 @media (max-width: 560px) {
     .field {
-        grid-template-columns: minmax(0, 1fr) 1.5rem;
+        grid-template-columns: minmax(0, 1fr) 3.5rem;
         justify-content: stretch;
         grid-template-areas:
-            "label   marker"
+            "label   state"
             "control control"
             "meta    meta";
         padding-left: 1rem;
@@ -658,4 +678,12 @@ input[type="checkbox"] {
 .history p {
     margin: .25rem 0 0;
     font-size: 11px;
+}
+
+.savebar.is-dirty {
+    border-top-color: var(--level-1);
+}
+
+.savebar.is-dirty [data-savebar-text] {
+    color: var(--level-1);
 }

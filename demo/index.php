@@ -165,7 +165,11 @@ $demoData = [
                                 <?php endif ?>
                             </div>
 
-                            <span class="marker" title="Differs from the library default" aria-hidden="true"></span>
+                            <div class="field-state">
+                                <span class="marker" title="Set: differs from the library default"></span>
+                                <button type="button" class="icon small" data-field-reset
+                                        title="Reset to the library default" aria-label="Reset <?= $e($field['label']) ?> to the library default">↺</button>
+                            </div>
 
                             <p class="field-meta">
                                 <code>BOTLOCK_<?= $e($key) ?></code> · default <?= $e($field['default']) ?><?= isset($field['help']) ? ' · ' . $e($field['help']) : '' ?>

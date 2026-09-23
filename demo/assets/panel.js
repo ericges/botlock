@@ -19,6 +19,59 @@ const demo = (() => {
     };
 })();
 
+/** Replaces the saved settings and tells interested sections about it. */
+demo.setValues = (values) => {
+    demo.values = values;
+    document.dispatchEvent(new CustomEvent('demo:values', {detail: values}));
+};
+
+/** Short-lived notification; errors stay until dismissed. */
+const toast = (message, kind = 'success') => {
+    const container = document.querySelector('[data-toasts]');
+    const item = document.createElement('div');
+    const text = document.createElement('span');
+    const close = document.createElement('button');
+
+    item.className = `toast ${kind}`;
+    item.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+    text.textContent = message;
+    close.type = 'button';
+    close.textContent = '×';
+    close.setAttribute('aria-label', 'Dismiss');
+    close.addEventListener('click', () => item.remove());
+    item.append(text, close);
+    container.append(item);
+
+    if (kind !== 'error') {
+        setTimeout(() => item.remove(), 3000);
+    }
+};
+
+/**
+ * POSTs to /_demo.php asking for JSON. Resolves with the response body
+ * when ok; shows an error toast and resolves with null otherwise.
+ */
+const postAction = async (body) => {
+    try {
+        const response = await fetch('/_demo.php', {
+            method: 'POST',
+            body,
+            headers: {Accept: 'application/json'},
+            credentials: 'same-origin',
+        });
+        const result = await response.json();
+
+        if (!response.ok || !result.ok) {
+            throw new Error(result.error || `HTTP ${response.status}`);
+        }
+
+        return result;
+    } catch (error) {
+        toast(`Action failed: ${error.message}`, 'error');
+        return null;
+    }
+};
+
 /** Saved value, or the numeric library default when the setting is unset. */
 const effectiveInt = (key) => {
     const value = demo.values[key] ?? demo.schema[key]?.default;
@@ -181,6 +234,137 @@ const effectiveInt = (key) => {
     refresh();
 })();
 
+/* Settings: change markers, per-field reset, unsaved changes, in-place save */
+
+(() => {
+    const form = document.querySelector('[data-settings-form]');
+
+    if (!form) {
+        return;
+    }
+
+    const savebar = form.querySelector('[data-savebar]');
+    const savebarText = form.querySelector('[data-savebar-text]');
+    const savebarIdle = savebarText.innerHTML;
+    const discard = form.querySelector('[data-discard]');
+    const rows = new Map([...form.querySelectorAll('.field[data-key]')].map((row) => [row.dataset.key, row]));
+
+    const controls = (key) => ({
+        input: form.elements[`settings[${key}]`],
+        inherit: form.elements[`default[${key}]`] ?? null,
+    });
+
+    /** Current form value in the shape Settings::normalize() stores. */
+    const read = (key) => {
+        const {input, inherit} = controls(key);
+
+        if (demo.schema[key].type === 'list') {
+            return inherit.checked
+                ? null
+                : input.value.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== '');
+        }
+
+        const value = input.value.trim();
+
+        return value === '' ? null : value;
+    };
+
+    const write = (key, value) => {
+        const {input, inherit} = controls(key);
+
+        if (demo.schema[key].type === 'list') {
+            inherit.checked = value === null;
+            input.value = (value ?? []).join('\n');
+            return;
+        }
+
+        input.value = value ?? '';
+    };
+
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+    const dirtyKeys = () => [...rows.keys()].filter((key) => !same(read(key), demo.values[key] ?? null));
+
+    const update = () => {
+        const dirty = new Set(dirtyKeys());
+
+        rows.forEach((row, key) => {
+            row.classList.toggle('is-set', read(key) !== null);
+            row.classList.toggle('is-dirty', dirty.has(key));
+        });
+
+        form.querySelectorAll('[data-group]').forEach((group) => {
+            const keys = [...group.querySelectorAll('.field[data-key]')].map((row) => row.dataset.key);
+            const set = keys.filter((key) => read(key) !== null).length;
+            const unsaved = keys.filter((key) => dirty.has(key)).length;
+
+            group.querySelector('[data-group-count]').textContent =
+                [String(keys.length), set ? `${set} set` : '', unsaved ? `${unsaved} unsaved` : ''].filter(Boolean).join(' · ');
+        });
+
+        savebar.classList.toggle('is-dirty', dirty.size > 0);
+        discard.hidden = dirty.size === 0;
+
+        if (dirty.size > 0) {
+            savebarText.textContent = `${dirty.size} unsaved change${dirty.size === 1 ? '' : 's'}`;
+        } else {
+            savebarText.innerHTML = savebarIdle;
+        }
+    };
+
+    const load = (values) => {
+        rows.forEach((row, key) => write(key, values[key] ?? null));
+        update();
+    };
+
+    form.addEventListener('input', (event) => {
+        // Typing into a list means it should no longer inherit the default.
+        const key = event.target.closest('.field[data-key]')?.dataset.key;
+        if (key && event.target.tagName === 'TEXTAREA') {
+            controls(key).inherit.checked = false;
+        }
+
+        update();
+    });
+    form.addEventListener('change', update);
+
+    form.addEventListener('click', (event) => {
+        const reset = event.target.closest('[data-field-reset]');
+
+        if (reset) {
+            write(reset.closest('.field[data-key]').dataset.key, null);
+            update();
+        }
+    });
+
+    discard.addEventListener('click', () => load(demo.values));
+
+    form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        const body = new FormData(form);
+        body.set('action', 'save');
+
+        const result = await postAction(body);
+
+        if (result) {
+            demo.setValues(result.values);
+            toast(result.message);
+            demo.refreshStatus();
+        }
+    });
+
+    document.addEventListener('demo:values', (event) => load(event.detail));
+
+    window.addEventListener('beforeunload', (event) => {
+        if (dirtyKeys().length > 0) {
+            event.preventDefault();
+        }
+    });
+
+    update();
+})();
+
 /* Request burst */
 
 (() => {
@@ -193,6 +377,11 @@ const effectiveInt = (key) => {
     const count = burst.querySelector('[data-burst-count]');
     const start = burst.querySelector('[data-burst-start]');
     const result = burst.querySelector('[data-burst-result]');
+    const overrideHint = document.querySelector('[data-burst-override]');
+
+    document.addEventListener('demo:values', (event) => {
+        overrideHint.hidden = event.detail.THREAT_LEVEL_OVERRIDE === null;
+    });
 
     start.addEventListener('click', async () => {
         const total = Math.min(200, Math.max(1, parseInt(count.value, 10) || 1));
