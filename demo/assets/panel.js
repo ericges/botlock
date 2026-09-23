@@ -7,12 +7,15 @@
  */
 const demo = (() => {
     const element = document.getElementById('demo-data');
-    const data = element ? JSON.parse(element.textContent) : {schema: {}, values: {}, presets: {}, preset: null};
+    const data = element ? JSON.parse(element.textContent) : {schema: {}, values: {}, presets: {}, preset: null, identities: {}};
 
     return {
         schema: data.schema,
         presets: data.presets,
         preset: data.preset,
+        identities: data.identities,
+        /** Selected identity; fields null means this browser, requests go direct. */
+        identity: {key: 'browser', label: 'This browser', fields: null},
         /** Saved settings; updated after every in-place save or preset. */
         values: data.values,
         refreshStatus: async () => {},
@@ -74,6 +77,27 @@ const postAction = async (body) => {
         return null;
     }
 };
+
+/** base64url of the identity JSON, as Identity::decode() expects it. */
+const encodeIdentity = (fields) => {
+    const bytes = new TextEncoder().encode(JSON.stringify(fields));
+    const binary = Array.from(bytes, (byte) => String.fromCharCode(byte)).join('');
+
+    return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+};
+
+/** URL of the protected area as the selected identity reaches it, plus a suffix like "?_botlock=status". */
+demo.target = (suffix = '') => (demo.identity.fields
+    ? `/_forge.php/${encodeIdentity(demo.identity.fields)}/protected/${suffix}`
+    : `/protected/${suffix}`);
+
+/** fetch() options for a dashboard request to the protected area; the relay logs the source. */
+demo.fetchOptions = (source, options = {}) => ({
+    cache: 'no-store',
+    credentials: 'same-origin',
+    ...options,
+    headers: {...(options.headers || {}), ...(demo.identity.fields ? {'X-Demo-Source': source} : {})},
+});
 
 /** Saved value, or the numeric library default when the setting is unset. */
 const effectiveInt = (key) => {
@@ -152,9 +176,9 @@ const effectiveInt = (key) => {
         const level = data?.threat_level;
 
         chip.dataset.level = isLevel(level) ? String(level) : '';
-        chipText.textContent = data
+        chipText.textContent = `${demo.identity.label} · ` + (data
             ? `L${isLevel(level) ? level : '?'} · ${isLevel(level) ? LEVEL_TEXT[level] : 'not evaluated'} · grant ${data.passed ? '✓' : '✗'}`
-            : 'status unavailable';
+            : 'status unavailable');
     };
 
     const renderHistory = () => {
@@ -204,7 +228,7 @@ const effectiveInt = (key) => {
 
     const refresh = async () => {
         try {
-            const response = await fetch(status.dataset.status, {cache: 'no-store', credentials: 'same-origin'});
+            const response = await fetch(demo.target('?_botlock=status'), demo.fetchOptions('status'));
             showHeaders(response);
 
             const type = response.headers.get('Content-Type') || '';
@@ -452,11 +476,20 @@ if (new URLSearchParams(location.search).has('demo')) {
         demo.refreshStatus();
     });
 
-    const reload = () => {
+    const url = block.querySelector('[data-frame-url]');
+    const open = block.querySelector('[data-frame-open]');
+
+    const navigate = (src) => {
         state.dataset.state = '';
         state.textContent = 'loading';
-        frame.src = frame.getAttribute('src');
+        url.textContent = src;
+        open.href = src;
+        frame.src = src;
     };
+
+    const reload = () => navigate(demo.target());
+
+    demo.navigateFrame = reload;
 
     block.querySelector('[data-frame-reload]').addEventListener('click', reload);
 
@@ -471,7 +504,7 @@ if (new URLSearchParams(location.search).has('demo')) {
         event.preventDefault();
 
         try {
-            const response = await fetch(event.target.action, {method: 'POST', credentials: 'same-origin'});
+            const response = await fetch(demo.target('?_botlock=reset'), demo.fetchOptions('reset', {method: 'POST'}));
 
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
@@ -485,6 +518,97 @@ if (new URLSearchParams(location.search).has('demo')) {
         demo.refreshStatus();
         demo.reloadFrame();
     });
+})();
+
+/* Identity: which client the frame, status, burst and reset act as */
+
+(() => {
+    const section = document.querySelector('[data-identity]');
+
+    if (!section) {
+        return;
+    }
+
+    const STORAGE_KEY = 'botlock-demo-identity';
+    const select = section.querySelector('[data-identity-preset]');
+    const form = section.querySelector('[data-identity-form]');
+    const note = section.querySelector('[data-identity-note]');
+    const inputs = ['ua', 'ip', 'lang', 'headers'].map((name) => form.elements[name]);
+
+    const readFields = () => ({
+        ua: form.elements.ua.value.trim(),
+        ip: form.elements.ip.value.trim(),
+        lang: form.elements.lang.value.trim(),
+        headers: form.elements.headers.value.split(/\r?\n/).map((line) => line.trim()).filter((line) => line !== ''),
+    });
+
+    const writeFields = (fields) => {
+        form.elements.ua.value = fields?.ua ?? '';
+        form.elements.ip.value = fields?.ip ?? '';
+        form.elements.lang.value = fields?.lang ?? '';
+        form.elements.headers.value = (fields?.headers ?? []).join('\n');
+        inputs.forEach((input) => { input.disabled = fields === null; });
+        note.textContent = fields === null
+            ? 'Direct requests with your own browser headers; not relayed or logged.'
+            : 'Relayed via /_forge.php with these headers.';
+    };
+
+    const apply = (key, fields) => {
+        const label = key === 'custom' ? 'Custom' : demo.identities[key]?.label ?? key;
+
+        demo.identity = {key, label, fields};
+        select.value = key;
+
+        try {
+            sessionStorage.setItem(STORAGE_KEY, JSON.stringify({key, fields}));
+        } catch {
+            // Storage unavailable (private mode, blocked): the identity just is not remembered.
+        }
+
+        demo.navigateFrame?.();
+        demo.refreshStatus();
+    };
+
+    select.addEventListener('change', () => {
+        if (select.value === 'custom') {
+            inputs.forEach((input) => { input.disabled = false; });
+            return;
+        }
+
+        const fields = demo.identities[select.value]?.fields ?? null;
+        writeFields(fields);
+        apply(select.value, fields);
+    });
+
+    form.addEventListener('input', () => {
+        select.value = 'custom';
+    });
+
+    form.addEventListener('submit', (event) => {
+        event.preventDefault();
+
+        if (select.value !== 'custom' && demo.identities[select.value]?.fields === null) {
+            apply('browser', null);
+            return;
+        }
+
+        apply(select.value, readFields());
+    });
+
+    // Restore this tab's identity, then point the frame at it.
+    let saved = null;
+    try {
+        saved = JSON.parse(sessionStorage.getItem(STORAGE_KEY) || 'null');
+    } catch {
+        saved = null;
+    }
+
+    if (saved && (saved.key === 'custom' || saved.key in demo.identities)) {
+        writeFields(saved.fields);
+        apply(saved.key, saved.fields);
+    } else {
+        writeFields(null);
+    }
 })();
 
 /* Request burst */
@@ -513,7 +637,7 @@ if (new URLSearchParams(location.search).has('demo')) {
 
         for (let i = 1; i <= total; i++) {
             try {
-                const response = await fetch(burst.dataset.burst, {cache: 'no-store', credentials: 'same-origin'});
+                const response = await fetch(demo.target(), demo.fetchOptions('burst'));
                 codes[response.status] = (codes[response.status] || 0) + 1;
             } catch (error) {
                 codes.failed = (codes.failed || 0) + 1;

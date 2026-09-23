@@ -1,5 +1,6 @@
 <?php declare(strict_types=1);
 
+use GES\Botlock\Demo\Identity;
 use GES\Botlock\Demo\Notices;
 use GES\Botlock\Demo\Presets;
 use GES\Botlock\Demo\Settings;
@@ -7,6 +8,7 @@ use GES\Botlock\Demo\Settings;
 require_once __DIR__ . '/_lib/Settings.php';
 require_once __DIR__ . '/_lib/Presets.php';
 require_once __DIR__ . '/_lib/Notices.php';
+require_once __DIR__ . '/_lib/Identity.php';
 
 $demo = new Settings(\dirname(__DIR__));
 $values = $demo->load();
@@ -71,6 +73,7 @@ $demoData = [
     'values' => $values,
     'presets' => \array_map(static fn(array $preset): array => \array_diff_key($preset, ['values' => true]), Presets::all()),
     'preset' => $activePreset,
+    'identities' => Identity::presets(),
 ];
 ?>
 <!DOCTYPE html>
@@ -102,7 +105,7 @@ $demoData = [
 
 <main class="panes">
     <div class="pane pane-settings">
-        <section class="block" data-status="/protected/?_botlock=status">
+        <section class="block" data-status>
             <div class="block-head">
                 <h2>Status</h2>
                 <div class="block-tools">
@@ -258,7 +261,7 @@ $demoData = [
                     <input type="checkbox" data-frame-auto checked> auto-reload frame
                 </label>
             </div>
-            <div class="tool" data-burst="/protected/">
+            <div class="tool" data-burst>
                 <label for="burst-count">Burst</label>
                 <input type="number" id="burst-count" min="1" max="200" value="20" data-burst-count>
                 <button type="button" data-burst-start>Send</button>
@@ -278,6 +281,28 @@ $demoData = [
                     <button type="submit" title="Clear the BOTLOCK session via ?_botlock=reset">Reset challenge</button>
                 </form>
             </div>
+        </section>
+
+        <section class="block identity" data-identity>
+            <div class="block-head">
+                <h2>Identity</h2>
+                <select data-identity-preset aria-label="Identity">
+                    <?php foreach (Identity::presets() as $key => $preset): ?>
+                        <option value="<?= $e($key) ?>"><?= $e($preset['label']) ?></option>
+                    <?php endforeach ?>
+                    <option value="custom">Custom</option>
+                </select>
+            </div>
+            <form class="identity-fields" data-identity-form>
+                <label>User-Agent <input type="text" name="ua" placeholder="empty: this browser's" spellcheck="false"></label>
+                <label>Client IP <span class="muted">(X-Forwarded-For)</span> <input type="text" name="ip" placeholder="empty: loopback" spellcheck="false"></label>
+                <label>Accept-Language <input type="text" name="lang" placeholder="empty: none" spellcheck="false"></label>
+                <label>Extra headers <textarea name="headers" rows="2" placeholder="Name: value, one per line" spellcheck="false"></textarea></label>
+                <div class="identity-actions">
+                    <span class="muted" data-identity-note></span>
+                    <button type="submit" class="primary">Apply</button>
+                </div>
+            </form>
         </section>
 
         <section class="block frame-block" data-frame-block>
