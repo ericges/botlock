@@ -84,7 +84,7 @@ class ThreatAwarenessManager
             return $this->cachedGlobalThreatLevel = self::UNAVAILABLE_LEVEL;
         }
 
-        [, $level] = $this->calcOldAndNewLevelsGlobal($state);
+        [, $level] = $this->calcOldAndNewLevelsGlobal($state, \time());
 
         return $this->cachedGlobalThreatLevel = $level;
     }
@@ -161,7 +161,7 @@ class ThreatAwarenessManager
                 }
             }
 
-            [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state);
+            [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state, $now);
 
             if ($newLevel !== $oldLevel) {
                 $state['current_level'] = $newLevel;
@@ -177,21 +177,26 @@ class ThreatAwarenessManager
     }
 
     /**
+     * @param int $now the moment the buckets are evaluated for; the bucket containing it is the newest
      * @return array{0:int,1:int} [previously persisted level, level the buckets warrant now]
      */
-    private function calcOldAndNewLevelsGlobal(array $state): array
+    private function calcOldAndNewLevelsGlobal(array $state, int $now): array
     {
-        $buckets = $state['traffic_buckets'] ?? [];
-        \ksort($buckets);
-        $buckets = \array_values($buckets);
-        $amount = \count($buckets);
+        $currentBucket = \intdiv($now, self::BUCKET_SEC);
+        $maxAge = \intdiv(self::GLOBAL_WINDOW_SEC, self::BUCKET_SEC) - 1; // the current minute plus four before it
 
-        // Newest bucket weighs 1.05^8 ≈ 1.48, each older minute a bit less.
-        $weight = static fn(int $index): float => (-0.05 * (($amount - 1) - $index) + 1.05) ** 8;
-
+        // Weight follows the bucket's age, not its position in the array: quiet
+        // minutes leave no bucket behind, so positions would collapse the gaps.
+        // The current minute weighs 1.05^8 ≈ 1.48, four minutes ago 0.85^8 ≈ 0.27.
         $score = 0.0;
-        foreach ($buckets as $index => $count) {
-            $score += $count * $weight($index);
+        foreach ($state['traffic_buckets'] ?? [] as $key => $count) {
+            $age = $currentBucket - (int) $key;
+
+            if ($age > $maxAge + 1) {
+                continue; // outside the window; only seen on the read path before the next prune
+            }
+
+            $score += $count * (1.05 - 0.05 * \max(0, \min($age, $maxAge))) ** 8;
         }
 
         $newLevel = match (true) {

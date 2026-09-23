@@ -83,12 +83,36 @@ final class ThreatAwarenessManagerTest extends TestCase
 
     public function testOlderBucketsWeighLess(): void
     {
-        $config = new RateLimitConfig(level1ThresholdGlobal: 120);
+        $config = new RateLimitConfig(level1ThresholdGlobal: 120, level2ThresholdGlobal: 300);
         $now = (string) \intdiv(\time(), 60);
         $old = (string) (\intdiv(\time(), 60) - 4);
 
         self::assertSame(1, $this->globalLevelFor($config, [$now => 82]));
-        self::assertSame(0, $this->globalLevelFor($config, [$old => 82, $now => 0]), 'the same count four minutes ago weighs ~0.85^8');
+        // 300 * 0.85^8 ≈ 82 → level 0; weighting by array position would give 300 * 1.0 → level 2
+        self::assertSame(0, $this->globalLevelFor($config, [$old => 300, $now => 0]), 'the same count four minutes ago weighs ~0.85^8');
+    }
+
+    public function testSparseBucketsAreWeightedByAgeNotPosition(): void
+    {
+        $config = new RateLimitConfig(level1ThresholdGlobal: 120);
+        $minute = \intdiv(\time(), 60);
+        $now = (string) $minute;
+        $old = (string) ($minute - 4);
+
+        // 120 * 0.85^8 + 1 * 1.05^8 ≈ 34.2 → level 0. A position-based weight would
+        // give the gap-less pair 120 * 1.0 + 1.48 ≈ 121.5 → level 1.
+        self::assertSame(0, $this->globalLevelFor($config, [$old => 120, $now => 1]));
+
+        // The four-minute-old bucket alone crosses 120 at 441 requests (440 * 0.2725 ≈ 119.9).
+        self::assertSame(0, $this->globalLevelFor($config, [$old => 440]));
+        self::assertSame(1, $this->globalLevelFor($config, [$old => 441]));
+
+        // Every minute of a dense window keeps its own weight: 100 * Σ(0.85..1.05)^8 ≈ 384 → level 2.
+        $dense = [];
+        for ($age = 0; $age <= 4; $age++) {
+            $dense[(string) ($minute - $age)] = 100;
+        }
+        self::assertSame(2, $this->globalLevelFor(new RateLimitConfig(level1ThresholdGlobal: 120, level2ThresholdGlobal: 300, level3ThresholdGlobal: 600), $dense));
     }
 
     public function testRaisedGlobalLevelIsHeldDuringGracePeriod(): void
