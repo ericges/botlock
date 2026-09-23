@@ -210,13 +210,12 @@ ddev start
 ddev composer install
 ```
 
-This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that enables BOTLOCK and, by default, pins the threat level to `2`, so opening the site in a browser immediately shows the challenge and, once solved, the demo control panel. The panel offers:
+This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that enables BOTLOCK and, by default, pins the threat level to `2`, so opening the site in a browser immediately shows the challenge and, once solved, the demo control panel. The panel is a two-pane dashboard:
 
-- every `BOTLOCK_*` setting except the secret, state directory and instance ID, grouped as in the tables above, plus presets (always challenge, off, a rate-limit sandbox with tiny thresholds, library defaults);
-- the live `?_botlock=status` view, including `Botlock-Error` and `Botlock-Warning` headers;
-- a request burst to watch rate-based escalation, buttons to clear the rate-limit state or rotate the generated secret, and copyable `curl` recipes for crawler, proxy and reset paths.
+- the left pane holds presets (always challenge, off, a rate-limit sandbox with tiny thresholds, library defaults) and every `BOTLOCK_*` setting except the secret, state directory and instance ID, grouped as in the tables above; settings that differ from the library default are marked and can be reset individually, and unsaved edits are counted in a sticky save bar;
+- the right pane stays in view and shows the live `?_botlock=status` as threat-level meters with the individual rate against its thresholds, a history of recent samples and any `Botlock-Error` or `Botlock-Warning` header, next to tools for a request burst, clearing the rate-limit state, rotating the generated secret and resetting the challenge, plus copyable `curl` recipes for crawler, proxy and reset paths.
 
-Settings are stored in the gitignored `.demo/settings.json` and exported with `putenv()` before `bootstrap.php` is required, so they apply on the next request without editing server configuration; the demo state directory is `.demo/state/`. The settings endpoint `/_demo.php` never runs BOTLOCK, so if a setting locks you out, open `https://botlock.ddev.site/_demo.php?reset=1` (or delete `.demo/settings.json`) to restore the defaults. Do not add `BOTLOCK_*` `SetEnv` lines to the DDEV setup: FastCGI parameters would shadow the values the shim sets.
+Presets, tools and saving apply in place without reloading the page; without JavaScript the same forms post to `/_demo.php` and redirect back. Settings are stored in the gitignored `.demo/settings.json` and exported with `putenv()` before `bootstrap.php` is required, so they apply on the next request without editing server configuration; the demo state directory is `.demo/state/`. The settings endpoint `/_demo.php` never runs BOTLOCK, so if a setting locks you out, open `https://botlock.ddev.site/_demo.php?reset=1` (or delete `.demo/settings.json`) to restore the defaults. Do not add `BOTLOCK_*` `SetEnv` lines to the DDEV setup: FastCGI parameters would shadow the values the shim sets.
 
 Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_lib/prepend.php` for the demo) is configured as `auto_prepend_file`, and `BOTLOCK_ENABLED` is set when prepending `bootstrap.php` directly.
 
