@@ -17,7 +17,7 @@ require_once __DIR__ . '/Settings.php';
     $settings = new \GES\Botlock\Demo\Settings($demoRoot);
 
     \putenv('BOTLOCK_ENABLED=yes');
-    \putenv('BOTLOCK_INSTANCE_ID=demo');
+    \putenv('BOTLOCK_INSTANCE_ID=' . \GES\Botlock\Demo\Settings::INSTANCE_ID);
     \putenv('BOTLOCK_STATE_DIR=' . $settings->stateDir());
 
     // The control endpoint must stay reachable whatever the settings are.

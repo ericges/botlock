@@ -19,6 +19,8 @@ $notices = [
     'saved' => 'Settings saved. They apply from the next request on.',
     'preset' => 'Preset applied. It takes effect from the next request on.',
     'reset' => 'Settings reset to the demo defaults.',
+    'cleared' => 'Rate-limit state and cached challenge pages deleted.',
+    'rotated' => 'Secret rotated. Your grant is no longer valid, so this page had to challenge you again.',
 ];
 $notice = $notices[$_GET['demo'] ?? ''] ?? null;
 
@@ -74,6 +76,17 @@ $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
             level with low thresholds.
         </p>
     </section>
+
+    <h2>Tools</h2>
+    <form method="post" action="/_demo.php" class="actions">
+        <button type="submit" name="action" value="clear-state">Clear state</button>
+        <button type="submit" name="action" value="rotate-secret">Rotate secret</button>
+    </form>
+    <p class="hint">
+        <strong>Clear state</strong> deletes the rate-limit counters and cached challenge pages in
+        <code>.demo/state/</code>. <strong>Rotate secret</strong> deletes the generated signing
+        secret; BOTLOCK creates a new one and every issued grant becomes invalid.
+    </p>
 
     <h2>Presets</h2>
     <form method="post" action="/_demo.php" class="presets">

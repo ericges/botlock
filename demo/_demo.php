@@ -10,11 +10,15 @@
 
 use GES\Botlock\Demo\Presets;
 use GES\Botlock\Demo\Settings;
+use GES\Botlock\Demo\State;
 
+require_once \dirname(__DIR__) . '/vendor/autoload.php';
 require_once __DIR__ . '/_lib/Settings.php';
 require_once __DIR__ . '/_lib/Presets.php';
+require_once __DIR__ . '/_lib/State.php';
 
 $settings = new Settings(\dirname(__DIR__));
+$state = new State($settings->stateDir(), Settings::INSTANCE_ID);
 
 $action = $_SERVER['REQUEST_METHOD'] === 'POST'
     ? (string) ($_POST['action'] ?? '')
@@ -41,6 +45,16 @@ try
         case 'reset':
             $settings->reset();
             $notice = 'reset';
+            break;
+
+        case 'clear-state':
+            $state->clear();
+            $notice = 'cleared';
+            break;
+
+        case 'rotate-secret':
+            $state->rotateSecret();
+            $notice = 'rotated';
             break;
     }
 }

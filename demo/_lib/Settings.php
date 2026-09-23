@@ -18,6 +18,9 @@ final class Settings
     public const TYPE_ENUM = 'enum';
     public const TYPE_LIST = 'list';
 
+    /** BOTLOCK_INSTANCE_ID of the demo; names the files in the state directory. */
+    public const INSTANCE_ID = 'demo';
+
     /** Settings used while no settings file exists: challenge every request. */
     public const DEFAULTS = ['THREAT_LEVEL_OVERRIDE' => '2'];
 
