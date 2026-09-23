@@ -550,3 +550,112 @@ input[type="checkbox"] {
         gap: 0;
     }
 }
+
+/* Level meters, chip and history */
+
+.chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .45rem;
+    padding: .15rem .6rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.chip-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--level-none);
+}
+
+.chip[data-level="0"] .chip-dot { background: var(--level-0); }
+.chip[data-level="1"] .chip-dot { background: var(--level-1); }
+.chip[data-level="2"] .chip-dot { background: var(--level-2); }
+.chip[data-level="3"] .chip-dot { background: var(--level-3); }
+
+.meters {
+    margin-bottom: .75rem;
+}
+
+.meter-row {
+    display: grid;
+    grid-template-columns: 5.5rem auto 1.5rem minmax(0, 1fr);
+    align-items: center;
+    gap: .6rem;
+    padding: .15rem 0;
+}
+
+.meter-row.is-main {
+    font-size: 14px;
+    font-weight: 600;
+    padding-bottom: .35rem;
+}
+
+.meter-row.is-main .meter-text {
+    font-weight: 400;
+    font-size: 12px;
+}
+
+.meter {
+    display: inline-flex;
+    gap: 3px;
+}
+
+.meter i {
+    width: 18px;
+    height: 10px;
+    border-radius: 2px;
+    background: var(--level-none);
+}
+
+.meter-row.is-main .meter i {
+    width: 26px;
+    height: 14px;
+}
+
+.meter-value {
+    font-family: var(--font-mono);
+    text-align: right;
+}
+
+.meter-row[data-level="0"] .meter-value { color: var(--level-0); }
+.meter-row[data-level="1"] .meter-value { color: var(--level-1); }
+.meter-row[data-level="2"] .meter-value { color: var(--level-2); }
+.meter-row[data-level="3"] .meter-value { color: var(--level-3); }
+.meter-row[data-level="1"] .meter i.on { background: var(--level-1); }
+.meter-row[data-level="2"] .meter i.on { background: var(--level-2); }
+.meter-row[data-level="3"] .meter i.on { background: var(--level-3); }
+
+.rate {
+    margin: .4rem 0 0;
+    font-family: var(--font-mono);
+    font-size: 12px;
+}
+
+.history {
+    margin-bottom: .6rem;
+}
+
+.history svg {
+    display: block;
+    width: 100%;
+    height: 40px;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    border-radius: 4px;
+}
+
+.history .level-0 { fill: var(--level-0); }
+.history .level-1 { fill: var(--level-1); }
+.history .level-2 { fill: var(--level-2); }
+.history .level-3 { fill: var(--level-3); }
+.history .level-none { fill: var(--level-none); }
+
+.history p {
+    margin: .25rem 0 0;
+    font-size: 11px;
+}

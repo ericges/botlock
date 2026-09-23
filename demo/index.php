@@ -80,13 +80,16 @@ $demoData = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark light">
     <title>Botlock - Demo</title>
-    <link rel="stylesheet" href="/assets/panel.css">
-    <script src="/assets/panel.js" defer></script>
+    <link rel="stylesheet" href="/assets/panel.css?v=<?= \filemtime(__DIR__ . '/assets/panel.css') ?>">
+    <script src="/assets/panel.js?v=<?= \filemtime(__DIR__ . '/assets/panel.js') ?>" defer></script>
 </head>
 <body>
 
 <header class="topbar">
     <div class="brand">BOTLOCK <span>demo</span></div>
+    <div class="chip" data-chip title="Effective threat level and grant of this browser">
+        <span class="chip-dot"></span><span data-chip-text>status pending</span>
+    </div>
     <p class="topbar-hint">
         Settings apply from the next request on. Locked out?
         <a href="/_demo.php?reset=1"><code>/_demo.php?reset=1</code></a>
@@ -191,11 +194,28 @@ $demoData = [
                 </div>
             </div>
 
+            <div class="meters">
+                <?php foreach (['threat_level' => 'Effective', 'threat_level_global' => 'Global', 'threat_level_individual' => 'Individual'] as $field => $label): ?>
+                    <div class="meter-row<?= $field === 'threat_level' ? ' is-main' : '' ?>" data-meter="<?= $e($field) ?>">
+                        <span class="meter-label"><?= $e($label) ?></span>
+                        <span class="meter" aria-hidden="true"><i></i><i></i><i></i></span>
+                        <span class="meter-value" data-meter-value>—</span>
+                        <span class="meter-text muted" data-meter-text></span>
+                    </div>
+                <?php endforeach ?>
+                <p class="rate">
+                    Rate <strong data-rate>—</strong> / <span data-rate-window>—</span> s
+                    <span class="muted" data-rate-thresholds></span>
+                </p>
+            </div>
+
+            <div class="history">
+                <svg data-history viewBox="0 0 240 40" preserveAspectRatio="none" role="img"
+                     aria-label="Individual rate and effective level of the last status samples"></svg>
+                <p class="muted"><span data-history-count>0</span> samples · bar height = individual rate, color = effective level</p>
+            </div>
+
             <dl class="kv">
-                <div><dt>threat_level</dt><dd data-field="threat_level">—</dd></div>
-                <div><dt>threat_level_global</dt><dd data-field="threat_level_global">—</dd></div>
-                <div><dt>threat_level_individual</dt><dd data-field="threat_level_individual">—</dd></div>
-                <div><dt>individual_rate</dt><dd data-field="individual_rate">—</dd></div>
                 <div><dt>crawler_verification</dt><dd data-field="crawler_verification">—</dd></div>
                 <div><dt>passed</dt><dd data-field="passed">—</dd></div>
                 <div><dt>subject</dt><dd data-field="subject">—</dd></div>
