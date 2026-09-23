@@ -114,7 +114,42 @@ final class ThreatAwarenessManagerTest extends TestCase
         $manager->recordRequest($request);
 
         self::assertSame(1, $manager->getGlobalThreatLevel());
-        self::assertSame(0, $manager->getIndividualRate(self::FP));
+        self::assertNull($manager->getIndividualRate(self::FP));
+        self::assertSame(1, $manager->getIndividualThreatLevel(self::FP));
+    }
+
+    public function testIndividualOnlyModeFailsClosedWhenStateIsUnreadable(): void
+    {
+        $store = new InMemoryThreatStateStore(failIndividualRead: true);
+        $manager = new ThreatAwarenessManager(new RateLimitConfig(enableGlobalRateLimit: false, gcProbability: 0), $store);
+
+        $request = Requests::make();
+        $request->context->fingerprint = self::FP;
+        $manager->recordRequest($request);
+
+        self::assertCount(1, $store->individual[self::FP], 'the write itself succeeded');
+        self::assertNull($manager->getIndividualRate(self::FP));
+        self::assertSame(ThreatAwarenessManager::UNAVAILABLE_LEVEL, $manager->getIndividualThreatLevel(self::FP));
+    }
+
+    public function testFailedIndividualWriteYieldsProtectiveLevelForThisRequest(): void
+    {
+        $store = new InMemoryThreatStateStore(failIndividualWrite: true);
+        $config = new RateLimitConfig(enableGlobalRateLimit: false, gcProbability: 0);
+
+        $request = Requests::make();
+        $request->context->fingerprint = self::FP;
+
+        $recording = new ThreatAwarenessManager($config, $store);
+        $recording->recordRequest($request);
+
+        self::assertNull($recording->getIndividualRate(self::FP));
+        self::assertSame(ThreatAwarenessManager::UNAVAILABLE_LEVEL, $recording->getIndividualThreatLevel(self::FP));
+
+        // Reading alone still works, so the failed write is what triggered the protective level.
+        $readOnly = new ThreatAwarenessManager($config, $store);
+        self::assertSame(0, $readOnly->getIndividualRate(self::FP));
+        self::assertSame(0, $readOnly->getIndividualThreatLevel(self::FP));
     }
 
     public function testRateLimitSwitchesAreRespected(): void

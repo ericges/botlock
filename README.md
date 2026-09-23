@@ -167,6 +167,11 @@ Clients that have already completed the challenge retain access for the configur
 three elevated levels and are not counted toward any threshold, so monitoring
 checks or your own addresses never raise the threat level.
 
+When the rate-limit state in `BOTLOCK_STATE_DIR` cannot be read or written (for
+example a full disk or lock contention), the affected level is reported as `1`
+so that a storage fault never disables the challenge. The status endpoint then
+shows `individual_rate` as `null`.
+
 | Environment variable | Default | Description |
 | --- | --- | --- |
 | `BOTLOCK_THREAT_LEVEL_OVERRIDE` | Unset | Fixed integer threat level that bypasses rate-based threat evaluation when set. Expected levels are `0` through `3`. |

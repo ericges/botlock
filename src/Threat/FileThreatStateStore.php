@@ -73,11 +73,15 @@ final class FileThreatStateStore implements ThreatStateStore
         });
     }
 
-    public function recordIndividual(string $fingerprint, int $now, int $windowStart): void
+    public function recordIndividual(string $fingerprint, int $now, int $windowStart): bool
     {
         $path = $this->individualFile($fingerprint);
 
-        PrivateDirectory::ensure(\dirname($path));
+        try {
+            PrivateDirectory::ensure(\dirname($path));
+        } catch (\RuntimeException) {
+            return false;
+        }
 
         $isNew = !\is_file($path);
 
@@ -85,9 +89,11 @@ final class FileThreatStateStore implements ThreatStateStore
             $timestamps = $this->readTimestamps($file, $windowStart);
             $timestamps[] = $now;
 
-            \ftruncate($file, 0);
-            \rewind($file);
-            \fwrite($file, \implode("\n", $timestamps) . "\n");
+            $encoded = \implode("\n", $timestamps) . "\n";
+
+            if (!\ftruncate($file, 0) || !\rewind($file) || \fwrite($file, $encoded) !== \strlen($encoded)) {
+                throw new \RuntimeException('Could not persist individual threat state.');
+            }
 
             return true;
         });
@@ -95,6 +101,8 @@ final class FileThreatStateStore implements ThreatStateStore
         if ($isNew && $written) {
             PrivateDirectory::restrictFile($path);
         }
+
+        return $written === true;
     }
 
     public function countIndividual(string $fingerprint, int $windowStart): ?int

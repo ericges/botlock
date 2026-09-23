@@ -5,7 +5,8 @@ namespace GES\Botlock\Tests\Support;
 use GES\Botlock\Threat\ThreatStateStore;
 
 /**
- * Test double: keeps state in arrays and can simulate an unavailable store.
+ * Test double: keeps state in arrays and can simulate an unavailable store,
+ * either wholesale ($failing) or for individual reads/writes only.
  */
 final class InMemoryThreatStateStore implements ThreatStateStore
 {
@@ -17,7 +18,11 @@ final class InMemoryThreatStateStore implements ThreatStateStore
     /** @var list<array{windowStart:int,maxEntries:int}> */
     public array $gcCalls = [];
 
-    public function __construct(public bool $failing = false) {}
+    public function __construct(
+        public bool $failing = false,
+        public bool $failIndividualRead = false,
+        public bool $failIndividualWrite = false,
+    ) {}
 
     public function updateGlobal(callable $reducer): ?array
     {
@@ -33,20 +38,22 @@ final class InMemoryThreatStateStore implements ThreatStateStore
         return $this->failing ? null : $this->global;
     }
 
-    public function recordIndividual(string $fingerprint, int $now, int $windowStart): void
+    public function recordIndividual(string $fingerprint, int $now, int $windowStart): bool
     {
-        if ($this->failing) {
-            return;
+        if ($this->failing || $this->failIndividualWrite) {
+            return false;
         }
 
         $kept = \array_values(\array_filter($this->individual[$fingerprint] ?? [], static fn(int $ts): bool => $ts >= $windowStart));
         $kept[] = $now;
         $this->individual[$fingerprint] = $kept;
+
+        return true;
     }
 
     public function countIndividual(string $fingerprint, int $windowStart): ?int
     {
-        if ($this->failing) {
+        if ($this->failing || $this->failIndividualRead) {
             return null;
         }
 

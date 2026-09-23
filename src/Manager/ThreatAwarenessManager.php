@@ -18,16 +18,20 @@ use GES\Botlock\Threat\ThreatStateStore;
  * individual rate window, compared to the individual thresholds.
  *
  * Persistence is delegated to a ThreatStateStore; when the store cannot be
- * read the manager stays protective and reports level 1.
+ * read or written the manager stays protective and reports level 1 for the
+ * affected scope instead of silently treating the traffic as zero.
  */
 class ThreatAwarenessManager
 {
+    /** Level reported for a scope whose state could not be read or written. */
+    public const UNAVAILABLE_LEVEL = 1;
+
     private const GLOBAL_WINDOW_SEC = 300;
     private const BUCKET_SEC = 60;
-    private const UNAVAILABLE_LEVEL = 1;
 
     private ?int $cachedGlobalThreatLevel = null;
     private array $cachedIndividualThreatLevels = [];
+    /** @var array<string, int|null> null marks a fingerprint whose state is unavailable */
     private array $cachedIndividualRates = [];
 
     public function __construct(
@@ -55,7 +59,12 @@ class ThreatAwarenessManager
         if ($this->config->enableIndividualRateLimit)
         {
             $now = \time();
-            $this->store->recordIndividual($fingerprint, $now, $now - $this->config->individualRateWindowSec);
+
+            if (!$this->store->recordIndividual($fingerprint, $now, $now - $this->config->individualRateWindowSec)) {
+                // This request is not in the count; fail closed rather than under-report.
+                $this->cachedIndividualRates[$fingerprint] = null;
+            }
+
             $this->maybeCollectGarbage($now);
         }
     }
@@ -81,28 +90,29 @@ class ThreatAwarenessManager
     }
 
     /**
-     * Requests from this fingerprint within the individual window. Cached per request.
+     * Requests from this fingerprint within the individual window, or null
+     * when the state could not be read or this request could not be
+     * recorded. Cached per request.
      */
-    public function getIndividualRate(string $fingerprint): int
+    public function getIndividualRate(string $fingerprint): ?int
     {
         if ($fingerprint === '') {
             return 0;
         }
 
-        if (isset($this->cachedIndividualRates[$fingerprint])) {
+        if (\array_key_exists($fingerprint, $this->cachedIndividualRates)) {
             return $this->cachedIndividualRates[$fingerprint];
         }
 
         $windowStart = \time() - $this->config->individualRateWindowSec;
-        $rate = $this->store->countIndividual($fingerprint, $windowStart) ?? 0;
 
-        return $this->cachedIndividualRates[$fingerprint] = $rate;
+        return $this->cachedIndividualRates[$fingerprint] = $this->store->countIndividual($fingerprint, $windowStart);
     }
 
     /**
      * Threat level (0–3) for one fingerprint, derived from its request rate.
      * Unlike the global level there is no decay hold: the level follows the
-     * rolling window directly.
+     * rolling window directly. Unavailable state yields UNAVAILABLE_LEVEL.
      */
     public function getIndividualThreatLevel(string $fingerprint): int
     {
@@ -115,6 +125,10 @@ class ThreatAwarenessManager
         }
 
         $rate = $this->getIndividualRate($fingerprint);
+
+        if ($rate === null) {
+            return $this->cachedIndividualThreatLevels[$fingerprint] = self::UNAVAILABLE_LEVEL;
+        }
 
         $level = match (true) {
             $rate >= $this->config->level3ThresholdIndividual => 3,
