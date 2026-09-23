@@ -116,27 +116,44 @@ final class FileThreatStateStore implements ThreatStateStore
         return $this->withLock($path, 'r', fn($file): int => \count($this->readTimestamps($file, $windowStart)));
     }
 
-    public function collectGarbage(int $windowStart, int $maxEntries = 500): int
+    /**
+     * {@inheritDoc}
+     *
+     * Shards are visited round-robin from a random start, so successive
+     * budget-limited sweeps reach every shard instead of always inspecting
+     * the same first entries.
+     *
+     * @param int|null $startShard index into the sorted shard list to begin with; random when null
+     */
+    public function collectGarbage(int $windowStart, int $maxEntries = 500, ?int $startShard = null): int
     {
         $root = $this->stateDir . \DIRECTORY_SEPARATOR . self::INDIVIDUAL_DIR;
+        $shards = \glob($root . \DIRECTORY_SEPARATOR . '*', \GLOB_ONLYDIR) ?: [];
+        $count = \count($shards);
 
-        if (!\is_dir($root)) {
+        if ($count === 0) {
             return 0;
         }
 
+        $start = $startShard === null ? \random_int(0, $count - 1) : (($startShard % $count) + $count) % $count;
         $removed = 0;
         $seen = 0;
-        $shards = [];
+        $touched = [];
 
-        try {
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
-            );
+        for ($i = 0; $i < $count && $seen < $maxEntries; $i++)
+        {
+            $shard = $shards[($start + $i) % $count];
+
+            try {
+                $entries = new \FilesystemIterator($shard, \FilesystemIterator::SKIP_DOTS);
+            } catch (\UnexpectedValueException) {
+                continue; // shard vanished between glob() and open
+            }
 
             /** @var \SplFileInfo $entry */
-            foreach ($iterator as $entry)
+            foreach ($entries as $entry)
             {
-                if (++$seen > $maxEntries) {
+                if ($seen++ >= $maxEntries) {
                     break;
                 }
 
@@ -147,14 +164,14 @@ final class FileThreatStateStore implements ThreatStateStore
                 // Files are rewritten on every hit, so mtime is the newest timestamp.
                 if ($entry->getMTime() < $windowStart && @\unlink($entry->getPathname())) {
                     $removed++;
-                    $shards[$entry->getPath()] = true;
+                    $touched[$shard] = true;
                 }
             }
-        } catch (\UnexpectedValueException) {
-            // directory vanished or unreadable mid-walk; nothing more to do
+
+            unset($entries); // release the directory handle before rmdir()
         }
 
-        foreach (\array_keys($shards) as $shard) {
+        foreach (\array_keys($touched) as $shard) {
             @\rmdir($shard); // only succeeds when empty
         }
 
