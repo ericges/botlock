@@ -7,7 +7,10 @@ namespace GES\Botlock\Filesystem;
  * secret, rate-limit state, cached pages) readable by the PHP user only.
  *
  * Tightening permissions is best effort: a directory or file that cannot
- * be chmod'ed (foreign owner, restrictive mount) is used as it is.
+ * be chmod'ed (foreign owner, restrictive mount) is used as it is, and the
+ * ownership of a pre-existing directory is not verified. Other local
+ * accounts are outside the threat model; see "Shared hosting" in the README
+ * for the settings to use when they are not trusted.
  */
 final class PrivateDirectory
 {
