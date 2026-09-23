@@ -263,24 +263,43 @@ if (!isset($lang, $trans, $transJson, $e)) {
         footerElement.textContent = trans.successFooter;
     }
 
-    async function getChallenge(nonce) {
-        try {
-            const response = await fetch('?_botlock=challenge', {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Botlock-Nonce": nonce,
-                }
-            });
-            if (!response.ok) {
-                return null;
-            }
-            return await response.json()
-        } catch (error) {
-            console.error(error.message);
-            return null;
+    const MAX_RESTARTS = 3;
+
+    // The threat level rose above the one the challenge was issued for: start over.
+    class RestartError extends Error {}
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    async function call(action, method, nonce, body) {
+        const headers = {
+            "Accept": "application/json",
+            "Botlock-Nonce": nonce,
+        };
+        const options = { method, headers };
+
+        if (body !== undefined) {
+            headers["Content-Type"] = "application/json";
+            options.body = JSON.stringify(body);
         }
+
+        const response = await fetch(`?_botlock=${action}`, options);
+
+        if (response.status === 409) {
+            throw new RestartError();
+        }
+
+        return response;
+    }
+
+    async function getChallenge(nonce) {
+        const response = await call('challenge', 'GET', nonce);
+        return response.ok ? await response.json() : null;
+    }
+
+    // Reports the completed interaction; the answer carries the proof of work.
+    async function completeInteraction(challenge, nonce, details = {}) {
+        const response = await call('challenge', 'POST', nonce, { cid: challenge.cid, ...details });
+        return response.ok ? await response.json() : null;
     }
 
     async function solveChallenge({
@@ -322,24 +341,31 @@ if (!isset($lang, $trans, $transJson, $e)) {
     }
 
     async function sendResult(result, nonce) {
-        try {
-            const response = await fetch("?_botlock=verify", {
-                method: "POST",
-                body: JSON.stringify(result),
-                headers: {
-                    "Content-Type": "application/json",
-                    "Botlock-Nonce": nonce,
-                }
-            });
-
-            return response.ok;
-        } catch (error) {
-            console.error(error.message);
-            return false;
-        }
+        const response = await call('verify', 'POST', nonce, result);
+        return response.ok;
     }
 
-    async function botlock() {
+    function showWorking() {
+        widgetElement.innerHTML = '<div class="spinner"></div>';
+        headingElement.textContent = trans.mainHeading;
+        infoElement.textContent = trans.infoParagraph;
+    }
+
+    function handleFailure(error, restarts) {
+        if (error instanceof RestartError && restarts < MAX_RESTARTS) {
+            showWorking();
+            botlock(restarts + 1).catch((error) => {
+                console.error(error);
+                showError();
+            });
+            return;
+        }
+
+        console.error(error);
+        showError();
+    }
+
+    async function botlock(restarts = 0) {
         if (typeof window.crypto?.subtle?.digest !== 'function') {
             showError();
             return;
@@ -351,22 +377,32 @@ if (!isset($lang, $trans, $transJson, $e)) {
             return;
         }
 
-        const challenge = await getChallenge(nonce);
-        if (!challenge) {
-            showError();
-            return;
-        }
+        try {
+            const challenge = await getChallenge(nonce);
+            if (!challenge) {
+                showError();
+                return;
+            }
 
-        const { auto_start: autoStart = false } = challenge;
-        if (!autoStart) {
-            showConfirm(challenge, nonce);
-            return;
-        }
+            // The server rejects solutions sooner than min_ms after issuing.
+            challenge.receivedAt = performance.now();
 
-        await runChallenge(challenge, nonce);
+            switch (challenge.int) {
+                case 'none':
+                    await runChallenge(challenge, challenge.pow, nonce);
+                    return;
+                case 'click':
+                    showConfirm(challenge, nonce, restarts);
+                    return;
+                default:
+                    showError();
+            }
+        } catch (error) {
+            handleFailure(error, restarts);
+        }
     }
 
-    function showConfirm(challenge, nonce) {
+    function showConfirm(challenge, nonce, restarts) {
         headingElement.textContent = trans.confirmHeading;
         infoElement.textContent = trans.confirmParagraph;
 
@@ -375,39 +411,38 @@ if (!isset($lang, $trans, $transJson, $e)) {
         button.className = 'verify-button';
         button.textContent = trans.verifyButton;
         button.addEventListener('click', () => {
-            widgetElement.innerHTML = '<div class="spinner"></div>';
-            headingElement.textContent = trans.mainHeading;
-            infoElement.textContent = trans.infoParagraph;
-            runChallenge(challenge, nonce);
+            showWorking();
+            completeInteraction(challenge, nonce)
+                .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
+                .catch((error) => handleFailure(error, restarts));
         }, { once: true });
 
         widgetElement.replaceChildren(button);
         button.focus();
     }
 
-    async function runChallenge(challenge, nonce) {
-        try {
-            const res = await solveChallenge(challenge);
-            if (res === null) {
-                showError();
-                return;
-            }
-
-            const success = await sendResult(res, nonce);
-            if (!success) {
-                showError();
-                return;
-            }
-
-            showSuccess();
-
-            setTimeout(() => {
-                window.location.reload();
-            }, 600);
-        } catch (error) {
-            console.error(error);
+    async function runChallenge(challenge, pow, nonce) {
+        const res = await solveChallenge(pow);
+        if (res === null) {
             showError();
+            return;
         }
+
+        const wait = challenge.min_ms - (performance.now() - challenge.receivedAt);
+        if (wait > 0) {
+            await sleep(wait);
+        }
+
+        if (!await sendResult({ ...res, cid: challenge.cid }, nonce)) {
+            showError();
+            return;
+        }
+
+        showSuccess();
+
+        setTimeout(() => {
+            window.location.reload();
+        }, 600);
     }
 
     document.addEventListener('DOMContentLoaded', () => botlock().catch((error) => {

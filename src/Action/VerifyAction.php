@@ -2,6 +2,7 @@
 
 namespace GES\Botlock\Action;
 
+use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
@@ -10,45 +11,66 @@ use GES\Botlock\Http\Response\JsonResponse;
 use GES\Botlock\Config\ProofOfWorkConfig;
 
 /**
- * POST ?_botlock=verify — checks a submitted proof-of-work solution against
- * the nonce stored in the session and grants the session on success.
+ * POST ?_botlock=verify — redeems a ticket with its proof-of-work solution
+ * (body {"cid": …, "num": …, "sig": …, "slt": …, "exp": …, "alg": …}) and
+ * grants the session for the ticket's threat level on success.
+ *
+ * The ticket is consumed whatever the outcome. It is rejected when its
+ * interaction was not completed, when it is redeemed sooner than
+ * BOTLOCK_MIN_SOLVE_MS after issuing, and with 409 "restart" when the
+ * threat level rose above the ticket's in the meantime.
  */
 final readonly class VerifyAction implements ActionHandlerInterface
 {
-    public function __construct(private ProofOfWorkConfig $config) {}
+    /**
+     * @param \Closure|null $clock returns the current Unix time with microseconds; defaults to microtime(true)
+     */
+    public function __construct(
+        private ProofOfWorkConfig $config,
+        private ChallengeTicketStore $tickets,
+        private ?\Closure $clock = null,
+    ) {}
 
     /**
      * @throws JsonResponseException
      */
     public function handle(Request $request): Response
     {
-        $session = $request->context->session;
-
-        if (!$nonceHash = $session->get('nh')) {
-            throw new JsonResponseException('Invalid session data', 400);
-        }
-
-        if (!($nonce = $request->getHeader('Botlock-Nonce')) || !\password_verify($nonce, $nonceHash)) {
-            throw new JsonResponseException('Invalid nonce', 400);
-        }
+        SessionNonce::assertMatches($request);
 
         if (!$data = $request->getJsonBody()) {
             throw new JsonResponseException('Invalid data', 400);
         }
 
-        unset($data['nonce']);
+        $now = $this->now();
+        $ticket = InteractAction::redeem($this->tickets, $data['cid'] ?? null, $request, $now);
+
+        if (!$ticket->isReadyForProof()) {
+            throw new JsonResponseException('Interaction required', 400);
+        }
+
+        if (($now - $ticket->issuedAt) * 1000 < $this->config->minSolveMs) {
+            throw new JsonResponseException('Too fast', 400);
+        }
+
+        unset($data['cid'], $data['nonce']);
 
         $statusCode = 401;
+        $session = $request->context->session;
 
-        $challenge = new ProofOfWork($this->config);
-        if ($ok = $challenge->verify($data, $request->context->fingerprint))
+        if ($ok = (new ProofOfWork($this->config))->verify($data, $ticket->subject, $ticket->binding()))
         {
-            $session->set('grant', \max(1, $request->context->threatLevel ?? 1));
-            $session->remove('nh');
+            $session->set('grant', $ticket->level);
+            SessionNonce::forget($request);
             $session->commit();
             $statusCode = 200;
         }
 
         return new JsonResponse($statusCode, ['ok' => $ok]);
+    }
+
+    private function now(): float
+    {
+        return $this->clock ? ($this->clock)() : \microtime(true);
     }
 }

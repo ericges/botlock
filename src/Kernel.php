@@ -21,6 +21,10 @@ use GES\Botlock\Middleware\VerifyCrawlerMiddleware;
 use GES\Botlock\Middleware\WhoIsMiddleware;
 use GES\Botlock\Middleware\ActionMiddleware;
 use GES\Botlock\Action\ChallengeAction;
+use GES\Botlock\Action\InteractAction;
+use GES\Botlock\Challenge\ChallengeTicketStore;
+use GES\Botlock\Challenge\FileChallengeTicketStore;
+use GES\Botlock\Challenge\InteractionPolicy;
 use GES\Botlock\Action\ResetAction;
 use GES\Botlock\Action\StatusAction;
 use GES\Botlock\Action\VerifyAction;
@@ -53,8 +57,9 @@ readonly class Kernel
             $store = new FileThreatStateStore($kernelConfig->stateDir, $kernelConfig->instanceId);
             $rateLimiter = new ThreatAwarenessManager($rate, $store);
             $pageCache = new RenderedPageCache($kernelConfig->stateDir, $kernelConfig->instanceId);
+            $tickets = new FileChallengeTicketStore($kernelConfig->stateDir, $kernelConfig->instanceId);
 
-            return new static($botlockRoot, $botDetect, $pow, $detection, $rate, $rateLimiter, $whitelist, $pageCache);
+            return new static($botlockRoot, $botDetect, $pow, $detection, $rate, $rateLimiter, $whitelist, $pageCache, $tickets);
         }
         catch (\Throwable $th)
         {
@@ -75,7 +80,7 @@ readonly class Kernel
      */
     public static function passThrough(string $botlockRoot, string $reason): static
     {
-        return new static($botlockRoot, null, null, null, null, null, null, null, $reason);
+        return new static($botlockRoot, null, null, null, null, null, null, null, null, $reason);
     }
 
     public function __construct(
@@ -87,12 +92,13 @@ readonly class Kernel
         private ?ThreatAwarenessManager $rateLimiter,
         private ?WhitelistManager       $whitelist,
         private ?RenderedPageCache      $pageCache,
+        private ?ChallengeTicketStore   $tickets,
         private ?string                 $bootError = null,
     ) {}
 
     public function handleRequest(Request $request): void
     {
-        if ($this->bootError !== null || !$this->pow || !$this->detection || !$this->rate || !$this->pageCache) {
+        if ($this->bootError !== null || !$this->pow || !$this->detection || !$this->rate || !$this->pageCache || !$this->tickets) {
             \header('Botlock-Error: ' . \strtr($this->bootError ?? 'Kernel not booted', ["\r" => ' ', "\n" => ' ']));
             return;
         }
@@ -110,8 +116,9 @@ readonly class Kernel
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))
             ->add(new ActionMiddleware([
-                'GET challenge' => new ChallengeAction($this->detective, $this->pow),
-                'POST verify' => new VerifyAction($this->pow),
+                'GET challenge' => new ChallengeAction($this->detective, $this->pow, $this->tickets, new InteractionPolicy($this->pow), $this->rate->gcProbability),
+                'POST challenge' => new InteractAction($this->pow, $this->tickets),
+                'POST verify' => new VerifyAction($this->pow, $this->tickets),
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),
             ]))

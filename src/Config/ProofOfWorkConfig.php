@@ -20,6 +20,8 @@ final readonly class ProofOfWorkConfig
         public int    $maxNumber = 50000,
         /** Difficulty multiplier for crawlers that are not good bots; clamped to >= 1. */
         public int    $crawlerFactor = 15,
+        /** Minimum milliseconds between issuing a challenge and accepting its solution. */
+        public int    $minSolveMs = 1000,
     ) {
         if (!\in_array($this->algorithm, self::ALLOWED_ALGORITHMS, true)) {
             throw new \InvalidArgumentException('Invalid PoW algorithm provided');
@@ -37,6 +39,7 @@ final readonly class ProofOfWorkConfig
             expire: (int) (Env::get('EXPIRE') ?: 3600),
             maxNumber: (int) (Env::get('MAX_NUMBER') ?: 50000),
             crawlerFactor: (int) (Env::get('CRAWLER_FACTOR') ?: 15),
+            minSolveMs: \max(0, Env::int('MIN_SOLVE_MS', 1000)),
         );
     }
 

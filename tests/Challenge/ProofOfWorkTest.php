@@ -41,6 +41,24 @@ final class ProofOfWorkTest extends TestCase
         self::assertFalse($pow->verify($solution, 'fingerprint-b'), 'a solved challenge must not be replayable by another client');
     }
 
+    public function testSignatureCoversTheBinding(): void
+    {
+        $pow = new ProofOfWork($this->config);
+        $solution = self::solve($pow->create(self::SUBJECT, 'cid|click|2'));
+
+        self::assertTrue($pow->verify($solution, self::SUBJECT, 'cid|click|2'));
+        self::assertFalse($pow->verify($solution, self::SUBJECT, 'cid|none|2'), 'a different interaction must not verify');
+        self::assertFalse($pow->verify($solution, self::SUBJECT, 'cid|click|1'), 'a different level must not verify');
+        self::assertFalse($pow->verify($solution, self::SUBJECT), 'the binding cannot be dropped');
+    }
+
+    public function testExplicitExpiry(): void
+    {
+        $expire = \time() + 42;
+
+        self::assertSame($expire, (new ProofOfWork($this->config))->create(self::SUBJECT, '', $expire)['exp']);
+    }
+
     public function testVerifyIsIndependentOfInstance(): void
     {
         $solution = self::solve((new ProofOfWork($this->config))->create(self::SUBJECT));

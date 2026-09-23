@@ -1,0 +1,277 @@
+<?php declare(strict_types=1);
+
+namespace GES\Botlock\Tests\Action;
+
+use GES\Botlock\Action\ChallengeAction;
+use GES\Botlock\Action\InteractAction;
+use GES\Botlock\Action\VerifyAction;
+use GES\Botlock\Challenge\ChallengeTicket;
+use GES\Botlock\Challenge\InteractionPolicy;
+use GES\Botlock\Config\DetectionConfig;
+use GES\Botlock\Config\ProofOfWorkConfig;
+use GES\Botlock\Exception\JsonResponseException;
+use GES\Botlock\Http\Request;
+use GES\Botlock\Http\Session;
+use GES\Botlock\Manager\BotTestManager;
+use GES\Botlock\Tests\Support\InMemoryChallengeTicketStore;
+use GES\Botlock\Tests\Support\Requests;
+use PHPUnit\Framework\TestCase;
+
+/**
+ * GET challenge → (POST challenge) → POST verify, against one shared
+ * session, store and clock.
+ */
+final class TicketFlowTest extends TestCase
+{
+    private const FP = 'fingerprint-a';
+    private const NONCE = '123e4567-e89b-42d3-a456-426614174000';
+
+    private ProofOfWorkConfig $config;
+    private InMemoryChallengeTicketStore $store;
+    private Session $session;
+    private float $now;
+    private ?string $originalUserAgent;
+
+    protected function setUp(): void
+    {
+        $this->originalUserAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+        $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (X11; Linux x86_64) Firefox/130.0';
+
+        $this->config = new ProofOfWorkConfig(secret: 'test-secret', maxNumber: 200, minSolveMs: 1000);
+        $this->store = new InMemoryChallengeTicketStore();
+        $this->session = self::session();
+        $this->now = \microtime(true);
+    }
+
+    protected function tearDown(): void
+    {
+        if ($this->originalUserAgent === null) {
+            unset($_SERVER['HTTP_USER_AGENT']);
+        } else {
+            $_SERVER['HTTP_USER_AGENT'] = $this->originalUserAgent;
+        }
+    }
+
+    public function testLevelOneBrowserGetsTheProofRightAway(): void
+    {
+        $challenge = $this->challenge(level: 1);
+
+        self::assertSame(1, $challenge['lvl']);
+        self::assertSame('none', $challenge['int']);
+        self::assertSame(1000, $challenge['min_ms']);
+        self::assertArrayHasKey('pow', $challenge);
+        self::assertSame($challenge['exp'], $challenge['pow']['exp'], 'the proof expires with the ticket');
+
+        $this->now += 1.5;
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1));
+        self::assertSame(1, $this->session->get('grant'));
+        self::assertNull($this->session->get('nh'));
+    }
+
+    public function testLevelTwoBrowserGetsTheProofOnlyAfterTheClick(): void
+    {
+        $challenge = $this->challenge(level: 2);
+
+        self::assertSame('click', $challenge['int']);
+        self::assertArrayNotHasKey('pow', $challenge);
+
+        $ready = $this->interact($challenge['cid'], level: 2);
+        self::assertSame($challenge['cid'], $ready['cid']);
+        self::assertArrayHasKey('pow', $ready);
+
+        $this->now += 1.5;
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 2));
+        self::assertSame(2, $this->session->get('grant'));
+    }
+
+    public function testVerifyingWithoutTheInteractionIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 2);
+        $pow = (new \GES\Botlock\Challenge\ProofOfWork($this->config))->create(self::FP, $challenge['cid'] . '|none|2');
+
+        $this->now += 1.5;
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($pow), level: 2));
+        self::assertSame([], $this->store->tickets, 'a failed attempt consumes the ticket');
+    }
+
+    public function testProofForgedWithAnotherInteractionFailsTheSignature(): void
+    {
+        $challenge = $this->challenge(level: 2);
+        $this->interact($challenge['cid'], level: 2);
+
+        // A solution signed for the same ticket id but a lower level must not verify.
+        $challenge1 = $this->challenge(level: 1);
+        $foreign = self::solve($challenge1['pow']);
+
+        $this->now += 1.5;
+        self::assertSame(401, $this->verify($challenge['cid'], $foreign, level: 2));
+        self::assertNull($this->session->get('grant'));
+    }
+
+    public function testInteractingTwiceIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 2);
+        $this->interact($challenge['cid'], level: 2);
+
+        $this->assertRejected(400, fn() => $this->interact($challenge['cid'], level: 2));
+    }
+
+    public function testInteractingWithASelfStartingTicketIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 1);
+
+        $this->assertRejected(400, fn() => $this->interact($challenge['cid'], level: 1));
+    }
+
+    public function testVerifyingTooFastIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 1);
+
+        $this->now += 0.5;
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1));
+        self::assertNull($this->session->get('grant'));
+    }
+
+    public function testTicketIsSingleUse(): void
+    {
+        $challenge = $this->challenge(level: 1);
+        $solution = self::solve($challenge['pow']);
+
+        $this->now += 1.5;
+        self::assertSame(200, $this->verify($challenge['cid'], $solution, level: 1));
+
+        $this->session->set('nh', \password_hash(self::NONCE, \PASSWORD_DEFAULT));
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], $solution, level: 1));
+    }
+
+    public function testEscalationMidFlowAsksForARestart(): void
+    {
+        $challenge = $this->challenge(level: 1);
+
+        $this->now += 1.5;
+        $this->assertRejected(409, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 2));
+        self::assertNull($this->session->get('grant'));
+
+        $challenge = $this->challenge(level: 2);
+        $this->assertRejected(409, fn() => $this->interact($challenge['cid'], level: 3));
+        self::assertSame([], $this->store->tickets);
+    }
+
+    public function testDeescalationKeepsTheTicketsLevel(): void
+    {
+        $challenge = $this->challenge(level: 2);
+        $ready = $this->interact($challenge['cid'], level: 2);
+
+        $this->now += 1.5;
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 1));
+        self::assertSame(2, $this->session->get('grant'));
+    }
+
+    public function testExpiredTicketIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 1);
+
+        $this->now += ChallengeTicket::TTL + 2;
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1));
+    }
+
+    public function testTicketOfAnotherClientIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 1);
+
+        $this->now += 1.5;
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1, fingerprint: 'fingerprint-b'));
+    }
+
+    public function testMissingNonceIsRejected(): void
+    {
+        $request = $this->request('GET', level: 1, headers: []);
+
+        $this->assertRejected(400, fn() => $this->challengeAction()->handle($request));
+    }
+
+    public function testUnwritableStoreAnswers503(): void
+    {
+        $this->store->failing = true;
+
+        $this->assertRejected(503, fn() => $this->challenge(level: 1));
+    }
+
+    private function challenge(int $level): array
+    {
+        return self::json($this->challengeAction()->handle($this->request('GET', $level)));
+    }
+
+    private function interact(string $cid, int $level): array
+    {
+        $action = new InteractAction($this->config, $this->store, fn(): float => $this->now);
+
+        return self::json($action->handle($this->request('POST', $level, body: ['cid' => $cid])));
+    }
+
+    private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP): int
+    {
+        $action = new VerifyAction($this->config, $this->store, fn(): float => $this->now);
+
+        return $action->handle($this->request('POST', $level, body: $solution + ['cid' => $cid], fingerprint: $fingerprint))->getStatus();
+    }
+
+    private function challengeAction(): ChallengeAction
+    {
+        return new ChallengeAction(
+            new BotTestManager(new DetectionConfig()),
+            $this->config,
+            $this->store,
+            new InteractionPolicy($this->config),
+            0,
+            fn(): float => $this->now,
+        );
+    }
+
+    private function request(string $method, int $level, ?array $body = null, string $fingerprint = self::FP, ?array $headers = null): Request
+    {
+        $request = Requests::make(
+            method: $method,
+            headers: $headers ?? ['Botlock-Nonce' => self::NONCE],
+            body: $body === null ? '' : \json_encode($body),
+        );
+        $request->context->fingerprint = $fingerprint;
+        $request->context->threatLevel = $level;
+        $request->context->session = $this->session;
+
+        return $request;
+    }
+
+    private function assertRejected(int $status, \Closure $call): void
+    {
+        try {
+            $call();
+            self::fail("expected a $status rejection");
+        } catch (JsonResponseException $exception) {
+            self::assertSame($status, $exception->getCode(), $exception->getMessage());
+        }
+    }
+
+    private static function json(\GES\Botlock\Http\Response $response): array
+    {
+        self::assertSame(200, $response->getStatus());
+
+        return \json_decode((string) $response->getBody(), true, 512, \JSON_THROW_ON_ERROR);
+    }
+
+    private static function session(): Session
+    {
+        return new Session(secret: 'test-secret', ttl: 300, sub: self::FP, origin: 'https://example.test', host: 'example.test', secure: true);
+    }
+
+    private static function solve(array $pow): array
+    {
+        for ($i = 1; $i <= $pow['max']; $i++) {
+            if (\hash($pow['alg'], "$i:{$pow['slt']}:{$pow['exp']}") === $pow['tgt']) {
+                return ['num' => $i, 'sig' => $pow['sig'], 'slt' => $pow['slt'], 'exp' => $pow['exp'], 'alg' => $pow['alg']];
+            }
+        }
+
+        self::fail('unsolvable proof of work');
+    }
+}

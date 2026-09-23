@@ -2,6 +2,9 @@
 
 namespace GES\Botlock\Action;
 
+use GES\Botlock\Challenge\ChallengeTicket;
+use GES\Botlock\Challenge\ChallengeTicketStore;
+use GES\Botlock\Challenge\InteractionPolicy;
 use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
@@ -11,16 +14,26 @@ use GES\Botlock\Manager\BotTestManager;
 use GES\Botlock\Config\ProofOfWorkConfig;
 
 /**
- * GET ?_botlock=challenge — issues a proof-of-work challenge bound to the
- * client fingerprint and remembers the client's nonce in the session.
+ * GET ?_botlock=challenge — issues a single-use challenge ticket for the
+ * current threat level and remembers the client's nonce in the session.
+ *
+ * The answer names the required interaction. Only when none is required
+ * does it carry the proof of work right away; otherwise the client gets it
+ * from InteractAction once the interaction is done.
  */
 final readonly class ChallengeAction implements ActionHandlerInterface
 {
-    private const NONCE_PATTERN = '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i';
-
+    /**
+     * @param int           $gcProbability one request in this many sweeps expired tickets; 0 disables
+     * @param \Closure|null $clock         returns the current Unix time with microseconds; defaults to microtime(true)
+     */
     public function __construct(
         private BotTestManager $detective,
         private ProofOfWorkConfig $config,
+        private ChallengeTicketStore $tickets,
+        private InteractionPolicy $policy,
+        private int $gcProbability = 1000,
+        private ?\Closure $clock = null,
     ) {}
 
     /**
@@ -28,26 +41,74 @@ final readonly class ChallengeAction implements ActionHandlerInterface
      */
     public function handle(Request $request): Response
     {
-        if (!($nonce = $request->getHeader('Botlock-Nonce')) || !\preg_match(self::NONCE_PATTERN, $nonce)) {
-            throw new JsonResponseException('Invalid nonce', 400);
+        SessionNonce::remember($request);
+
+        $isCrawler = $this->detective->isCrawler();
+        $isTrustedGoodBot = $isCrawler && $this->detective->isTrustedGoodBot($request->context);
+
+        // Level 4 is refused before any action runs; a challenge is always for 1–3.
+        $level = \min(3, \max(1, $request->context->threatLevel ?? 1));
+        $now = $this->now();
+
+        $ticket = new ChallengeTicket(
+            id: ChallengeTicket::newId(),
+            subject: $request->context->fingerprint,
+            level: $level,
+            interaction: $this->policy->interaction($level, $isCrawler, $isTrustedGoodBot),
+            issuedAt: $now,
+            difficulty: $this->policy->difficulty($isCrawler, $isTrustedGoodBot),
+        );
+
+        if (!$this->tickets->save($ticket)) {
+            throw new JsonResponseException('Challenge unavailable', 503);
         }
 
-        $pow = new ProofOfWork($this->config);
-        $goodActor = true;
+        $this->maybeCollectGarbage($now);
 
-        if ($this->detective->isCrawler())
-        {
-            // Only a good bot whose identity holds up gets the easy, auto-started challenge.
-            $goodActor = $this->detective->isTrustedGoodBot($request->context);
-            $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
+        $data = self::describe($ticket, $this->config);
+
+        if ($ticket->isReadyForProof()) {
+            $data['pow'] = self::proofOfWork($ticket, $this->config);
         }
-
-        $data = $pow->create($request->context->fingerprint);
-        $data['auto_start'] = $goodActor;
-
-        $request->context->session->set('nh', \password_hash($nonce, \PASSWORD_DEFAULT));
-        $request->context->session->commit();
 
         return new JsonResponse(200, $data);
+    }
+
+    /**
+     * Public ticket fields: never the slider target.
+     */
+    public static function describe(ChallengeTicket $ticket, ProofOfWorkConfig $config): array
+    {
+        return [
+            'cid' => $ticket->id,
+            'lvl' => $ticket->level,
+            'int' => $ticket->interaction->value,
+            'exp' => $ticket->expiresAt(),
+            'min_ms' => $config->minSolveMs,
+        ];
+    }
+
+    /**
+     * Proof of work bound to the ticket: its signature covers the ticket id,
+     * level and interaction, and it expires with the ticket.
+     */
+    public static function proofOfWork(ChallengeTicket $ticket, ProofOfWorkConfig $config): array
+    {
+        return (new ProofOfWork($config))
+            ->setDifficulty($ticket->difficulty)
+            ->create($ticket->subject, $ticket->binding(), $ticket->expiresAt());
+    }
+
+    private function now(): float
+    {
+        return $this->clock ? ($this->clock)() : \microtime(true);
+    }
+
+    private function maybeCollectGarbage(float $now): void
+    {
+        if ($this->gcProbability > 0 && \random_int(1, $this->gcProbability) === 1) {
+            // A minute of slack past the lifetime; mtime has second resolution.
+            $this->tickets->collectGarbage($now - ChallengeTicket::TTL - 60);
+        }
     }
 }
