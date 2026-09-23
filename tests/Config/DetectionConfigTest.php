@@ -11,6 +11,43 @@ final class DetectionConfigTest extends TestCase
     protected function tearDown(): void
     {
         \putenv('BOTLOCK_TRUSTED_PROXIES');
+        \putenv('BOTLOCK_EXTERNAL_SCHEME');
+    }
+
+    public function testExternalSchemeDefaultsToAuto(): void
+    {
+        self::assertNull((new DetectionConfig())->externalScheme);
+        self::assertNull(DetectionConfig::fromEnv()->externalScheme);
+
+        \putenv('BOTLOCK_EXTERNAL_SCHEME=auto');
+        self::assertNull(DetectionConfig::fromEnv()->externalScheme);
+
+        \putenv('BOTLOCK_EXTERNAL_SCHEME=');
+        self::assertNull(DetectionConfig::fromEnv()->externalScheme);
+    }
+
+    public function testExternalSchemeFromEnvIsNormalized(): void
+    {
+        \putenv('BOTLOCK_EXTERNAL_SCHEME= HTTPS ');
+
+        self::assertSame('https', DetectionConfig::fromEnv()->externalScheme);
+    }
+
+    public function testRejectsUnknownExternalScheme(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('ftp');
+
+        new DetectionConfig(externalScheme: 'ftp');
+    }
+
+    public function testRejectsUnknownExternalSchemeFromEnv(): void
+    {
+        \putenv('BOTLOCK_EXTERNAL_SCHEME=ftp');
+
+        $this->expectException(\InvalidArgumentException::class);
+
+        DetectionConfig::fromEnv();
     }
 
     public function testDefaultsTrustPrivateAndLoopbackPeers(): void

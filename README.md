@@ -118,8 +118,9 @@ The challenge page is served in the language negotiated from the browser's `Acce
 | `BOTLOCK_IGNORE_URLS` | Empty | List of absolute URL prefixes that bypass BOTLOCK. |
 | `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots (matched case-insensitively). Good bots pass without a challenge while the effective threat level is below `2`. |
 | `BOTLOCK_VERIFY_BOTS` | `google` | Bot providers to verify using DNS. Currently only `google` is supported (covers `Googlebot` and `AdsBot`). A good bot of a listed provider is only exempted after its IP passed the reverse-DNS check; a failed check raises the request to threat level `2`. Good bots without a listed provider are trusted by User-Agent alone. Set an empty value or `[]` to disable provider verification. |
-| `BOTLOCK_TRUSTED_PROXIES` | Loopback, private and link-local ranges | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip` and `Client-Ip` headers. Unset trusts peers in `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7` and `fe80::/10`. An empty value or `[]` disables forwarding headers entirely. An explicit list replaces the default. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
+| `BOTLOCK_TRUSTED_PROXIES` | Loopback, private and link-local ranges | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip`, `Client-Ip` and `X-Forwarded-Proto` headers. Unset trusts peers in `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7` and `fe80::/10`. An empty value or `[]` disables forwarding headers entirely. An explicit list replaces the default. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
 | `BOTLOCK_DNS_CHECKS` | Enabled | Enables DNS verification for providers selected by `BOTLOCK_VERIFY_BOTS`. Disabling it trusts all good bots by User-Agent alone. |
+| `BOTLOCK_EXTERNAL_SCHEME` | `auto` | Scheme visitors use to reach the site. `auto` takes `HTTPS`/port 443 as seen by PHP and `X-Forwarded-Proto` from a trusted proxy. Set `https` (or `http`) to force it, for example when the proxy does not send the header. Determines the `Secure` flag of the session cookie, the session issuer and reset redirects. See [TLS termination](#tls-termination). |
 
 #### Reverse proxies
 
@@ -148,6 +149,12 @@ curl -s -H 'X-Forwarded-For: 198.51.100.7' 'https://your-site/?_botlock=status'
 The response contains `subject` (the client fingerprint, derived from the resolved IP address and a few request headers), `threat_level`, `threat_level_global`, `threat_level_individual`, `individual_rate`, `crawler_verification` (`verified`, `failed`, `unverified` or `not_applicable` for crawlers, `null` otherwise) and `passed` (whether the client has completed the challenge). The fingerprint changes with the resolved client IP: if two requests with different `X-Forwarded-For` values return the same `subject`, the header is being ignored and the `Botlock-Warning` header of a plain request tells you why.
 
 > **Breaking change:** earlier releases trusted forwarding headers from every source when `BOTLOCK_TRUSTED_PROXIES` was unset. Installations behind a proxy with a public address must now list it, otherwise all visitors share the proxy address and are rate-limited together.
+
+#### TLS termination
+
+When the proxy terminates TLS and talks plain HTTP to PHP, PHP sees an `http://` request. BOTLOCK would then issue the session cookie without the `Secure` flag and sign sessions for an `http://` issuer, so the grant could travel over plain HTTP. To avoid that, BOTLOCK applies `X-Forwarded-Proto` when it arrives from a trusted proxy, exactly like the client-address headers above, and sets the scheme visitors actually used. If the proxy does not send the header, or the web server already rewrites `HTTPS=on`, nothing else is needed; otherwise set `BOTLOCK_EXTERNAL_SCHEME=https` to force it regardless of headers. An `X-Forwarded-Proto` header from an untrusted peer is ignored and reported as `Botlock-Warning: forwarding header X-Forwarded-Proto ignored: peer 203.0.113.10 is not a trusted proxy`.
+
+Because the session issuer changes from `http://` to `https://` when this takes effect, existing session cookies become invalid once and visitors solve the challenge again.
 
 ### Threat and rate-limit settings
 

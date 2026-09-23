@@ -273,6 +273,69 @@ final class WhoIsMiddlewareTest extends TestCase
      *
      * @return array{Request, Response}
      */
+    public function testForwardedProtoFromTrustedProxyMakesTheRequestSecure(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-Proto' => 'https'], url: 'http://example.test/page?x=1');
+
+        self::assertTrue($request->isSecure());
+        self::assertSame('https://example.test', $request->getOrigin());
+        self::assertSame('https://example.test/page?x=1', $request->getRequestUrl());
+        self::assertFalse($response->hasHeader(self::WARNING));
+    }
+
+    public function testForwardedProtoFromUntrustedPeerIsIgnoredWithWarning(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: ['10.9.9.9']), ['X-Forwarded-Proto' => 'https'], url: 'http://example.test/');
+
+        self::assertFalse($request->isSecure());
+        self::assertSame('http://example.test', $request->getOrigin());
+        self::assertStringContainsString('X-Forwarded-Proto', (string) $response->getHeader(self::WARNING));
+        self::assertStringContainsString('peer ' . self::REMOTE, (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testMalformedForwardedProtoIsIgnoredAndNotEchoed(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-Proto' => "ftp\r\nX-Evil: 1"], url: 'http://example.test/');
+
+        self::assertFalse($request->isSecure());
+        self::assertStringContainsString('X-Forwarded-Proto ignored: malformed value', (string) $response->getHeader(self::WARNING));
+        self::assertStringNotContainsString('ftp', (string) $response->getHeader(self::WARNING));
+    }
+
+    public function testForwardedProtoChainUsesTheClientFacingHop(): void
+    {
+        [$request] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-Proto' => 'https, http'], url: 'http://example.test/');
+
+        self::assertTrue($request->isSecure());
+    }
+
+    public function testTrustedProxyMayDowngradeToHttp(): void
+    {
+        [$request] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE]), ['X-Forwarded-Proto' => 'http'], url: 'https://example.test/');
+
+        self::assertFalse($request->isSecure());
+        self::assertSame('http://example.test', $request->getOrigin());
+    }
+
+    public function testExternalSchemeSettingWinsOverHeadersAndPeers(): void
+    {
+        [$request, $response] = $this->handle(new DetectionConfig(trustedProxies: [], externalScheme: 'https'), [], url: 'http://example.test/');
+        self::assertTrue($request->isSecure(), 'forced https without any header');
+        self::assertFalse($response->hasHeader(self::WARNING));
+
+        [$request] = $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE], externalScheme: 'http'), ['X-Forwarded-Proto' => 'https'], url: 'https://example.test/');
+        self::assertFalse($request->isSecure(), 'forced http beats a trusted https header');
+    }
+
+    public function testIpAndSchemeWarningsAreBothReported(): void
+    {
+        [, $response] = $this->handle(new DetectionConfig(trustedProxies: ['10.9.9.9']), ['X-Forwarded-For' => self::FORWARDED, 'X-Forwarded-Proto' => 'https'], url: 'http://example.test/');
+
+        $warning = (string) $response->getHeader(self::WARNING);
+        self::assertStringContainsString('forwarding header X-Forwarded-For ignored', $warning);
+        self::assertStringContainsString('forwarding header X-Forwarded-Proto ignored', $warning);
+    }
+
     private function trusted(array $headers, array $extraProxies = []): array
     {
         return $this->handle(new DetectionConfig(trustedProxies: [self::REMOTE, ...$extraProxies]), $headers);
@@ -286,9 +349,9 @@ final class WhoIsMiddlewareTest extends TestCase
     /**
      * @return array{Request, Response}
      */
-    private function handle(DetectionConfig $config, array $headers, array $server = []): array
+    private function handle(DetectionConfig $config, array $headers, array $server = [], string $url = 'https://example.test/'): array
     {
-        $request = Requests::make(headers: $headers, server: $server);
+        $request = Requests::make(url: $url, headers: $headers, server: $server);
         $response = (new WhoIsMiddleware($config))->process($request, static fn(): PassResponse => new PassResponse());
 
         return [$request, $response];

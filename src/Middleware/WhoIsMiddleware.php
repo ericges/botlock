@@ -9,7 +9,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 
 /**
- * Resolves the client IP and fingerprint of a request.
+ * Resolves the client IP, the external scheme and the fingerprint of a request.
  *
  * Forwarding headers are only consulted when the direct peer (REMOTE_ADDR) is a
  * trusted proxy, i.e. matches an address or CIDR range in BOTLOCK_TRUSTED_PROXIES.
@@ -17,9 +17,11 @@ use GES\Botlock\Http\Response;
  * proxies are skipped and the first remaining entry is the client, so entries a
  * client prepends itself are never reached. When X-Forwarded-For is present it is
  * authoritative; X-Real-Ip and Client-Ip are only used when a proxy sets one of
- * them instead. Whenever a forwarding header is present but cannot be used, the
- * connecting address is used and the reason is reported in the Botlock-Warning
- * response header.
+ * them instead. X-Forwarded-Proto from a trusted proxy (or BOTLOCK_EXTERNAL_SCHEME,
+ * which wins) sets the scheme the visitor actually used, so a TLS-terminating
+ * proxy still yields a Secure session cookie and an https issuer. Whenever a
+ * forwarding header is present but cannot be used, the connecting address or
+ * scheme is used and the reason is reported in the Botlock-Warning response header.
  */
 final readonly class WhoIsMiddleware implements MiddlewareInterface
 {
@@ -28,6 +30,9 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
 
     /** Comma-separated chain (client, proxy1, proxy2, ...) that appending proxies extend on the right. */
     private const CHAIN_HEADER = 'X-Forwarded-For';
+
+    /** Scheme of the client-facing hop; appending proxies extend it on the right like X-Forwarded-For. */
+    private const PROTO_HEADER = 'X-Forwarded-Proto';
 
     /** Single-valued headers set by a proxy that does not use X-Forwarded-For, in order of preference. */
     private const SINGLE_VALUE_HEADERS = [
@@ -55,7 +60,9 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
 
         $trustedPeer = $remoteAddr !== null && IpMatcher::matchesAny($remoteAddr, $this->config->trustedProxies);
 
-        [$clientIp, $warning] = $this->resolveClientIp($request, $remoteAddr, $trustedPeer);
+        [$clientIp, $ipWarning] = $this->resolveClientIp($request, $remoteAddr, $trustedPeer);
+        $schemeWarning = $this->resolveScheme($request, $remoteAddr, $trustedPeer);
+        $warnings = \array_filter([$ipWarning, $schemeWarning]);
 
         if ($clientIp !== null) {
             $request->context->clientIp = $clientIp;
@@ -69,11 +76,46 @@ final readonly class WhoIsMiddleware implements MiddlewareInterface
 
         $response = $next($request);
 
-        if ($warning !== null) {
-            $response = $response->withHeader(self::WARNING_HEADER, $warning);
+        if ($warnings) {
+            $response = $response->withHeader(self::WARNING_HEADER, \implode('; ', $warnings));
         }
 
         return $response;
+    }
+
+    /**
+     * Applies BOTLOCK_EXTERNAL_SCHEME or, failing that, X-Forwarded-Proto from a
+     * trusted proxy to the request.
+     *
+     * @return string|null a Botlock-Warning message when the header was present but ignored
+     */
+    private function resolveScheme(Request $request, ?string $remoteAddr, bool $trustedPeer): ?string
+    {
+        if (($forced = $this->config->externalScheme) !== null) {
+            $request->setScheme($forced);
+
+            return null;
+        }
+
+        if (($header = $request->getHeader(self::PROTO_HEADER)) === null) {
+            return null;
+        }
+
+        if (!$trustedPeer) {
+            return $this->ignoredHeaderWarning(self::PROTO_HEADER, $remoteAddr);
+        }
+
+        // Leftmost entry is the client-facing hop; later proxies append their own.
+        $scheme = \strtolower(\trim(\explode(',', $header)[0]));
+
+        if (!\in_array($scheme, DetectionConfig::EXTERNAL_SCHEMES, true)) {
+            // Not echoed: arbitrary request bytes do not belong in a response header
+            return \sprintf('forwarding header %s ignored: malformed value', self::PROTO_HEADER);
+        }
+
+        $request->setScheme($scheme);
+
+        return null;
     }
 
     /**

@@ -62,6 +62,39 @@ final class RequestTest extends TestCase
             ['HTTPS' => 'on', 'HTTP_HOST' => 'example.test'],
             'https://example.test', 'example.test',
         ];
+        yield 'IIS style HTTPS=1' => [
+            ['HTTPS' => '1', 'HTTP_HOST' => 'example.test'],
+            'https://example.test', 'example.test',
+        ];
+        yield 'mixed case HTTPS=On' => [
+            ['HTTPS' => 'On', 'HTTP_HOST' => 'example.test'],
+            'https://example.test', 'example.test',
+        ];
+        yield 'HTTPS=off is plain http' => [
+            ['HTTPS' => 'off', 'HTTP_HOST' => 'example.test', 'SERVER_PORT' => '80'],
+            'http://example.test', 'example.test',
+        ];
+    }
+
+    public function testSetSchemeRebuildsUrlOriginAndSecureFlag(): void
+    {
+        $request = new Request('GET', 'http://example.test:8080/p?x=1');
+        self::assertFalse($request->isSecure());
+        self::assertSame('http', $request->getScheme());
+
+        $request->setScheme('HTTPS');
+
+        self::assertTrue($request->isSecure());
+        self::assertSame('https', $request->getScheme());
+        self::assertSame('https://example.test:8080', $request->getOrigin());
+        self::assertSame('https://example.test:8080/p?x=1', $request->getRequestUrl());
+        self::assertSame('example.test', $request->getHost());
+        self::assertSame('https://example.test:8080/p', $request->getUrlWithoutParameters());
+
+        $request->setScheme('http');
+
+        self::assertFalse($request->isSecure());
+        self::assertSame('http://example.test:8080/p?x=1', $request->getRequestUrl());
     }
 
     public function testBotlockActionIsMethodPlusLowercasedName(): void
