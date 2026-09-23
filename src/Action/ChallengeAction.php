@@ -37,7 +37,8 @@ final readonly class ChallengeAction implements ActionHandlerInterface
 
         if ($this->detective->isCrawler())
         {
-            $goodActor = $this->detective->isGoodBot();
+            // Only a good bot whose identity holds up gets the easy, auto-started challenge.
+            $goodActor = $this->detective->isTrustedGoodBot($request->context);
             $pow->setDifficulty($goodActor ? 0.5 : $this->config->getCrawlerFactor());
         }
 

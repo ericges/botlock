@@ -2,13 +2,15 @@
 
 namespace GES\Botlock\Http;
 
+use GES\Botlock\Crawler\CrawlerVerification;
+
 /**
  * Per-request state shared between middlewares.
  *
  * Populated progressively while the request travels through the middleware
- * stack: WhoIs sets the client identity, ThreatEvaluation and VerifyCrawler
- * the threat levels, Session the session. Properties are null until the
- * responsible middleware has run.
+ * stack: WhoIs sets the client identity, ThreatEvaluation the threat levels,
+ * VerifyCrawler the crawler verification, Session the session. Properties
+ * are null until the responsible middleware has run.
  */
 final class RequestContext
 {
@@ -27,6 +29,9 @@ final class RequestContext
 
     /** Requests from this fingerprint within the individual rate window. */
     public ?int $individualRate = null;
+
+    /** Set for every crawler once VerifyCrawler ran; null for non-crawlers. */
+    public ?CrawlerVerification $crawlerVerification = null;
 
     public ?Session $session = null;
 }

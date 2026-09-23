@@ -10,8 +10,9 @@ use GES\Botlock\Http\Response\PassResponse;
 
 /**
  * Passes requests through to the application when the evaluated threat
- * level does not warrant a challenge: no threshold reached, or a
- * recognized good bot whose individual level is still below 2.
+ * level does not warrant a challenge: no threshold reached, or a trusted
+ * good bot while the effective level is still below 2. Levels 2 and 3
+ * challenge everyone who is not explicitly whitelisted.
  */
 final readonly class ThreatPassMiddleware implements MiddlewareInterface
 {
@@ -23,12 +24,13 @@ final readonly class ThreatPassMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        if ($request->context->threatLevel === 0) {
+        $level = $request->context->threatLevel;
+
+        if ($level === 0) {
             return new PassResponse;
         }
 
-        $individual = $request->context->threatLevelIndividual;
-        if (\is_int($individual) && $individual < 2 && $this->detective->isGoodBot()) {
+        if (\is_int($level) && $level < 2 && $this->detective->isTrustedGoodBot($request->context)) {
             return new PassResponse;
         }
 
