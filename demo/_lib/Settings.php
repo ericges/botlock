@@ -21,8 +21,20 @@ final class Settings
     /** BOTLOCK_INSTANCE_ID of the demo; names the files in the state directory. */
     public const INSTANCE_ID = 'demo';
 
-    /** Settings used while no settings file exists: challenge every request. */
-    public const DEFAULTS = ['THREAT_LEVEL_OVERRIDE' => '2'];
+    /**
+     * Settings used while no settings file exists: rate-based levels with
+     * tiny thresholds, so a handful of requests escalates visibly.
+     */
+    public const DEFAULTS = [
+        'LEVEL_1_THRESHOLD_INDIVIDUAL' => '5',
+        'LEVEL_2_THRESHOLD_INDIVIDUAL' => '10',
+        'LEVEL_3_THRESHOLD_INDIVIDUAL' => '15',
+        'INDIVIDUAL_RATE_WINDOW_SEC' => '60',
+        'LEVEL_1_THRESHOLD_GLOBAL' => '30',
+        'LEVEL_2_THRESHOLD_GLOBAL' => '60',
+        'LEVEL_3_THRESHOLD_GLOBAL' => '120',
+        'LEVEL_DECAY_GRACE_PERIOD' => '30',
+    ];
 
     public function __construct(private readonly string $demoRoot) {}
 

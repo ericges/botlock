@@ -210,7 +210,7 @@ ddev start
 ddev composer install
 ```
 
-This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that runs BOTLOCK only for the protected area `/protected/`; the dashboard at `/` stays open whatever the settings are. By default the threat level is pinned to `2`, so the protected page is always challenged. The dashboard has two panes:
+This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that runs BOTLOCK only for the protected area `/protected/`; the dashboard at `/` stays open whatever the settings are. By default the demo uses the rate-limit sandbox: rate-based threat levels with tiny thresholds (5/10/15 requests per minute per client), so the protected page passes at first and a few reloads or a request burst escalate it. The dashboard has two panes:
 
 - the left pane shows the live `?_botlock=status` of the selected identity as threat-level meters with the individual rate against its thresholds, a history of recent samples and any `Botlock-Error` or `Botlock-Warning` header; below it presets (always challenge, off, a rate-limit sandbox with tiny thresholds, library defaults), every `BOTLOCK_*` setting except the secret, state directory and instance ID, grouped as in the tables above, with change markers, per-field reset and a sticky save bar, and copyable `curl` recipes;
 - the right pane stays in view with tools (request burst, clearing the rate-limit state, rotating the generated secret, resetting the challenge), an identity bar and a frame showing the protected page as BOTLOCK serves it to that identity, next to a request log.

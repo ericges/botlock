@@ -14,29 +14,20 @@ final class Presets
     public static function all(): array
     {
         return [
+            'sandbox' => [
+                'label' => 'Rate-limit sandbox',
+                'description' => 'Rate-based levels with tiny thresholds (5/10/15 requests per minute), so a request burst escalates within seconds. The demo default.',
+                'values' => Settings::DEFAULTS,
+            ],
             'challenge' => [
                 'label' => 'Always challenge',
-                'description' => 'Threat level pinned to 2: every visitor solves the challenge. The demo default.',
-                'values' => Settings::DEFAULTS,
+                'description' => 'Threat level pinned to 2: every visitor solves the challenge.',
+                'values' => ['THREAT_LEVEL_OVERRIDE' => '2'],
             ],
             'off' => [
                 'label' => 'Off',
                 'description' => 'Threat level pinned to 0: every request passes.',
                 'values' => ['THREAT_LEVEL_OVERRIDE' => '0'],
-            ],
-            'sandbox' => [
-                'label' => 'Rate-limit sandbox',
-                'description' => 'Rate-based levels with tiny thresholds (5/10/15 requests per minute), so a request burst escalates within seconds.',
-                'values' => [
-                    'LEVEL_1_THRESHOLD_INDIVIDUAL' => '5',
-                    'LEVEL_2_THRESHOLD_INDIVIDUAL' => '10',
-                    'LEVEL_3_THRESHOLD_INDIVIDUAL' => '15',
-                    'INDIVIDUAL_RATE_WINDOW_SEC' => '60',
-                    'LEVEL_1_THRESHOLD_GLOBAL' => '30',
-                    'LEVEL_2_THRESHOLD_GLOBAL' => '60',
-                    'LEVEL_3_THRESHOLD_GLOBAL' => '120',
-                    'LEVEL_DECAY_GRACE_PERIOD' => '30',
-                ],
             ],
             'library' => [
                 'label' => 'Library defaults',
