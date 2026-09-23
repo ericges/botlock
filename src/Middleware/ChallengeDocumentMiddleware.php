@@ -14,7 +14,8 @@ use GES\Botlock\Template\TemplateRenderer;
 
 /**
  * Serves the browser challenge page in the language negotiated from
- * Accept-Language. Each language is rendered once and then served from
+ * Accept-Language unless the session holds a grant for at least the
+ * current threat level. Each language is rendered once and then served from
  * the on-disk cache in the state directory.
  */
 final readonly class ChallengeDocumentMiddleware implements MiddlewareInterface
@@ -32,7 +33,7 @@ final readonly class ChallengeDocumentMiddleware implements MiddlewareInterface
 
     public function process(Request $request, callable $next): Response
     {
-        if ($request->context->session->get('grant', false))
+        if ($request->context->isGrantSufficient())
         {
             return $next($request);
         }

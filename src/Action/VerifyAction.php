@@ -43,7 +43,7 @@ final readonly class VerifyAction implements ActionHandlerInterface
         $challenge = new ProofOfWork($this->config);
         if ($ok = $challenge->verify($data, $request->context->fingerprint))
         {
-            $session->set('grant', true);
+            $session->set('grant', \max(1, $request->context->threatLevel ?? 1));
             $session->remove('nh');
             $session->commit();
             $statusCode = 200;

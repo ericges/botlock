@@ -133,6 +133,32 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertFalse($request->context->session->isCommited());
     }
 
+    public function testGrantCoversItsLevelAndBelow(): void
+    {
+        foreach ([[1, 1], [2, 1], [2, 2], [3, 0], [3, 3]] as [$grant, $level]) {
+            $request = $this->request('en');
+            $request->context->threatLevel = $level;
+            $request->context->session->set('grant', $grant);
+
+            $response = $this->middleware()->process($request, static fn(): Response => new Response(204));
+
+            self::assertSame(204, $response->getStatus(), "grant $grant at level $level");
+        }
+    }
+
+    public function testEscalationAboveTheGrantServesTheChallengeAgain(): void
+    {
+        foreach ([[1, 2], [2, 3], [true, 2], [false, 1]] as [$grant, $level]) {
+            $request = $this->request('en');
+            $request->context->threatLevel = $level;
+            $request->context->session->set('grant', $grant);
+
+            $response = $this->middleware()->process($request, $this->failingNext());
+
+            self::assertSame(401, $response->getStatus(), \var_export($grant, true) . " grant at level $level");
+        }
+    }
+
     public function testUnwritableCacheStillServesThePage(): void
     {
         $blocker = \tempnam(\sys_get_temp_dir(), 'botlock-blocker');

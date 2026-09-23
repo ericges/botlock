@@ -34,4 +34,31 @@ final class RequestContext
     public ?CrawlerVerification $crawlerVerification = null;
 
     public ?Session $session = null;
+
+    /**
+     * Threat level the session's grant was issued for, 0 without a grant.
+     * Grants from before levels were recorded (plain true) count as level 1.
+     */
+    public function grantLevel(): int
+    {
+        $grant = $this->session?->get('grant');
+
+        return match (true) {
+            \is_int($grant) => \max(0, $grant),
+            $grant === true => 1,
+            default => 0,
+        };
+    }
+
+    /**
+     * Whether the grant covers the current threat level. A grant issued at a
+     * lower level than the current one does not: every escalation asks for
+     * a new challenge.
+     */
+    public function isGrantSufficient(): bool
+    {
+        $level = $this->grantLevel();
+
+        return $level > 0 && $level >= \max(1, $this->threatLevel ?? 1);
+    }
 }
