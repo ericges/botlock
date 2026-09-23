@@ -107,6 +107,14 @@ final class ThreatAwarenessManagerTest extends TestCase
         self::assertSame(0, $this->globalLevelFor($config, [$old => 440]));
         self::assertSame(1, $this->globalLevelFor($config, [$old => 441]));
 
+        // The oldest retained bucket, five minutes back, weighs 0.8^8 ≈ 0.168: 715 → 119.96, 716 → 120.1.
+        $oldest = (string) ($minute - 5);
+        self::assertSame(0, $this->globalLevelFor($config, [$oldest => 715]));
+        self::assertSame(1, $this->globalLevelFor($config, [$oldest => 716]));
+
+        // Anything older is outside the window, whatever its count.
+        self::assertSame(0, $this->globalLevelFor($config, [(string) ($minute - 6) => 100000]));
+
         // Every minute of a dense window keeps its own weight: 100 * Σ(0.85..1.05)^8 ≈ 384 → level 2.
         $dense = [];
         for ($age = 0; $age <= 4; $age++) {

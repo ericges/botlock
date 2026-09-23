@@ -9,9 +9,9 @@ use GES\Botlock\Threat\ThreatStateStore;
 /**
  * Turns raw request counts into threat levels 0–3.
  *
- * Global level: requests are counted in one-minute buckets over the last
- * five minutes, weighted so recent minutes count more, and compared to the
- * configured thresholds. Once traffic falls below the threshold of the
+ * Global level: requests are counted in one-minute buckets over the current
+ * and the previous five minutes, weighted so recent minutes count more, and
+ * compared to the configured thresholds. Once traffic falls below the threshold of the
  * held level, that level is kept for the decay grace period before it
  * may drop.
  *
@@ -190,20 +190,22 @@ class ThreatAwarenessManager
     private function calcOldAndNewLevelsGlobal(array $state, int $now): array
     {
         $currentBucket = \intdiv($now, self::BUCKET_SEC);
-        $maxAge = \intdiv(self::GLOBAL_WINDOW_SEC, self::BUCKET_SEC) - 1; // the current minute plus four before it
+        // The current minute plus the five before it, as retained by incrementGlobalBucket();
+        // the oldest bucket overlaps the rolling five-minute window only partially.
+        $maxAge = \intdiv(self::GLOBAL_WINDOW_SEC, self::BUCKET_SEC);
 
         // Weight follows the bucket's age, not its position in the array: quiet
         // minutes leave no bucket behind, so positions would collapse the gaps.
-        // The current minute weighs 1.05^8 ≈ 1.48, four minutes ago 0.85^8 ≈ 0.27.
+        // The current minute weighs 1.05^8 ≈ 1.48, five minutes ago 0.8^8 ≈ 0.17.
         $score = 0.0;
         foreach ($state['traffic_buckets'] ?? [] as $key => $count) {
             $age = $currentBucket - (int) $key;
 
-            if ($age > $maxAge + 1) {
+            if ($age > $maxAge) {
                 continue; // outside the window; only seen on the read path before the next prune
             }
 
-            $score += $count * (1.05 - 0.05 * \max(0, \min($age, $maxAge))) ** 8;
+            $score += $count * (1.05 - 0.05 * \max(0, $age)) ** 8;
         }
 
         $newLevel = match (true) {
