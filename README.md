@@ -98,8 +98,8 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_ENABLED` | Disabled | Enables BOTLOCK. This must be enabled when using `bootstrap.php` or the PHAR as an `auto_prepend_file`. |
 | `BOTLOCK_FAIL_OPEN` | Disabled | When enabled, boot errors (for example an unwritable state directory) let the request through to your application with a `Botlock-Error` header instead of answering `500`. Disabled means BOTLOCK fails closed and blocks the request. |
 | `BOTLOCK_INSTANCE_ID` | MD5 hash of the source directory | Identifies this BOTLOCK instance and separates its secret and global rate-limit state from other instances using the same state directory. |
-| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files and the cached challenge pages (`botlock_challenge_<instance-id>_<lang>_<version>.html`). |
-| `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated and stored as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. |
+| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files and the cached challenge pages (`botlock_challenge_<instance-id>_<lang>_<version>.html`). BOTLOCK creates it with mode `0700` and keeps the files inside owner-only (`0600`); an existing directory or file with wider permissions is tightened where the PHP user is allowed to do so, but its ownership is not verified. On a host shared with other local accounts, point this at a directory only the PHP user can reach (inside the application's private storage, not under the system temporary directory), because another account could pre-create the default path. See [Shared hosting](#shared-hosting). |
+| `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated once, atomically, and stored owner-only as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. Set it explicitly when several hosts share sessions, or on shared hosts, so the signing secret never depends on the state directory. |
 | `BOTLOCK_POW_ALGORITHM` | `sha256` | Hash algorithm used for proof-of-work challenges. Allowed values are `sha256`, `sha384`, and `sha512`. |
 | `BOTLOCK_EXPIRE` | `3600` | Challenge and session lifetime in seconds. |
 | `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
@@ -116,10 +116,11 @@ The challenge page is served in the language negotiated from the browser's `Acce
 | `BOTLOCK_IGNORE_IPS` | Empty | List of exact client IP addresses that bypass BOTLOCK. |
 | `BOTLOCK_IGNORE_USER_AGENTS` | Empty | List of User-Agent substrings that bypass BOTLOCK. Matched case-insensitively. |
 | `BOTLOCK_IGNORE_URLS` | Empty | List of absolute URL prefixes that bypass BOTLOCK. |
-| `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots. |
-| `BOTLOCK_VERIFY_BOTS` | `google` | Bot providers to verify using DNS. Currently only `google` is supported. Set an empty value or `[]` to disable provider verification. |
-| `BOTLOCK_TRUSTED_PROXIES` | Loopback, private and link-local ranges | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip` and `Client-Ip` headers. Unset trusts peers in `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7` and `fe80::/10`. An empty value or `[]` disables forwarding headers entirely. An explicit list replaces the default. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
-| `BOTLOCK_DNS_CHECKS` | Enabled | Enables DNS verification for providers selected by `BOTLOCK_VERIFY_BOTS`. |
+| `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots (matched case-insensitively). Good bots pass without a challenge while the effective threat level is below `2`. |
+| `BOTLOCK_VERIFY_BOTS` | `google` | Bot providers to verify using DNS. Currently only `google` is supported (covers `Googlebot` and `AdsBot`). A good bot of a listed provider is only exempted after its IP passed the reverse-DNS check; a failed check raises the request to threat level `2`. Good bots without a listed provider are trusted by User-Agent alone. Set an empty value or `[]` to disable provider verification. |
+| `BOTLOCK_TRUSTED_PROXIES` | Loopback, private and link-local ranges | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip`, `Client-Ip` and `X-Forwarded-Proto` headers. Unset trusts peers in `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7` and `fe80::/10`. An empty value or `[]` disables forwarding headers entirely. An explicit list replaces the default. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
+| `BOTLOCK_DNS_CHECKS` | Enabled | Enables DNS verification for providers selected by `BOTLOCK_VERIFY_BOTS`. Disabling it trusts all good bots by User-Agent alone. |
+| `BOTLOCK_EXTERNAL_SCHEME` | `auto` | Scheme visitors use to reach the site. `auto` takes `HTTPS`/port 443 as seen by PHP and `X-Forwarded-Proto` from a trusted proxy. Set `https` (or `http`) to force it, for example when the proxy does not send the header or when an appending proxy chain has a plain-HTTP inner leg. Determines the `Secure` flag of the session cookie, the session issuer and reset redirects. See [TLS termination](#tls-termination). |
 
 #### Reverse proxies
 
@@ -145,9 +146,21 @@ To confirm which address BOTLOCK actually resolved, request the status endpoint,
 curl -s -H 'X-Forwarded-For: 198.51.100.7' 'https://your-site/?_botlock=status'
 ```
 
-The response contains `subject` (the client fingerprint, derived from the resolved IP address and a few request headers), `threat_level`, `threat_level_global`, `threat_level_individual`, `individual_rate` and `passed` (whether the client has completed the challenge). The fingerprint changes with the resolved client IP: if two requests with different `X-Forwarded-For` values return the same `subject`, the header is being ignored and the `Botlock-Warning` header of a plain request tells you why.
+The response contains `subject` (the client fingerprint, derived from the resolved IP address and a few request headers), `threat_level`, `threat_level_global`, `threat_level_individual`, `individual_rate`, `crawler_verification` (`verified`, `failed`, `unverified` or `not_applicable` for crawlers, `null` otherwise) and `passed` (whether the client has completed the challenge). The fingerprint changes with the resolved client IP: if two requests with different `X-Forwarded-For` values return the same `subject`, the header is being ignored and the `Botlock-Warning` header of a plain request tells you why.
 
 > **Breaking change:** earlier releases trusted forwarding headers from every source when `BOTLOCK_TRUSTED_PROXIES` was unset. Installations behind a proxy with a public address must now list it, otherwise all visitors share the proxy address and are rate-limited together.
+
+#### TLS termination
+
+When the proxy terminates TLS and talks plain HTTP to PHP, PHP sees an `http://` request. BOTLOCK would then issue the session cookie without the `Secure` flag and sign sessions for an `http://` issuer, so the grant could travel over plain HTTP. To avoid that, BOTLOCK applies `X-Forwarded-Proto` when it arrives from a trusted proxy, exactly like the client-address headers above, and sets the scheme visitors actually used. If the web server already rewrites `HTTPS=on` from that header, nothing else is needed; if the proxy does not send the header at all, set `BOTLOCK_EXTERNAL_SCHEME=https` to force it. An `X-Forwarded-Proto` header from an untrusted peer is ignored and reported as `Botlock-Warning: forwarding header X-Forwarded-Proto ignored: peer 203.0.113.10 is not a trusted proxy`.
+
+BOTLOCK reads the **last** `X-Forwarded-Proto` value, which is the one written by the trusted proxy that connected to PHP. A value the client sends itself sits further left and is never used, whether the proxy overwrites the header or appends to it. The one topology this does not cover is a chain in which an inner hop appends its own plain-HTTP leg, for example a CDN speaking HTTP to a load balancer that appends `http` before handing the request to PHP; the last value is then `http` although the visitor used HTTPS. Set `BOTLOCK_EXTERNAL_SCHEME=https` for such deployments.
+
+Because the session issuer changes from `http://` to `https://` when this takes effect, existing session cookies become invalid once and visitors solve the challenge again.
+
+#### Shared hosting
+
+BOTLOCK defends a site against traffic from outside; other local accounts on the same machine are outside its threat model. The default state directory lives under the system temporary directory at a predictable path, and BOTLOCK does not verify who owns a directory that already exists there. If other accounts on the host are not trusted, set `BOTLOCK_STATE_DIR` to a directory only the PHP user can reach and set `BOTLOCK_SECRET` explicitly, so neither the signing secret nor the cached challenge pages can be planted by a neighbour.
 
 ### Threat and rate-limit settings
 
@@ -158,14 +171,19 @@ challenge. The three elevated threat levels behave as follows:
 
 | Threat level | Behavior |
 | --- | --- |
-| `1` | Unlisted clients must complete the proof-of-work challenge. Recognized good bots may pass without a challenge while their individual threat level remains below `2`. |
-| `2` | All clients that are not explicitly whitelisted must complete the proof-of-work challenge, including recognized good bots. |
+| `1` | Unlisted clients must complete the proof-of-work challenge. Recognized good bots pass without a challenge; for providers listed in `BOTLOCK_VERIFY_BOTS` this requires a successful DNS check, and a failed check raises the request to level `2`. |
+| `2` | All clients that are not explicitly whitelisted must complete the proof-of-work challenge, including verified good bots. |
 | `3` | Marks the highest configured traffic severity. Its current request handling is the same as level `2`: non-whitelisted clients are challenged rather than blocked outright. |
 
 Clients that have already completed the challenge retain access for the configured
 `BOTLOCK_EXPIRE` lifetime. Explicit IP, User-Agent, and URL exclusions bypass all
 three elevated levels and are not counted toward any threshold, so monitoring
 checks or your own addresses never raise the threat level.
+
+When the rate-limit state in `BOTLOCK_STATE_DIR` cannot be read or written (for
+example a full disk or lock contention), the affected level is reported as `1`
+so that a storage fault never disables the challenge. The status endpoint then
+shows `individual_rate` as `null`.
 
 | Environment variable | Default | Description |
 | --- | --- | --- |
@@ -181,7 +199,7 @@ checks or your own addresses never raise the threat level.
 | `BOTLOCK_LEVEL_1_THRESHOLD_INDIVIDUAL` | `60` | Requests per individual window that activate threat level 1. |
 | `BOTLOCK_LEVEL_2_THRESHOLD_INDIVIDUAL` | `90` | Requests per individual window that activate threat level 2. |
 | `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL` | `120` | Requests per individual window that activate threat level 3. |
-| `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. `0` disables the sweep. |
+| `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. Each sweep inspects up to 500 files, starting at a random shard so that every shard is reached over time. `0` disables the sweep. |
 
 ## Developers
 
@@ -203,6 +221,8 @@ This serves the repository at `https://botlock.ddev.site` with Apache and PHP 8.
 | `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge`, `verify`, `reset` and `status`. |
 | `src/Config/` | Typed configuration objects, each with a `fromEnv()` factory reading `BOTLOCK_*` variables. |
 | `src/Manager/`, `src/Threat/`, `src/Challenge/` | Bot detection, rate-limit state and proof-of-work logic. |
+| `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
+| `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
 | `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
 | `translations/` | One `<code>.php` file per language returning the challenge page strings. |
 | `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering and the rendered-page cache. |
@@ -217,7 +237,7 @@ ddev composer validate --no-check-publish   # Composer metadata
 ddev exec sh -c "find src tests templates translations -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
-Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory and `InMemoryThreatStateStore` from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
+Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore` and `StubCrawlerVerifier` from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
 
 ### Building the PHAR
 

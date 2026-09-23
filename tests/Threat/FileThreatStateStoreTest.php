@@ -126,6 +126,68 @@ final class FileThreatStateStoreTest extends TestCase
         self::assertSame(0, $this->store->collectGarbage(\time()));
     }
 
+    public function testCollectGarbageStartShardRotationReachesLateShards(): void
+    {
+        $now = \time();
+        $stale = 'zz' . \str_repeat('d', 62);
+
+        // Three fresh files in the first shard exhaust a budget of two before the stale shard is reached...
+        for ($i = 0; $i < 3; $i++) {
+            $this->store->recordIndividual('aa' . \str_pad((string) $i, 62, 'a'), $now, $now - 60);
+        }
+        $this->store->recordIndividual($stale, $now - 600, $now - 700);
+        \touch("$this->dir/ua/zz/$stale.lst", $now - 600);
+
+        self::assertSame(0, $this->store->collectGarbage($now - 300, 2, 0), 'starting at aa never gets to zz');
+        self::assertFileExists("$this->dir/ua/zz/$stale.lst");
+
+        // ...but a sweep starting at the next shard removes it, leaving the fresh files alone.
+        self::assertSame(1, $this->store->collectGarbage($now - 300, 2, 1));
+        self::assertFileDoesNotExist("$this->dir/ua/zz/$stale.lst");
+        self::assertDirectoryDoesNotExist("$this->dir/ua/zz");
+        self::assertCount(3, \glob("$this->dir/ua/aa/*.lst") ?: []);
+    }
+
+    public function testRandomStartShardEventuallyReachesEveryShard(): void
+    {
+        $now = \time();
+        $stale = 'zz' . \str_repeat('e', 62);
+
+        for ($i = 0; $i < 3; $i++) {
+            $this->store->recordIndividual('aa' . \str_pad((string) $i, 62, 'b'), $now, $now - 60);
+        }
+        $this->store->recordIndividual($stale, $now - 600, $now - 700);
+        \touch("$this->dir/ua/zz/$stale.lst", $now - 600);
+
+        $removed = 0;
+        for ($pass = 0; $pass < 60 && $removed === 0; $pass++) {
+            $removed = $this->store->collectGarbage($now - 300, 2);
+        }
+
+        self::assertSame(1, $removed, 'with two shards a random start reaches zz within a few passes');
+    }
+
+    public function testStateDirectoriesAndFilesAreOwnerOnly(): void
+    {
+        $fp = 'ab' . \str_repeat('0', 62);
+
+        $this->store->updateGlobal(fn(array $s): array => ['hits' => 1]);
+        $this->store->recordIndividual($fp, \time(), \time() - 60);
+
+        self::assertSame(0700, self::mode($this->dir));
+        self::assertSame(0700, self::mode("$this->dir/ua"));
+        self::assertSame(0700, self::mode("$this->dir/ua/ab"));
+        self::assertSame(0600, self::mode("$this->dir/botlock_state_inst.json"));
+        self::assertSame(0600, self::mode("$this->dir/ua/ab/$fp.lst"));
+    }
+
+    private static function mode(string $path): int
+    {
+        \clearstatcache(true, $path);
+
+        return \fileperms($path) & 0777;
+    }
+
     private static function removeDir(string $dir): void
     {
         if (!\is_dir($dir)) {

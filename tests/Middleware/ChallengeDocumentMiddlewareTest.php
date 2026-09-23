@@ -109,6 +109,19 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('<h1 id="main-heading">Vérification en cours…</h1>', $body);
     }
 
+    public function testChallengeScriptGuardsCryptoBeforeUse(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        // The nonce must be created inside botlock(), after the capability checks, never at script top level.
+        self::assertStringNotContainsString('const nonce = crypto?.randomUUID()', $body);
+        self::assertStringContainsString("typeof window.crypto?.subtle?.digest !== 'function'", $body);
+        self::assertStringContainsString('function createNonce()', $body);
+        self::assertStringContainsString('getRandomValues(new Uint8Array(16))', $body);
+        self::assertStringContainsString('const nonce = createNonce();', $body);
+        self::assertStringContainsString("botlock().catch(", $body);
+    }
+
     public function testGrantedSessionPassesThrough(): void
     {
         $request = $this->request('de');

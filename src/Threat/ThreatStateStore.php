@@ -29,8 +29,10 @@ interface ThreatStateStore
 
     /**
      * Appends $now to the fingerprint's timestamps and drops those older than $windowStart.
+     *
+     * @return bool false when the entry could not be written (lock timeout, I/O error)
      */
-    public function recordIndividual(string $fingerprint, int $now, int $windowStart): void;
+    public function recordIndividual(string $fingerprint, int $now, int $windowStart): bool;
 
     /**
      * @return int|null number of timestamps at or after $windowStart, or null when unreadable

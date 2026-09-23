@@ -5,14 +5,15 @@ namespace GES\Botlock\Http;
 class Request
 {
     private readonly string $method;
-    private readonly array $urlParts;
+    /** Not readonly: setScheme() rewrites the scheme once the external one is known. */
+    private array $urlParts;
     private readonly array $normalizedHeaders;
     public readonly RequestContext $context;
 
     public function __construct(
         string                  $method,
-        private readonly string $requestUrl,
-        private readonly bool   $secure = false,
+        private string          $requestUrl,
+        private bool            $secure = false,
         private readonly array  $server = [],
         private readonly array  $rawHeaders = [],
         private readonly array  $queryParams = [],
@@ -39,7 +40,9 @@ class Request
     {
         $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
         $port = (string) ($_SERVER['SERVER_PORT'] ?? '');
-        $secure = \strtolower($_SERVER['HTTPS'] ?? '') === 'on' || $port === '443';
+        // Apache/nginx set HTTPS=on, IIS sets HTTPS=1; both may set "off" for plain HTTP.
+        $https = \strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+        $secure = ($https !== '' && $https !== 'off') || $port === '443';
 
         $scheme = $secure ? 'https' : 'http';
         $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? 'localhost';
@@ -113,6 +116,29 @@ class Request
     public function isSecure(): bool
     {
         return $this->secure;
+    }
+
+    public function getScheme(): string
+    {
+        return $this->urlParts['scheme'];
+    }
+
+    /**
+     * Replaces the URL scheme once the external scheme is known, e.g. from a
+     * TLS-terminating proxy or BOTLOCK_EXTERNAL_SCHEME. Request URL, origin
+     * and isSecure() follow; host, port and path are left untouched.
+     */
+    public function setScheme(string $scheme): void
+    {
+        $scheme = \strtolower($scheme);
+
+        if ($scheme === $this->urlParts['scheme']) {
+            return;
+        }
+
+        $this->requestUrl = $scheme . \substr($this->requestUrl, \strlen($this->urlParts['scheme']));
+        $this->urlParts['scheme'] = $scheme;
+        $this->secure = $scheme === 'https';
     }
 
     public function getServer(): array
@@ -197,15 +223,19 @@ class Request
     /**
      * Returns the action for botlock, if present.
      * Example: GET challenge, POST verify, POST reset, GET status
+     *
+     * Anything but a plain [a-z0-9_] token (an array from `?_botlock[]=`,
+     * punctuation, an empty value) is treated as "no action".
      */
     public function getBotlockAction(): ?string
     {
-        if ($action = $this->get('_botlock')) {
-            $action = \preg_replace('/[^a-z0-9_]/', '', \strtolower($action));
-            return $this->getMethod() . ' ' . $action;
+        $action = $this->get('_botlock');
+
+        if (!\is_string($action) || !\preg_match('/^[a-z0-9_]+$/i', $action)) {
+            return null;
         }
 
-        return null;
+        return $this->getMethod() . ' ' . \strtolower($action);
     }
 
     public function getAbsoluteUrl(string $path): ?string

@@ -2,10 +2,13 @@
 
 namespace GES\Botlock\Threat;
 
+use GES\Botlock\Filesystem\PrivateDirectory;
+
 /**
  * Stores global state as one JSON file per instance and individual state
  * as one newline-separated timestamp file per fingerprint, sharded by the
  * first two fingerprint characters. Access is serialized with flock().
+ * Directories and files are kept owner-only.
  */
 final class FileThreatStateStore implements ThreatStateStore
 {
@@ -18,9 +21,7 @@ final class FileThreatStateStore implements ThreatStateStore
         private readonly string $stateDir,
         private readonly string $instanceId,
     ) {
-        if (!\is_dir($this->stateDir) && !@\mkdir($this->stateDir, 0775, true) && !\is_dir($this->stateDir)) {
-            throw new \RuntimeException("State directory '{$this->stateDir}' is not writable or cannot be created.");
-        }
+        PrivateDirectory::ensure($this->stateDir);
 
         if (!\is_writable($this->stateDir)) {
             throw new \RuntimeException("State directory '{$this->stateDir}' is not writable.");
@@ -29,7 +30,10 @@ final class FileThreatStateStore implements ThreatStateStore
 
     public function updateGlobal(callable $reducer): ?array
     {
-        return $this->withLock($this->globalFile(), 'c+', function ($file) use ($reducer): array {
+        $path = $this->globalFile();
+        $isNew = !\is_file($path);
+
+        $state = $this->withLock($path, 'c+', function ($file) use ($reducer): array {
             try {
                 $state = \json_decode((string) \stream_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
                 $state = \is_array($state) ? $state : [];
@@ -46,6 +50,12 @@ final class FileThreatStateStore implements ThreatStateStore
 
             return $state;
         });
+
+        if ($isNew && $state !== null) {
+            PrivateDirectory::restrictFile($path);
+        }
+
+        return $state;
     }
 
     public function readGlobal(): ?array
@@ -63,25 +73,36 @@ final class FileThreatStateStore implements ThreatStateStore
         });
     }
 
-    public function recordIndividual(string $fingerprint, int $now, int $windowStart): void
+    public function recordIndividual(string $fingerprint, int $now, int $windowStart): bool
     {
         $path = $this->individualFile($fingerprint);
-        $dir = \dirname($path);
 
-        if (!\is_dir($dir) && !@\mkdir($dir, 0775, true) && !\is_dir($dir)) {
-            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir));
+        try {
+            PrivateDirectory::ensure(\dirname($path));
+        } catch (\RuntimeException) {
+            return false;
         }
 
-        $this->withLock($path, 'c+', function ($file) use ($now, $windowStart): bool {
+        $isNew = !\is_file($path);
+
+        $written = $this->withLock($path, 'c+', function ($file) use ($now, $windowStart): bool {
             $timestamps = $this->readTimestamps($file, $windowStart);
             $timestamps[] = $now;
 
-            \ftruncate($file, 0);
-            \rewind($file);
-            \fwrite($file, \implode("\n", $timestamps) . "\n");
+            $encoded = \implode("\n", $timestamps) . "\n";
+
+            if (!\ftruncate($file, 0) || !\rewind($file) || \fwrite($file, $encoded) !== \strlen($encoded)) {
+                throw new \RuntimeException('Could not persist individual threat state.');
+            }
 
             return true;
         });
+
+        if ($isNew && $written) {
+            PrivateDirectory::restrictFile($path);
+        }
+
+        return $written === true;
     }
 
     public function countIndividual(string $fingerprint, int $windowStart): ?int
@@ -95,27 +116,44 @@ final class FileThreatStateStore implements ThreatStateStore
         return $this->withLock($path, 'r', fn($file): int => \count($this->readTimestamps($file, $windowStart)));
     }
 
-    public function collectGarbage(int $windowStart, int $maxEntries = 500): int
+    /**
+     * {@inheritDoc}
+     *
+     * Shards are visited round-robin from a random start, so successive
+     * budget-limited sweeps reach every shard instead of always inspecting
+     * the same first entries.
+     *
+     * @param int|null $startShard index into the sorted shard list to begin with; random when null
+     */
+    public function collectGarbage(int $windowStart, int $maxEntries = 500, ?int $startShard = null): int
     {
         $root = $this->stateDir . \DIRECTORY_SEPARATOR . self::INDIVIDUAL_DIR;
+        $shards = \glob($root . \DIRECTORY_SEPARATOR . '*', \GLOB_ONLYDIR) ?: [];
+        $count = \count($shards);
 
-        if (!\is_dir($root)) {
+        if ($count === 0) {
             return 0;
         }
 
+        $start = $startShard === null ? \random_int(0, $count - 1) : (($startShard % $count) + $count) % $count;
         $removed = 0;
         $seen = 0;
-        $shards = [];
+        $touched = [];
 
-        try {
-            $iterator = new \RecursiveIteratorIterator(
-                new \RecursiveDirectoryIterator($root, \FilesystemIterator::SKIP_DOTS),
-            );
+        for ($i = 0; $i < $count && $seen < $maxEntries; $i++)
+        {
+            $shard = $shards[($start + $i) % $count];
+
+            try {
+                $entries = new \FilesystemIterator($shard, \FilesystemIterator::SKIP_DOTS);
+            } catch (\UnexpectedValueException) {
+                continue; // shard vanished between glob() and open
+            }
 
             /** @var \SplFileInfo $entry */
-            foreach ($iterator as $entry)
+            foreach ($entries as $entry)
             {
-                if (++$seen > $maxEntries) {
+                if ($seen++ >= $maxEntries) {
                     break;
                 }
 
@@ -126,14 +164,14 @@ final class FileThreatStateStore implements ThreatStateStore
                 // Files are rewritten on every hit, so mtime is the newest timestamp.
                 if ($entry->getMTime() < $windowStart && @\unlink($entry->getPathname())) {
                     $removed++;
-                    $shards[$entry->getPath()] = true;
+                    $touched[$shard] = true;
                 }
             }
-        } catch (\UnexpectedValueException) {
-            // directory vanished or unreadable mid-walk; nothing more to do
+
+            unset($entries); // release the directory handle before rmdir()
         }
 
-        foreach (\array_keys($shards) as $shard) {
+        foreach (\array_keys($touched) as $shard) {
             @\rmdir($shard); // only succeeds when empty
         }
 

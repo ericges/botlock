@@ -62,14 +62,66 @@ final class RequestTest extends TestCase
             ['HTTPS' => 'on', 'HTTP_HOST' => 'example.test'],
             'https://example.test', 'example.test',
         ];
+        yield 'IIS style HTTPS=1' => [
+            ['HTTPS' => '1', 'HTTP_HOST' => 'example.test'],
+            'https://example.test', 'example.test',
+        ];
+        yield 'mixed case HTTPS=On' => [
+            ['HTTPS' => 'On', 'HTTP_HOST' => 'example.test'],
+            'https://example.test', 'example.test',
+        ];
+        yield 'HTTPS=off is plain http' => [
+            ['HTTPS' => 'off', 'HTTP_HOST' => 'example.test', 'SERVER_PORT' => '80'],
+            'http://example.test', 'example.test',
+        ];
     }
 
-    public function testBotlockActionIsMethodPlusSanitizedName(): void
+    public function testSetSchemeRebuildsUrlOriginAndSecureFlag(): void
     {
-        $request = new Request('post', 'https://example.test/', queryParams: ['_botlock' => 'Ver-ify!']);
+        $request = new Request('GET', 'http://example.test:8080/p?x=1');
+        self::assertFalse($request->isSecure());
+        self::assertSame('http', $request->getScheme());
 
-        self::assertSame('POST verify', $request->getBotlockAction());
+        $request->setScheme('HTTPS');
+
+        self::assertTrue($request->isSecure());
+        self::assertSame('https', $request->getScheme());
+        self::assertSame('https://example.test:8080', $request->getOrigin());
+        self::assertSame('https://example.test:8080/p?x=1', $request->getRequestUrl());
+        self::assertSame('example.test', $request->getHost());
+        self::assertSame('https://example.test:8080/p', $request->getUrlWithoutParameters());
+
+        $request->setScheme('http');
+
+        self::assertFalse($request->isSecure());
+        self::assertSame('http://example.test:8080/p?x=1', $request->getRequestUrl());
+    }
+
+    public function testBotlockActionIsMethodPlusLowercasedName(): void
+    {
+        self::assertSame('POST verify', $this->requestWithAction('post', 'verify')->getBotlockAction());
+        self::assertSame('GET status', $this->requestWithAction('GET', 'STATUS')->getBotlockAction());
         self::assertNull((new Request('GET', 'https://example.test/'))->getBotlockAction());
+    }
+
+    #[DataProvider('malformedActions')]
+    public function testMalformedBotlockActionIsIgnored(mixed $value): void
+    {
+        self::assertNull($this->requestWithAction('GET', $value)->getBotlockAction());
+    }
+
+    public static function malformedActions(): iterable
+    {
+        yield 'array from ?_botlock[]=status' => [['status']];
+        yield 'punctuation' => ['Ver-ify!'];
+        yield 'empty' => [''];
+        yield 'whitespace' => ['status '];
+        yield 'nested array' => [['a' => ['status']]];
+    }
+
+    private function requestWithAction(string $method, mixed $value): Request
+    {
+        return new Request($method, 'https://example.test/', queryParams: ['_botlock' => $value]);
     }
 
     public function testJsonBodyAndPostAccessors(): void

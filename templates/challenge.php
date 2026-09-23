@@ -212,7 +212,24 @@ if (!isset($lang, $trans, $transJson, $e)) {
     const widgetElement = document.getElementById('bot-check-widget');
     const footerElement = document.getElementById('footer-note');
 
-    const nonce = crypto?.randomUUID();
+    // RFC 4122 v4 UUID; randomUUID() needs a secure context, getRandomValues() does not.
+    function createNonce() {
+        const c = window.crypto;
+        if (!c) {
+            return null;
+        }
+        if (typeof c.randomUUID === 'function') {
+            return c.randomUUID();
+        }
+        if (typeof c.getRandomValues !== 'function') {
+            return null;
+        }
+        const b = c.getRandomValues(new Uint8Array(16));
+        b[6] = (b[6] & 0x0f) | 0x40;
+        b[8] = (b[8] & 0x3f) | 0x80;
+        const hex = Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
 
     async function sha(text, algo = 'SHA-256') {
         const encoder = new TextEncoder();
@@ -246,13 +263,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
         footerElement.textContent = trans.successFooter;
     }
 
-    async function getChallenge() {
+    async function getChallenge(nonce) {
         try {
-            if (!nonce || nonce.length < 16) {
-                console.error("Failed to generate nonce.");
-                return null;
-            }
-
             const response = await fetch('?_botlock=challenge', {
                 method: "GET",
                 headers: {
@@ -309,26 +321,37 @@ if (!isset($lang, $trans, $transJson, $e)) {
         return { num, sig: signature, slt: salt, exp: expire, alg: algorithm };
     }
 
-    async function sendResult(result) {
-        const response = await fetch("?_botlock=verify", {
-            method: "POST",
-            body: JSON.stringify(result),
-            headers: {
-                "Content-Type": "application/json",
-                "Botlock-Nonce": nonce,
-            }
-        })
+    async function sendResult(result, nonce) {
+        try {
+            const response = await fetch("?_botlock=verify", {
+                method: "POST",
+                body: JSON.stringify(result),
+                headers: {
+                    "Content-Type": "application/json",
+                    "Botlock-Nonce": nonce,
+                }
+            });
 
-        return response.ok;
+            return response.ok;
+        } catch (error) {
+            console.error(error.message);
+            return false;
+        }
     }
 
     async function botlock() {
-        if (!window.crypto || !window.crypto.subtle) {
+        if (typeof window.crypto?.subtle?.digest !== 'function') {
             showError();
             return;
         }
 
-        const challenge = await getChallenge();
+        const nonce = createNonce();
+        if (!nonce) {
+            showError();
+            return;
+        }
+
+        const challenge = await getChallenge(nonce);
         if (!challenge) {
             showError();
             return;
@@ -336,14 +359,14 @@ if (!isset($lang, $trans, $transJson, $e)) {
 
         const { auto_start: autoStart = false } = challenge;
         if (!autoStart) {
-            showConfirm(challenge);
+            showConfirm(challenge, nonce);
             return;
         }
 
-        await runChallenge(challenge);
+        await runChallenge(challenge, nonce);
     }
 
-    function showConfirm(challenge) {
+    function showConfirm(challenge, nonce) {
         headingElement.textContent = trans.confirmHeading;
         infoElement.textContent = trans.confirmParagraph;
 
@@ -355,34 +378,42 @@ if (!isset($lang, $trans, $transJson, $e)) {
             widgetElement.innerHTML = '<div class="spinner"></div>';
             headingElement.textContent = trans.mainHeading;
             infoElement.textContent = trans.infoParagraph;
-            runChallenge(challenge);
+            runChallenge(challenge, nonce);
         }, { once: true });
 
         widgetElement.replaceChildren(button);
         button.focus();
     }
 
-    async function runChallenge(challenge) {
-        const res = await solveChallenge(challenge);
-        if (res === null) {
+    async function runChallenge(challenge, nonce) {
+        try {
+            const res = await solveChallenge(challenge);
+            if (res === null) {
+                showError();
+                return;
+            }
+
+            const success = await sendResult(res, nonce);
+            if (!success) {
+                showError();
+                return;
+            }
+
+            showSuccess();
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 600);
+        } catch (error) {
+            console.error(error);
             showError();
-            return;
         }
-
-        const success = await sendResult(res);
-        if (!success) {
-            showError();
-            return;
-        }
-
-        showSuccess();
-
-        setTimeout(() => {
-            window.location.reload();
-        }, 600);
     }
 
-    document.addEventListener('DOMContentLoaded', botlock);
+    document.addEventListener('DOMContentLoaded', () => botlock().catch((error) => {
+        console.error(error);
+        showError();
+    }));
 </script>
 
 </body>

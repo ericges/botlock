@@ -17,6 +17,9 @@ final readonly class DetectionConfig
         'google' => ['Googlebot', 'AdsBot'],
     ];
 
+    /** Values BOTLOCK_EXTERNAL_SCHEME and a trusted X-Forwarded-Proto may take. */
+    public const EXTERNAL_SCHEMES = ['http', 'https'];
+
     /**
      * Peers trusted to supply forwarding headers when BOTLOCK_TRUSTED_PROXIES is unset:
      * loopback, RFC 1918 private, link-local and IPv6 unique-local ranges (the same
@@ -41,27 +44,33 @@ final readonly class DetectionConfig
      * @param array<string,string[]>  $verifyBots       Subset of VERIFIABLE_BOTS to verify via DNS
      * @param string[]                $trustedProxies   Proxy IPs or CIDR ranges whose forwarding headers are trusted; empty trusts none, unset env uses DEFAULT_TRUSTED_PROXIES
      * @param bool                    $dnsChecks        Master switch for DNS verification
+     * @param string|null             $externalScheme   'http' or 'https' forces the scheme visitors use; null derives it from HTTPS/port and a trusted X-Forwarded-Proto
      *
-     * @throws \InvalidArgumentException on a malformed trusted proxy entry
+     * @throws \InvalidArgumentException on a malformed trusted proxy entry or external scheme
      */
     public function __construct(
-        public array $ignoreIps = [],
-        public array $ignoreUserAgents = [],
-        public array $ignoreUrls = [],
-        public array $goodBots = self::DEFAULT_GOOD_BOTS,
-        public array $verifyBots = self::VERIFIABLE_BOTS,
-        public array $trustedProxies = self::DEFAULT_TRUSTED_PROXIES,
-        public bool  $dnsChecks = true,
+        public array   $ignoreIps = [],
+        public array   $ignoreUserAgents = [],
+        public array   $ignoreUrls = [],
+        public array   $goodBots = self::DEFAULT_GOOD_BOTS,
+        public array   $verifyBots = self::VERIFIABLE_BOTS,
+        public array   $trustedProxies = self::DEFAULT_TRUSTED_PROXIES,
+        public bool    $dnsChecks = true,
+        public ?string $externalScheme = null,
     ) {
         foreach ($this->trustedProxies as $proxy) {
             if (!\is_string($proxy) || !IpMatcher::isValidRule($proxy)) {
                 throw new \InvalidArgumentException('Invalid entry in BOTLOCK_TRUSTED_PROXIES: ' . \var_export($proxy, true));
             }
         }
+
+        if ($this->externalScheme !== null && !\in_array($this->externalScheme, self::EXTERNAL_SCHEMES, true)) {
+            throw new \InvalidArgumentException('Invalid BOTLOCK_EXTERNAL_SCHEME: ' . \var_export($this->externalScheme, true));
+        }
     }
 
     /**
-     * @throws \InvalidArgumentException on a malformed BOTLOCK_TRUSTED_PROXIES entry
+     * @throws \InvalidArgumentException on a malformed BOTLOCK_TRUSTED_PROXIES entry or BOTLOCK_EXTERNAL_SCHEME
      * @throws \JsonException on a malformed JSON list value
      */
     public static function fromEnv(): self
@@ -74,7 +83,18 @@ final readonly class DetectionConfig
             verifyBots: self::resolveVerifyBots(Env::list('VERIFY_BOTS')),
             trustedProxies: self::resolveTrustedProxies(Env::list('TRUSTED_PROXIES')),
             dnsChecks: (bool) Env::bool('DNS_CHECKS', true),
+            externalScheme: self::resolveExternalScheme(Env::get('EXTERNAL_SCHEME')),
         );
+    }
+
+    /**
+     * @param mixed $value from the environment; unset, empty or "auto" means "derive per request"
+     */
+    private static function resolveExternalScheme(mixed $value): ?string
+    {
+        $value = \strtolower(\trim((string) $value));
+
+        return ($value === '' || $value === 'auto') ? null : $value;
     }
 
     /**

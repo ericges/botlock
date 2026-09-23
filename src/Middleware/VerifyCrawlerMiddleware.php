@@ -2,48 +2,61 @@
 
 namespace GES\Botlock\Middleware;
 
-use GES\Botlock\Manager\BotTestManager;
 use GES\Botlock\Config\DetectionConfig;
+use GES\Botlock\Crawler\CrawlerVerification;
+use GES\Botlock\Crawler\CrawlerVerifier;
+use GES\Botlock\Crawler\DnsCrawlerVerifier;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
-use GES\Botlock\VerifyBot;
+use GES\Botlock\Manager\BotTestManager;
 
+/**
+ * Records on the request context whether a crawler is who it claims to be.
+ *
+ * The verifier is chosen from the providers in BOTLOCK_VERIFY_BOTS whose
+ * crawler names match the detected crawler, so the check does not depend on
+ * the User-Agent's casing. A failed verification raises the effective threat
+ * level to at least 2; a successful one changes no level, the verification
+ * state alone decides whether ThreatPassMiddleware may exempt the bot.
+ */
 final readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
 {
+    private CrawlerVerifier $verifier;
+
     public function __construct(
         private BotTestManager $detective,
         private DetectionConfig $config,
-    ) {}
+        ?CrawlerVerifier $verifier = null,
+    ) {
+        $this->verifier = $verifier ?? new DnsCrawlerVerifier();
+    }
 
     public function process(Request $request, callable $next): Response
     {
-        if (!$this->detective->isCrawler() || !$this->config->dnsChecks) {
+        if (!$this->detective->isCrawler()) {
             return $next($request);
         }
 
-        $ip = $request->context->clientIp;
-        $verifyBots = $this->config->verifyBots;
-        $userAgent = $request->getHeader('User-Agent');
+        $context = $request->context;
+        $provider = $this->detective->getVerifyProvider();
 
-        if (!$ip || !$userAgent || !$verifyBots) {
+        if ($provider === null || !$this->config->dnsChecks) {
+            $context->crawlerVerification = CrawlerVerification::NotApplicable;
+
             return $next($request);
         }
 
-        $verified = match (true) {
-            isset($verifyBots['google']) && \str_contains($userAgent, 'google') => VerifyBot::google($ip),
-            default => null,
-        };
+        if (!$ip = $context->clientIp) {
+            $context->crawlerVerification = CrawlerVerification::Unverified;
 
-        $newThreatLevel = match ($verified) {
-            true => \max(($request->context->threatLevel ?? 0) - 1, 0),  // reduce by 1
-            false => \max(($request->context->threatLevel ?? 0) + 1, 2), // set to 2 or higher
-            default => null,
-        };
+            return $next($request);
+        }
 
-        if (\is_int($newThreatLevel)) {
-            $request->context->threatLevel = $newThreatLevel;
-            $request->context->threatLevelIndividual = $newThreatLevel;
+        $context->crawlerVerification = $this->verifier->verify($provider, $ip);
+
+        if ($context->crawlerVerification === CrawlerVerification::Failed) {
+            $context->threatLevel = \min(3, \max(2, $context->threatLevel ?? 0));
         }
 
         return $next($request);
