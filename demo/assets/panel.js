@@ -668,9 +668,10 @@ if (new URLSearchParams(location.search).has('demo')) {
         form.elements.lang.value = fields?.lang ?? '';
         form.elements.headers.value = (fields?.headers ?? []).join('\n');
         inputs.forEach((input) => { input.disabled = fields === null; });
-        note.textContent = fields === null
-            ? 'Direct requests with your own browser headers; not relayed or logged.'
-            : 'Relayed via /_forge.php with these headers.';
+        note.textContent = fields === null ? 'direct, your own headers' : 'relayed via /_forge.php';
+        note.title = fields === null
+            ? 'Requests go straight to /protected/ with this browser\'s headers; they are not relayed or logged.'
+            : 'Requests go through /_forge.php, which sends them to /protected/ with these headers.';
     };
 
     const apply = (key, fields) => {

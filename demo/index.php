@@ -284,7 +284,7 @@ $demoData = [
         </section>
 
         <section class="block identity" data-identity>
-            <div class="block-head">
+            <div class="block-head identity-head">
                 <h2>Identity</h2>
                 <select data-identity-preset aria-label="Identity">
                     <?php foreach (Identity::presets() as $key => $preset): ?>
@@ -292,16 +292,22 @@ $demoData = [
                     <?php endforeach ?>
                     <option value="custom">Custom</option>
                 </select>
+                <span class="muted identity-note" data-identity-note></span>
+                <button type="submit" form="identity-form" class="primary">Apply</button>
             </div>
-            <form class="identity-fields" data-identity-form>
-                <label>User-Agent <input type="text" name="ua" placeholder="empty: this browser's" spellcheck="false"></label>
-                <label>Client IP <span class="muted">(X-Forwarded-For)</span> <input type="text" name="ip" placeholder="empty: loopback" spellcheck="false"></label>
-                <label>Accept-Language <input type="text" name="lang" placeholder="empty: none" spellcheck="false"></label>
-                <label>Extra headers <textarea name="headers" rows="2" placeholder="Name: value, one per line" spellcheck="false"></textarea></label>
-                <div class="identity-actions">
-                    <span class="muted" data-identity-note></span>
-                    <button type="submit" class="primary">Apply</button>
-                </div>
+            <form class="identity-fields" id="identity-form" data-identity-form>
+                <label for="identity-ua">User-Agent</label>
+                <input type="text" id="identity-ua" name="ua" class="wide" placeholder="empty: this browser's" spellcheck="false">
+
+                <label for="identity-ip" title="Sent as X-Forwarded-For; loopback is a trusted proxy">Client IP</label>
+                <input type="text" id="identity-ip" name="ip" placeholder="X-Forwarded-For, empty: loopback" spellcheck="false"
+                       title="Sent as X-Forwarded-For; loopback is a trusted proxy">
+
+                <label for="identity-lang">Language</label>
+                <input type="text" id="identity-lang" name="lang" placeholder="Accept-Language, empty: none" spellcheck="false">
+
+                <label for="identity-headers">Headers</label>
+                <textarea id="identity-headers" name="headers" class="wide" rows="1" placeholder="Name: value, one per line" spellcheck="false"></textarea>
             </form>
         </section>
 
