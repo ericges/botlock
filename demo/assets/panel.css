@@ -132,13 +132,6 @@ p {
     color: var(--muted);
 }
 
-.topbar-hint {
-    margin: 0 0 0 auto;
-    color: var(--muted);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
 
 .banner {
     margin: 0;
@@ -637,10 +630,6 @@ input[type="checkbox"] {
     .pane-settings {
         border-right: none;
         min-height: 0;
-    }
-
-    .topbar-hint {
-        display: none;
     }
 }
 

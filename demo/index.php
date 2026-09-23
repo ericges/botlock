@@ -90,13 +90,9 @@ $demoData = [
 
 <header class="topbar">
     <div class="brand">BOTLOCK <span>demo</span></div>
-    <div class="chip" data-chip title="Effective threat level and grant of this browser">
+    <div class="chip" data-chip title="Selected identity with its effective threat level and grant">
         <span class="chip-dot"></span><span data-chip-text>status pending</span>
     </div>
-    <p class="topbar-hint">
-        Settings apply from the next request on. Locked out?
-        <a href="/_demo.php?reset=1"><code>/_demo.php?reset=1</code></a>
-    </p>
 </header>
 
 <?php if ($notice): ?>
