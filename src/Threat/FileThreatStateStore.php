@@ -2,10 +2,13 @@
 
 namespace GES\Botlock\Threat;
 
+use GES\Botlock\Filesystem\PrivateDirectory;
+
 /**
  * Stores global state as one JSON file per instance and individual state
  * as one newline-separated timestamp file per fingerprint, sharded by the
  * first two fingerprint characters. Access is serialized with flock().
+ * Directories and files are kept owner-only.
  */
 final class FileThreatStateStore implements ThreatStateStore
 {
@@ -18,9 +21,7 @@ final class FileThreatStateStore implements ThreatStateStore
         private readonly string $stateDir,
         private readonly string $instanceId,
     ) {
-        if (!\is_dir($this->stateDir) && !@\mkdir($this->stateDir, 0775, true) && !\is_dir($this->stateDir)) {
-            throw new \RuntimeException("State directory '{$this->stateDir}' is not writable or cannot be created.");
-        }
+        PrivateDirectory::ensure($this->stateDir);
 
         if (!\is_writable($this->stateDir)) {
             throw new \RuntimeException("State directory '{$this->stateDir}' is not writable.");
@@ -29,7 +30,10 @@ final class FileThreatStateStore implements ThreatStateStore
 
     public function updateGlobal(callable $reducer): ?array
     {
-        return $this->withLock($this->globalFile(), 'c+', function ($file) use ($reducer): array {
+        $path = $this->globalFile();
+        $isNew = !\is_file($path);
+
+        $state = $this->withLock($path, 'c+', function ($file) use ($reducer): array {
             try {
                 $state = \json_decode((string) \stream_get_contents($file), true, 512, JSON_THROW_ON_ERROR);
                 $state = \is_array($state) ? $state : [];
@@ -46,6 +50,12 @@ final class FileThreatStateStore implements ThreatStateStore
 
             return $state;
         });
+
+        if ($isNew && $state !== null) {
+            PrivateDirectory::restrictFile($path);
+        }
+
+        return $state;
     }
 
     public function readGlobal(): ?array
@@ -66,13 +76,12 @@ final class FileThreatStateStore implements ThreatStateStore
     public function recordIndividual(string $fingerprint, int $now, int $windowStart): void
     {
         $path = $this->individualFile($fingerprint);
-        $dir = \dirname($path);
 
-        if (!\is_dir($dir) && !@\mkdir($dir, 0775, true) && !\is_dir($dir)) {
-            throw new \RuntimeException(\sprintf('Directory "%s" was not created', $dir));
-        }
+        PrivateDirectory::ensure(\dirname($path));
 
-        $this->withLock($path, 'c+', function ($file) use ($now, $windowStart): bool {
+        $isNew = !\is_file($path);
+
+        $written = $this->withLock($path, 'c+', function ($file) use ($now, $windowStart): bool {
             $timestamps = $this->readTimestamps($file, $windowStart);
             $timestamps[] = $now;
 
@@ -82,6 +91,10 @@ final class FileThreatStateStore implements ThreatStateStore
 
             return true;
         });
+
+        if ($isNew && $written) {
+            PrivateDirectory::restrictFile($path);
+        }
     }
 
     public function countIndividual(string $fingerprint, int $windowStart): ?int

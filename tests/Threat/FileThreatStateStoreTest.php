@@ -126,6 +126,27 @@ final class FileThreatStateStoreTest extends TestCase
         self::assertSame(0, $this->store->collectGarbage(\time()));
     }
 
+    public function testStateDirectoriesAndFilesAreOwnerOnly(): void
+    {
+        $fp = 'ab' . \str_repeat('0', 62);
+
+        $this->store->updateGlobal(fn(array $s): array => ['hits' => 1]);
+        $this->store->recordIndividual($fp, \time(), \time() - 60);
+
+        self::assertSame(0700, self::mode($this->dir));
+        self::assertSame(0700, self::mode("$this->dir/ua"));
+        self::assertSame(0700, self::mode("$this->dir/ua/ab"));
+        self::assertSame(0600, self::mode("$this->dir/botlock_state_inst.json"));
+        self::assertSame(0600, self::mode("$this->dir/ua/ab/$fp.lst"));
+    }
+
+    private static function mode(string $path): int
+    {
+        \clearstatcache(true, $path);
+
+        return \fileperms($path) & 0777;
+    }
+
     private static function removeDir(string $dir): void
     {
         if (!\is_dir($dir)) {

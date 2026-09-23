@@ -2,6 +2,8 @@
 
 namespace GES\Botlock\Template;
 
+use GES\Botlock\Filesystem\PrivateDirectory;
+
 /**
  * Best-effort on-disk cache for rendered challenge pages, one file per
  * language and version, stored in the state directory next to the secret
@@ -48,14 +50,24 @@ final readonly class RenderedPageCache
      */
     public function store(string $lang, string $version, string $html): ?string
     {
-        if (!@\is_dir($this->stateDir) && !@\mkdir($this->stateDir, 0775, true) && !@\is_dir($this->stateDir)) {
+        try {
+            PrivateDirectory::ensure($this->stateDir);
+        } catch (\RuntimeException) {
             return null;
         }
 
         $file = $this->file($lang, $version);
         $tmp = $file . '.' . \uniqid('', true) . '.tmp';
 
-        if (@\file_put_contents($tmp, $html) !== \strlen($html) || !@\rename($tmp, $file)) {
+        if (@\file_put_contents($tmp, $html) !== \strlen($html)) {
+            @\unlink($tmp);
+
+            return null;
+        }
+
+        PrivateDirectory::restrictFile($tmp);
+
+        if (!@\rename($tmp, $file)) {
             @\unlink($tmp);
 
             return null;

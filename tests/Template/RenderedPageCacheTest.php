@@ -77,6 +77,16 @@ final class RenderedPageCacheTest extends TestCase
         self::assertNotSame($v1, RenderedPageCache::versionOf($a, $this->dir . '/missing'), 'missing file');
     }
 
+    public function testCacheDirectoryAndFilesAreOwnerOnly(): void
+    {
+        $path = (string) $this->cache->store('de', 'v1', '<html>de</html>');
+
+        \clearstatcache();
+
+        self::assertSame(0700, \fileperms($this->dir) & 0777);
+        self::assertSame(0600, \fileperms($path) & 0777);
+    }
+
     public function testStoreReturnsNullWhenDirectoryCannotBeCreated(): void
     {
         $blocker = \tempnam(\sys_get_temp_dir(), 'botlock-blocker');
