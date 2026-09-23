@@ -115,17 +115,106 @@ final class ThreatAwarenessManagerTest extends TestCase
         self::assertSame(2, $this->globalLevelFor(new RateLimitConfig(level1ThresholdGlobal: 120, level2ThresholdGlobal: 300, level3ThresholdGlobal: 600), $dense));
     }
 
-    public function testRaisedGlobalLevelIsHeldDuringGracePeriod(): void
+    public function testRaisedGlobalLevelIsHeldDuringGracePeriodAfterTrafficDrops(): void
     {
         $config = new RateLimitConfig(levelDecayGracePeriod: 300);
 
         $held = new InMemoryThreatStateStore();
-        $held->global = ['current_level' => 3, 'level_last_changed' => \time() - 10, 'traffic_buckets' => []];
+        $held->global = ['current_level' => 3, 'level_last_changed' => \time() - 1000, 'below_since' => \time() - 10, 'traffic_buckets' => []];
         self::assertSame(3, (new ThreatAwarenessManager($config, $held))->getGlobalThreatLevel());
 
         $decayed = new InMemoryThreatStateStore();
-        $decayed->global = ['current_level' => 3, 'level_last_changed' => \time() - 301, 'traffic_buckets' => []];
+        $decayed->global = ['current_level' => 3, 'level_last_changed' => \time() - 1000, 'below_since' => \time() - 301, 'traffic_buckets' => []];
         self::assertSame(0, (new ThreatAwarenessManager($config, $decayed))->getGlobalThreatLevel());
+    }
+
+    public function testLongElevatedLevelIsHeldWhenTrafficDropsOnlyNow(): void
+    {
+        $config = new RateLimitConfig(levelDecayGracePeriod: 300, gcProbability: 0);
+        $store = new InMemoryThreatStateStore();
+        // Raised long before the grace period, but the traffic drop is first seen by this request.
+        $store->global = ['current_level' => 3, 'level_last_changed' => \time() - 1000, 'traffic_buckets' => []];
+
+        self::assertSame(3, (new ThreatAwarenessManager($config, $store))->getGlobalThreatLevel());
+
+        $request = Requests::make();
+        $request->context->fingerprint = self::FP;
+        $manager = new ThreatAwarenessManager($config, $store);
+        $manager->recordRequest($request);
+
+        self::assertSame(3, $manager->getGlobalThreatLevel());
+        self::assertSame(3, $store->global['current_level']);
+        self::assertEqualsWithDelta(\time(), $store->global['below_since'], 2, 'the drop is timestamped now');
+    }
+
+    public function testHeldLevelDecaysOnceGraceHasPassedSinceTheDrop(): void
+    {
+        $config = new RateLimitConfig(levelDecayGracePeriod: 300, gcProbability: 0);
+        $store = new InMemoryThreatStateStore();
+        $store->global = ['current_level' => 3, 'level_last_changed' => \time() - 1000, 'below_since' => \time() - 301, 'traffic_buckets' => []];
+
+        $request = Requests::make();
+        $request->context->fingerprint = self::FP;
+        $manager = new ThreatAwarenessManager($config, $store);
+        $manager->recordRequest($request);
+
+        self::assertSame(0, $manager->getGlobalThreatLevel());
+        self::assertSame(0, $store->global['current_level']);
+        self::assertNull($store->global['below_since']);
+    }
+
+    public function testBelowSinceIsClearedWhenTrafficRisesAgain(): void
+    {
+        $config = new RateLimitConfig(level1ThresholdGlobal: 120, level2ThresholdGlobal: 300, gcProbability: 0);
+        $store = new InMemoryThreatStateStore();
+        $store->global = [
+            'current_level' => 1,
+            'level_last_changed' => \time() - 100,
+            'below_since' => \time() - 50,
+            'traffic_buckets' => [(string) \intdiv(\time(), 60) => 204], // +1 → ≈ 302.9, level 2
+        ];
+
+        $request = Requests::make();
+        $request->context->fingerprint = self::FP;
+        $manager = new ThreatAwarenessManager($config, $store);
+        $manager->recordRequest($request);
+
+        self::assertSame(2, $store->global['current_level']);
+        self::assertNull($store->global['below_since']);
+    }
+
+    public function testGracePeriodStartsWhenTrafficDropsNotWhenLevelRose(): void
+    {
+        $t = 1_700_000_000;
+        $clock = static function () use (&$t): int {
+            return $t;
+        };
+        $config = new RateLimitConfig(level1ThresholdGlobal: 120, level2ThresholdGlobal: 300, levelDecayGracePeriod: 300, gcProbability: 0);
+        $store = new InMemoryThreatStateStore();
+        $store->global = ['current_level' => 0, 'level_last_changed' => 0, 'traffic_buckets' => [(string) \intdiv($t, 60) => 300]];
+
+        $request = Requests::make();
+        $request->context->fingerprint = self::FP;
+
+        $record = static function () use ($config, $store, $clock, $request): int {
+            $manager = new ThreatAwarenessManager($config, $store, $clock);
+            $manager->recordRequest($request);
+
+            return $manager->getGlobalThreatLevel();
+        };
+
+        self::assertSame(2, $record(), 'burst raises level 2');
+
+        $t += 1000; // well past the grace period since the raise; traffic has vanished, the drop is seen now
+        self::assertSame(2, $record(), 'held: the grace period only starts now');
+        self::assertSame($t, $store->global['below_since']);
+
+        $t += 300;
+        self::assertSame(2, $record(), 'still within the grace period');
+
+        $t += 1;
+        self::assertSame(0, $record(), 'grace period over');
+        self::assertNull($store->global['below_since']);
     }
 
     public function testUnavailableStoreYieldsProtectiveLevelOne(): void

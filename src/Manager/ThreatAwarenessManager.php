@@ -11,8 +11,9 @@ use GES\Botlock\Threat\ThreatStateStore;
  *
  * Global level: requests are counted in one-minute buckets over the last
  * five minutes, weighted so recent minutes count more, and compared to the
- * configured thresholds. Once raised, a level is held for the decay grace
- * period before it may drop again.
+ * configured thresholds. Once traffic falls below the threshold of the
+ * held level, that level is kept for the decay grace period before it
+ * may drop.
  *
  * Individual level: plain request count per fingerprint within the
  * individual rate window, compared to the individual thresholds.
@@ -34,9 +35,13 @@ class ThreatAwarenessManager
     /** @var array<string, int|null> null marks a fingerprint whose state is unavailable */
     private array $cachedIndividualRates = [];
 
+    /**
+     * @param \Closure|null $clock returns the current Unix timestamp; defaults to time(). Tests use it to move time.
+     */
     public function __construct(
         private readonly RateLimitConfig $config,
         private readonly ThreatStateStore $store,
+        private readonly ?\Closure $clock = null,
     ) {}
 
     /**
@@ -58,7 +63,7 @@ class ThreatAwarenessManager
 
         if ($this->config->enableIndividualRateLimit)
         {
-            $now = \time();
+            $now = $this->now();
 
             if (!$this->store->recordIndividual($fingerprint, $now, $now - $this->config->individualRateWindowSec)) {
                 // This request is not in the count; fail closed rather than under-report.
@@ -84,7 +89,7 @@ class ThreatAwarenessManager
             return $this->cachedGlobalThreatLevel = self::UNAVAILABLE_LEVEL;
         }
 
-        [, $level] = $this->calcOldAndNewLevelsGlobal($state, \time());
+        [, $level] = $this->calcOldAndNewLevelsGlobal($state, $this->now());
 
         return $this->cachedGlobalThreatLevel = $level;
     }
@@ -104,7 +109,7 @@ class ThreatAwarenessManager
             return $this->cachedIndividualRates[$fingerprint];
         }
 
-        $windowStart = \time() - $this->config->individualRateWindowSec;
+        $windowStart = $this->now() - $this->config->individualRateWindowSec;
 
         return $this->cachedIndividualRates[$fingerprint] = $this->store->countIndividual($fingerprint, $windowStart);
     }
@@ -146,10 +151,10 @@ class ThreatAwarenessManager
      */
     private function incrementGlobalBucket(): void
     {
-        $now = \time();
+        $now = $this->now();
 
         $state = $this->store->updateGlobal(function (array $state) use ($now): array {
-            $state += ['current_level' => 0, 'level_last_changed' => $now, 'traffic_buckets' => []];
+            $state += ['current_level' => 0, 'level_last_changed' => $now, 'below_since' => null, 'traffic_buckets' => []];
 
             $bucket = (string) \intdiv($now, self::BUCKET_SEC);
             $state['traffic_buckets'][$bucket] = ($state['traffic_buckets'][$bucket] ?? 0) + 1;
@@ -161,7 +166,8 @@ class ThreatAwarenessManager
                 }
             }
 
-            [$oldLevel, $newLevel] = $this->calcOldAndNewLevelsGlobal($state, $now);
+            [$oldLevel, $newLevel, $belowSince] = $this->calcOldAndNewLevelsGlobal($state, $now);
+            $state['below_since'] = $belowSince;
 
             if ($newLevel !== $oldLevel) {
                 $state['current_level'] = $newLevel;
@@ -178,7 +184,8 @@ class ThreatAwarenessManager
 
     /**
      * @param int $now the moment the buckets are evaluated for; the bucket containing it is the newest
-     * @return array{0:int,1:int} [previously persisted level, level the buckets warrant now]
+     * @return array{0:int,1:int,2:?int} [persisted level, level to apply now, below_since to persist:
+     *                                   when traffic first fell below the persisted level, null while it has not]
      */
     private function calcOldAndNewLevelsGlobal(array $state, int $now): array
     {
@@ -207,14 +214,25 @@ class ThreatAwarenessManager
         };
 
         $oldLevel = (int) ($state['current_level'] ?? 0);
-        $lastChanged = (int) ($state['level_last_changed'] ?? 0);
 
-        // Hold a raised level for the grace period before letting it decay.
-        if ($newLevel < $oldLevel && (\time() - $lastChanged) <= $this->config->levelDecayGracePeriod) {
-            $newLevel = $oldLevel;
+        if ($newLevel >= $oldLevel) {
+            return [$oldLevel, $newLevel, null];
         }
 
-        return [$oldLevel, $newLevel];
+        // Traffic is below the held level: the grace period runs from the first
+        // evaluation that saw the drop, not from when the level was raised.
+        $belowSince = isset($state['below_since']) ? (int) $state['below_since'] : $now;
+
+        if ($now - $belowSince <= $this->config->levelDecayGracePeriod) {
+            return [$oldLevel, $oldLevel, $belowSince];
+        }
+
+        return [$oldLevel, $newLevel, null];
+    }
+
+    private function now(): int
+    {
+        return $this->clock ? ($this->clock)() : \time();
     }
 
     /**
