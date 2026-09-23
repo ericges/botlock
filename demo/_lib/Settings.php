@@ -183,6 +183,11 @@ final class Settings
         return $this->demoRoot . '/.demo/state';
     }
 
+    public function forgeLogFile(): string
+    {
+        return $this->demoRoot . '/.demo/forge-log.json';
+    }
+
     /**
      * @return string|list<string>|null
      */
