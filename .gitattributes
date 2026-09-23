@@ -1,0 +1,11 @@
+# Keep development files out of Composer dist archives (git archive).
+/.ddev              export-ignore
+/.editorconfig      export-ignore
+/.gitattributes     export-ignore
+/.github            export-ignore
+/.gitignore         export-ignore
+/AGENTS.md          export-ignore
+/CLAUDE.md          export-ignore
+/demo               export-ignore
+/phpunit.xml.dist   export-ignore
+/tests              export-ignore
