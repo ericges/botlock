@@ -210,7 +210,15 @@ ddev start
 ddev composer install
 ```
 
-This serves the repository at `https://botlock.ddev.site` with Apache and PHP 8.3. The checked-in `.htaccess` and `.user.ini` prepend `bootstrap.php` to every request, enable BOTLOCK and pin the threat level to `2`, so opening the site in a browser immediately shows the challenge and, once solved, the demo page from `index.php`. Without DDEV, any local PHP setup works as long as `bootstrap.php` is configured as `auto_prepend_file` and `BOTLOCK_ENABLED` is set.
+This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that enables BOTLOCK and, by default, pins the threat level to `2`, so opening the site in a browser immediately shows the challenge and, once solved, the demo control panel. The panel offers:
+
+- every `BOTLOCK_*` setting except the secret, state directory and instance ID, grouped as in the tables above, plus presets (always challenge, off, a rate-limit sandbox with tiny thresholds, library defaults);
+- the live `?_botlock=status` view, including `Botlock-Error` and `Botlock-Warning` headers;
+- a request burst to watch rate-based escalation, buttons to clear the rate-limit state or rotate the generated secret, and copyable `curl` recipes for crawler, proxy and reset paths.
+
+Settings are stored in the gitignored `.demo/settings.json` and exported with `putenv()` before `bootstrap.php` is required, so they apply on the next request without editing server configuration; the demo state directory is `.demo/state/`. The settings endpoint `/_demo.php` never runs BOTLOCK, so if a setting locks you out, open `https://botlock.ddev.site/_demo.php?reset=1` (or delete `.demo/settings.json`) to restore the defaults. Do not add `BOTLOCK_*` `SetEnv` lines to the DDEV setup: FastCGI parameters would shadow the values the shim sets.
+
+Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_lib/prepend.php` for the demo) is configured as `auto_prepend_file`, and `BOTLOCK_ENABLED` is set when prepending `bootstrap.php` directly.
 
 ### Layout
 
@@ -228,13 +236,14 @@ This serves the repository at `https://botlock.ddev.site` with Apache and PHP 8.
 | `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering and the rendered-page cache. |
 | `bootstrap.php` | The prepend entry point, also used as the PHAR stub. |
 | `build-phar.php` | Builds the release archive. |
+| `demo/` | The DDEV docroot: control panel (`index.php`), settings endpoint (`_demo.php`), and the prepend shim, settings schema and presets in `_lib/`. Not part of the library or the PHAR. |
 
 ### Testing and checks
 
 ```bash
 ddev composer test                          # PHPUnit
 ddev composer validate --no-check-publish   # Composer metadata
-ddev exec sh -c "find src tests templates translations -name '*.php' -print0 | xargs -0 -n1 php -l"
+ddev exec sh -c "find src tests templates translations demo -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
 Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore` and `StubCrawlerVerifier` from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
