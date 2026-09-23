@@ -5,7 +5,9 @@ namespace GES\Botlock\Action;
 use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\InteractionPolicy;
+use GES\Botlock\Challenge\Interaction;
 use GES\Botlock\Challenge\ProofOfWork;
+use GES\Botlock\Challenge\SliderPuzzle;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
@@ -19,7 +21,8 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  *
  * The answer names the required interaction. Only when none is required
  * does it carry the proof of work right away; otherwise the client gets it
- * from InteractAction once the interaction is done.
+ * from InteractAction once the interaction is done. For the slider it
+ * carries the puzzle images, whose target stays in the ticket.
  */
 final readonly class ChallengeAction implements ActionHandlerInterface
 {
@@ -48,15 +51,18 @@ final readonly class ChallengeAction implements ActionHandlerInterface
 
         // Level 4 is refused before any action runs; a challenge is always for 1–3.
         $level = \min(3, \max(1, $request->context->threatLevel ?? 1));
+        $interaction = $this->policy->interaction($level, $isCrawler, $isTrustedGoodBot);
+        $puzzle = $interaction === Interaction::Slider ? SliderPuzzle::create() : null;
         $now = $this->now();
 
         $ticket = new ChallengeTicket(
             id: ChallengeTicket::newId(),
             subject: $request->context->fingerprint,
             level: $level,
-            interaction: $this->policy->interaction($level, $isCrawler, $isTrustedGoodBot),
+            interaction: $interaction,
             issuedAt: $now,
             difficulty: $this->policy->difficulty($isCrawler, $isTrustedGoodBot),
+            sliderTarget: $puzzle?->target,
         );
 
         if (!$this->tickets->save($ticket)) {
@@ -69,6 +75,10 @@ final readonly class ChallengeAction implements ActionHandlerInterface
 
         if ($ticket->isReadyForProof()) {
             $data['pow'] = self::proofOfWork($ticket, $this->config);
+        }
+
+        if ($puzzle) {
+            $data['puzzle'] = $puzzle->toArray();
         }
 
         return new JsonResponse(200, $data);

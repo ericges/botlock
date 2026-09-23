@@ -4,6 +4,8 @@ namespace GES\Botlock\Action;
 
 use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\ChallengeTicketStore;
+use GES\Botlock\Challenge\Interaction;
+use GES\Botlock\Challenge\SliderPuzzle;
 use GES\Botlock\Config\ProofOfWorkConfig;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
@@ -12,7 +14,9 @@ use GES\Botlock\Http\Response\JsonResponse;
 
 /**
  * POST ?_botlock=challenge — reports the completed interaction of a ticket
- * (body {"cid": …}) and answers with its proof of work.
+ * (body {"cid": …}, plus "pos" for the slider) and answers with its proof
+ * of work. A slider offset outside the tolerance answers 403 "retry"; the
+ * ticket is gone either way, so every guess costs a new challenge.
  *
  * The ticket is consumed and stored again as interacted, so a concurrent
  * verify of the same ticket cannot slip in between. A threat level that
@@ -42,6 +46,12 @@ final readonly class InteractAction implements ActionHandlerInterface
 
         if (!$ticket->interaction->isInteractive() || $ticket->interacted) {
             throw new JsonResponseException('Invalid challenge', 400);
+        }
+
+        if ($ticket->interaction === Interaction::Slider
+            && ($ticket->sliderTarget === null || !SliderPuzzle::accepts($data['pos'] ?? null, $ticket->sliderTarget)))
+        {
+            throw new JsonResponseException('retry', 403);
         }
 
         $ticket = $ticket->withInteracted();

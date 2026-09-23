@@ -166,6 +166,35 @@ if (!isset($lang, $trans, $transJson, $e)) {
             opacity: .85;
         }
 
+        .puzzle {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+            margin-bottom: 1rem;
+            border-radius: .25rem;
+            overflow: hidden;
+        }
+
+        .puzzle-bg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .puzzle-piece {
+            position: absolute;
+            left: 0;
+            height: auto;
+            filter: drop-shadow(0 0 3px rgba(0, 0, 0, .6));
+        }
+
+        .puzzle-slider {
+            width: 100%;
+            max-width: 280px;
+            margin: 0 0 1.5rem;
+            accent-color: var(--title-color);
+        }
+
     </style>
 </head>
 <body>
@@ -263,10 +292,13 @@ if (!isset($lang, $trans, $transJson, $e)) {
         footerElement.textContent = trans.successFooter;
     }
 
-    const MAX_RESTARTS = 3;
+    const MAX_ATTEMPTS = 5;
 
     // The threat level rose above the one the challenge was issued for: start over.
     class RestartError extends Error {}
+
+    // The slider missed the gap; the ticket is spent, a new puzzle follows.
+    class RetryError extends Error {}
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -286,6 +318,10 @@ if (!isset($lang, $trans, $transJson, $e)) {
 
         if (response.status === 409) {
             throw new RestartError();
+        }
+
+        if (response.status === 403) {
+            throw new RetryError();
         }
 
         return response;
@@ -351,10 +387,10 @@ if (!isset($lang, $trans, $transJson, $e)) {
         infoElement.textContent = trans.infoParagraph;
     }
 
-    function handleFailure(error, restarts) {
-        if (error instanceof RestartError && restarts < MAX_RESTARTS) {
+    function handleFailure(error, attempt) {
+        if ((error instanceof RestartError || error instanceof RetryError) && attempt < MAX_ATTEMPTS) {
             showWorking();
-            botlock(restarts + 1).catch((error) => {
+            botlock(attempt + 1, error instanceof RetryError).catch((error) => {
                 console.error(error);
                 showError();
             });
@@ -365,7 +401,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         showError();
     }
 
-    async function botlock(restarts = 0) {
+    async function botlock(attempt = 0, retried = false) {
         if (typeof window.crypto?.subtle?.digest !== 'function') {
             showError();
             return;
@@ -392,17 +428,20 @@ if (!isset($lang, $trans, $transJson, $e)) {
                     await runChallenge(challenge, challenge.pow, nonce);
                     return;
                 case 'click':
-                    showConfirm(challenge, nonce, restarts);
+                    showConfirm(challenge, nonce, attempt);
+                    return;
+                case 'slider':
+                    showSlider(challenge, nonce, attempt, retried);
                     return;
                 default:
                     showError();
             }
         } catch (error) {
-            handleFailure(error, restarts);
+            handleFailure(error, attempt);
         }
     }
 
-    function showConfirm(challenge, nonce, restarts) {
+    function showConfirm(challenge, nonce, attempt) {
         headingElement.textContent = trans.confirmHeading;
         infoElement.textContent = trans.confirmParagraph;
 
@@ -414,11 +453,66 @@ if (!isset($lang, $trans, $transJson, $e)) {
             showWorking();
             completeInteraction(challenge, nonce)
                 .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
-                .catch((error) => handleFailure(error, restarts));
+                .catch((error) => handleFailure(error, attempt));
         }, { once: true });
 
         widgetElement.replaceChildren(button);
         button.focus();
+    }
+
+    // The range input works by dragging, arrow keys or a click on the track.
+    function showSlider(challenge, nonce, attempt, retried) {
+        const { puzzle } = challenge;
+
+        headingElement.textContent = trans.sliderHeading;
+        infoElement.textContent = retried ? trans.sliderRetry : trans.sliderParagraph;
+
+        const frame = document.createElement('div');
+        frame.className = 'puzzle';
+        frame.style.aspectRatio = `${puzzle.width} / ${puzzle.height}`;
+
+        const background = new Image();
+        background.className = 'puzzle-bg';
+        background.alt = '';
+        background.src = puzzle.bg;
+
+        const piece = new Image();
+        piece.className = 'puzzle-piece';
+        piece.alt = '';
+        piece.src = puzzle.piece;
+        piece.style.width = `${puzzle.size / puzzle.width * 100}%`;
+        piece.style.top = `${puzzle.y / puzzle.height * 100}%`;
+
+        frame.append(background, piece);
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'puzzle-slider';
+        slider.min = '0';
+        slider.max = String(puzzle.width - puzzle.size);
+        slider.step = '1';
+        slider.value = '0';
+        slider.setAttribute('aria-label', trans.sliderLabel);
+
+        const move = () => {
+            piece.style.left = `${slider.value / puzzle.width * 100}%`;
+        };
+        slider.addEventListener('input', move);
+        move();
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'verify-button';
+        button.textContent = trans.sliderSubmit;
+        button.addEventListener('click', () => {
+            showWorking();
+            completeInteraction(challenge, nonce, { pos: Number(slider.value) })
+                .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
+                .catch((error) => handleFailure(error, attempt));
+        }, { once: true });
+
+        widgetElement.replaceChildren(frame, slider, button);
+        slider.focus();
     }
 
     async function runChallenge(challenge, pow, nonce) {

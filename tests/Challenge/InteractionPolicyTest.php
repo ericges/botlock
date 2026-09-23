@@ -17,6 +17,12 @@ final class InteractionPolicyTest extends TestCase
         self::assertSame(Interaction::Click, $policy->interaction(2, false, false));
     }
 
+    public function testEveryoneButTrustedGoodBotsSolvesTheSliderAtLevelThree(): void
+    {
+        self::assertSame(Interaction::Slider, self::policy()->interaction(3, false, false));
+        self::assertSame(Interaction::Slider, self::policy()->interaction(3, true, false));
+    }
+
     public function testUntrustedCrawlersAlwaysInteract(): void
     {
         self::assertSame(Interaction::Click, self::policy()->interaction(1, true, false));

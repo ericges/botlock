@@ -84,6 +84,40 @@ final class TicketFlowTest extends TestCase
         self::assertSame(2, $this->session->get('grant'));
     }
 
+    public function testLevelThreeSliderMustHitTheGap(): void
+    {
+        $challenge = $this->challenge(level: 3);
+
+        self::assertSame('slider', $challenge['int']);
+        self::assertArrayNotHasKey('pow', $challenge);
+        self::assertArrayHasKey('puzzle', $challenge);
+        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        self::assertIsInt($target);
+        self::assertStringNotContainsString('"' . $target . '"', \json_encode($challenge), 'the target is not in the answer');
+
+        $ready = $this->interact($challenge['cid'], level: 3, details: ['pos' => $target + 3]);
+
+        $this->now += 1.5;
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 3));
+        self::assertSame(3, $this->session->get('grant'));
+    }
+
+    public function testMissedSliderSpendsTheTicket(): void
+    {
+        $challenge = $this->challenge(level: 3);
+        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+
+        $this->assertRejected(403, fn() => $this->interact($challenge['cid'], level: 3, details: ['pos' => $target + 20]));
+        $this->assertRejected(400, fn() => $this->interact($challenge['cid'], level: 3, details: ['pos' => $target]));
+    }
+
+    public function testSliderWithoutPositionIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 3);
+
+        $this->assertRejected(403, fn() => $this->interact($challenge['cid'], level: 3));
+    }
+
     public function testVerifyingWithoutTheInteractionIsRejected(): void
     {
         $challenge = $this->challenge(level: 2);
@@ -202,11 +236,11 @@ final class TicketFlowTest extends TestCase
         return self::json($this->challengeAction()->handle($this->request('GET', $level)));
     }
 
-    private function interact(string $cid, int $level): array
+    private function interact(string $cid, int $level, array $details = []): array
     {
         $action = new InteractAction($this->config, $this->store, fn(): float => $this->now);
 
-        return self::json($action->handle($this->request('POST', $level, body: ['cid' => $cid])));
+        return self::json($action->handle($this->request('POST', $level, body: ['cid' => $cid] + $details)));
     }
 
     private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP): int

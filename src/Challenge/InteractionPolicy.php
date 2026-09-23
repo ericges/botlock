@@ -11,8 +11,8 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  *
  * | Client               | L1     | L2    | L3     |
  * |----------------------|--------|-------|--------|
- * | browser              | none   | click | click  |
- * | untrusted crawler    | click  | click | click  |
+ * | browser              | none   | click | slider |
+ * | untrusted crawler    | click  | click | slider |
  * | trusted good bot     | none   | none  | none   |
  */
 final readonly class InteractionPolicy
@@ -28,6 +28,7 @@ final readonly class InteractionPolicy
         }
 
         return match (true) {
+            $level >= 3 => Interaction::Slider,
             $level >= 2, $isCrawler => Interaction::Click,
             default => Interaction::None,
         };

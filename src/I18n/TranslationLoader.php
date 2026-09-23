@@ -19,6 +19,7 @@ final readonly class TranslationLoader
     public const KEYS = [
         'pageTitle', 'mainHeading', 'infoParagraph', 'footerNote',
         'confirmHeading', 'confirmParagraph', 'verifyButton',
+        'sliderHeading', 'sliderParagraph', 'sliderLabel', 'sliderSubmit', 'sliderRetry',
         'errorHeading', 'errorMessage', 'errorWidget', 'errorFooter',
         'successHeading', 'successMessage', 'successFooter',
         'noscriptHeading', 'noscriptText',
