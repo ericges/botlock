@@ -17,6 +17,8 @@ const demo = (() => {
         values: data.values,
         refreshStatus: async () => {},
         showPreset: () => {},
+        /** Reloads the protected-page frame if auto-reload is on (or when forced). */
+        reloadFrame: () => {},
     };
 })();
 
@@ -353,6 +355,7 @@ const effectiveInt = (key) => {
             demo.showPreset(result.preset);
             toast(result.message);
             demo.refreshStatus();
+            demo.reloadFrame();
         }
     });
 
@@ -400,6 +403,7 @@ const effectiveInt = (key) => {
             showPreset(result.preset);
             toast(result.message);
             demo.refreshStatus();
+            demo.reloadFrame();
         });
     });
 
@@ -411,6 +415,77 @@ const effectiveInt = (key) => {
 if (new URLSearchParams(location.search).has('demo')) {
     history.replaceState(null, '', location.pathname);
 }
+
+/* Protected-page frame: state badge, reload, auto-reload, reset challenge */
+
+(() => {
+    const block = document.querySelector('[data-frame-block]');
+
+    if (!block) {
+        return;
+    }
+
+    const frame = block.querySelector('[data-frame]');
+    const state = block.querySelector('[data-frame-state]');
+    const auto = document.querySelector('[data-frame-auto]');
+
+    /** What the frame shows: the protected page, the challenge, or something else. */
+    const classify = () => {
+        try {
+            const doc = frame.contentDocument;
+
+            if (doc?.body?.hasAttribute('data-demo-protected')) {
+                return 'protected';
+            }
+
+            return doc?.getElementById('bot-check-widget') ? 'challenge' : 'error';
+        } catch {
+            return 'error';
+        }
+    };
+
+    frame.addEventListener('load', () => {
+        const current = classify();
+
+        state.dataset.state = current;
+        state.textContent = current === 'error' ? 'other response' : current;
+        demo.refreshStatus();
+    });
+
+    const reload = () => {
+        state.dataset.state = '';
+        state.textContent = 'loading';
+        frame.src = frame.getAttribute('src');
+    };
+
+    block.querySelector('[data-frame-reload]').addEventListener('click', reload);
+
+    demo.reloadFrame = (force = false) => {
+        if (force || auto.checked) {
+            reload();
+        }
+    };
+
+    // Reset challenge in place: without "location" the action answers JSON.
+    document.querySelector('[data-reset-form]')?.addEventListener('submit', async (event) => {
+        event.preventDefault();
+
+        try {
+            const response = await fetch(event.target.action, {method: 'POST', credentials: 'same-origin'});
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            toast('Challenge reset: the BOTLOCK session was cleared.');
+        } catch (error) {
+            toast(`Reset failed: ${error.message}`, 'error');
+        }
+
+        demo.refreshStatus();
+        demo.reloadFrame();
+    });
+})();
 
 /* Request burst */
 

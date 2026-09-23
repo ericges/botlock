@@ -102,6 +102,50 @@ $demoData = [
 
 <main class="panes">
     <div class="pane pane-settings">
+        <section class="block" data-status="/protected/?_botlock=status">
+            <div class="block-head">
+                <h2>Status</h2>
+                <div class="block-tools">
+                    <label class="toggle"><input type="checkbox" data-status-poll> every 5 s</label>
+                    <button type="button" class="icon" data-status-refresh title="Refresh status" aria-label="Refresh status">⟳</button>
+                </div>
+            </div>
+
+            <div class="meters">
+                <?php foreach (['threat_level' => 'Effective', 'threat_level_global' => 'Global', 'threat_level_individual' => 'Individual'] as $field => $label): ?>
+                    <div class="meter-row<?= $field === 'threat_level' ? ' is-main' : '' ?>" data-meter="<?= $e($field) ?>">
+                        <span class="meter-label"><?= $e($label) ?></span>
+                        <span class="meter" aria-hidden="true"><i></i><i></i><i></i></span>
+                        <span class="meter-value" data-meter-value>—</span>
+                        <span class="meter-text muted" data-meter-text></span>
+                    </div>
+                <?php endforeach ?>
+                <p class="rate">
+                    Rate <strong data-rate>—</strong> / <span data-rate-window>—</span> s
+                    <span class="muted" data-rate-thresholds></span>
+                </p>
+            </div>
+
+            <div class="history">
+                <svg data-history viewBox="0 0 240 40" preserveAspectRatio="none" role="img"
+                     aria-label="Individual rate and effective level of the last status samples"></svg>
+                <p class="muted"><span data-history-count>0</span> samples · bar height = individual rate, color = effective level</p>
+            </div>
+
+            <dl class="kv">
+                <div><dt>crawler_verification</dt><dd data-field="crawler_verification">—</dd></div>
+                <div><dt>passed</dt><dd data-field="passed">—</dd></div>
+                <div><dt>subject</dt><dd data-field="subject">—</dd></div>
+                <div><dt>user_agent</dt><dd data-field="user_agent">—</dd></div>
+            </dl>
+
+            <pre class="headers" data-status-headers hidden></pre>
+            <p class="muted" data-status-updated></p>
+            <p class="muted">
+                Status requests pass BOTLOCK's rate evaluation and count toward the individual rate.
+            </p>
+        </section>
+
         <form method="post" action="/_demo.php" class="block" data-action-form>
             <input type="hidden" name="action" value="preset">
             <h2>Presets</h2>
@@ -186,76 +230,6 @@ $demoData = [
                 <button type="submit" class="primary">Save</button>
             </div>
         </form>
-    </div>
-
-    <aside class="pane pane-live">
-        <section class="block" data-status="/protected/?_botlock=status">
-            <div class="block-head">
-                <h2>Status</h2>
-                <div class="block-tools">
-                    <label class="toggle"><input type="checkbox" data-status-poll> every 5 s</label>
-                    <button type="button" class="icon" data-status-refresh title="Refresh status" aria-label="Refresh status">⟳</button>
-                </div>
-            </div>
-
-            <div class="meters">
-                <?php foreach (['threat_level' => 'Effective', 'threat_level_global' => 'Global', 'threat_level_individual' => 'Individual'] as $field => $label): ?>
-                    <div class="meter-row<?= $field === 'threat_level' ? ' is-main' : '' ?>" data-meter="<?= $e($field) ?>">
-                        <span class="meter-label"><?= $e($label) ?></span>
-                        <span class="meter" aria-hidden="true"><i></i><i></i><i></i></span>
-                        <span class="meter-value" data-meter-value>—</span>
-                        <span class="meter-text muted" data-meter-text></span>
-                    </div>
-                <?php endforeach ?>
-                <p class="rate">
-                    Rate <strong data-rate>—</strong> / <span data-rate-window>—</span> s
-                    <span class="muted" data-rate-thresholds></span>
-                </p>
-            </div>
-
-            <div class="history">
-                <svg data-history viewBox="0 0 240 40" preserveAspectRatio="none" role="img"
-                     aria-label="Individual rate and effective level of the last status samples"></svg>
-                <p class="muted"><span data-history-count>0</span> samples · bar height = individual rate, color = effective level</p>
-            </div>
-
-            <dl class="kv">
-                <div><dt>crawler_verification</dt><dd data-field="crawler_verification">—</dd></div>
-                <div><dt>passed</dt><dd data-field="passed">—</dd></div>
-                <div><dt>subject</dt><dd data-field="subject">—</dd></div>
-                <div><dt>user_agent</dt><dd data-field="user_agent">—</dd></div>
-            </dl>
-
-            <pre class="headers" data-status-headers hidden></pre>
-            <p class="muted" data-status-updated></p>
-            <p class="muted">
-                Status requests pass BOTLOCK's rate evaluation and count toward the individual rate.
-            </p>
-        </section>
-
-        <section class="block">
-            <h2>Tools</h2>
-            <div class="tool" data-burst="/protected/">
-                <label for="burst-count">Burst</label>
-                <input type="number" id="burst-count" min="1" max="200" value="20" data-burst-count>
-                <button type="button" data-burst-start>Send</button>
-                <span class="muted" data-burst-result></span>
-            </div>
-            <p class="muted warning" data-burst-override <?= $values['THREAT_LEVEL_OVERRIDE'] === null ? 'hidden' : '' ?>>
-                An override is set, so requests are not rate-evaluated. Try the rate-limit sandbox.
-            </p>
-
-            <div class="tool-row">
-                <form method="post" action="/_demo.php" data-action-form>
-                    <button type="submit" name="action" value="clear-state" title="Delete rate-limit counters and cached challenge pages">Clear state</button>
-                    <button type="submit" name="action" value="rotate-secret" title="Delete the signing secret; every grant becomes invalid">Rotate secret</button>
-                </form>
-                <form method="post" action="/protected/?_botlock=reset">
-                    <input type="hidden" name="location" value="<?= $e($_SERVER['REQUEST_URI']) ?>">
-                    <button type="submit" title="Clear the BOTLOCK session via ?_botlock=reset">Reset challenge</button>
-                </form>
-            </div>
-        </section>
 
         <details class="block recipes">
             <summary><h2>curl recipes</h2><span class="muted"><?= \count($recipes) ?></span></summary>
@@ -274,6 +248,51 @@ $demoData = [
                 </div>
             <?php endforeach ?>
         </details>
+    </div>
+
+    <aside class="pane pane-live">
+        <section class="block">
+            <div class="block-head">
+                <h2>Tools</h2>
+                <label class="toggle" title="Reload the frame after settings or tools change">
+                    <input type="checkbox" data-frame-auto checked> auto-reload frame
+                </label>
+            </div>
+            <div class="tool" data-burst="/protected/">
+                <label for="burst-count">Burst</label>
+                <input type="number" id="burst-count" min="1" max="200" value="20" data-burst-count>
+                <button type="button" data-burst-start>Send</button>
+                <span class="muted" data-burst-result></span>
+            </div>
+            <p class="muted warning" data-burst-override <?= $values['THREAT_LEVEL_OVERRIDE'] === null ? 'hidden' : '' ?>>
+                An override is set, so requests are not rate-evaluated. Try the rate-limit sandbox.
+            </p>
+
+            <div class="tool-row">
+                <form method="post" action="/_demo.php" data-action-form>
+                    <button type="submit" name="action" value="clear-state" title="Delete rate-limit counters and cached challenge pages">Clear state</button>
+                    <button type="submit" name="action" value="rotate-secret" title="Delete the signing secret; every grant becomes invalid">Rotate secret</button>
+                </form>
+                <form method="post" action="/protected/?_botlock=reset" data-reset-form>
+                    <input type="hidden" name="location" value="<?= $e($_SERVER['REQUEST_URI']) ?>">
+                    <button type="submit" title="Clear the BOTLOCK session via ?_botlock=reset">Reset challenge</button>
+                </form>
+            </div>
+        </section>
+
+        <section class="block frame-block" data-frame-block>
+            <div class="block-head">
+                <h2>Protected page</h2>
+                <div class="block-tools">
+                    <span class="badge" data-frame-state>loading</span>
+                    <button type="button" class="icon" data-frame-reload title="Reload the frame" aria-label="Reload the frame">⟳</button>
+                    <a class="button icon" data-frame-open href="/protected/" target="_blank" rel="noopener"
+                       title="Open in a new tab" aria-label="Open the protected page in a new tab">↗</a>
+                </div>
+            </div>
+            <p class="frame-url"><code data-frame-url>/protected/</code></p>
+            <iframe data-frame src="/protected/" title="Protected page as BOTLOCK serves it"></iframe>
+        </section>
     </aside>
 </main>
 

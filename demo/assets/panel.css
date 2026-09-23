@@ -45,6 +45,10 @@
     box-sizing: border-box;
 }
 
+[hidden] {
+    display: none !important;
+}
+
 html {
     font-size: 13px;
 }
@@ -144,7 +148,7 @@ p {
 
 .panes {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(22rem, 30rem);
+    grid-template-columns: minmax(30rem, 38rem) minmax(0, 1fr);
     align-items: start;
 }
 
@@ -154,14 +158,63 @@ p {
 
 .pane-settings {
     border-right: 1px solid var(--line);
+    padding-bottom: 0;
     min-height: calc(100vh - var(--topbar-height));
 }
 
 .pane-live {
     position: sticky;
     top: var(--topbar-height);
-    max-height: calc(100vh - var(--topbar-height));
-    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - var(--topbar-height));
+}
+
+.frame-block {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+    border-bottom: none;
+}
+
+.frame-block iframe {
+    flex: 1;
+    width: 100%;
+    min-height: 12rem;
+    border: 1px solid var(--line);
+    border-radius: 4px;
+    background: var(--bg);
+}
+
+.frame-url {
+    margin: 0 0 .5rem;
+    overflow-wrap: anywhere;
+    color: var(--muted);
+}
+
+.badge {
+    padding: .1rem .5rem;
+    border: 1px solid var(--line);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--muted);
+}
+
+.badge[data-state="protected"] {
+    color: var(--level-0);
+    border-color: var(--level-0);
+}
+
+.badge[data-state="challenge"] {
+    color: var(--level-2);
+    border-color: var(--level-2);
+}
+
+.badge[data-state="error"] {
+    color: var(--danger);
+    border-color: var(--danger);
 }
 
 .block {
@@ -189,8 +242,13 @@ p {
 
 /* Controls */
 
-button {
+button,
+a.button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     height: 28px;
+    text-decoration: none;
     padding: 0 .75rem;
     font: inherit;
     color: var(--text);
@@ -201,7 +259,8 @@ button {
     white-space: nowrap;
 }
 
-button:hover {
+button:hover,
+a.button:hover {
     border-color: var(--muted);
 }
 
@@ -217,7 +276,8 @@ button.small {
     font-size: 11px;
 }
 
-button.icon {
+button.icon,
+a.button.icon {
     width: 28px;
     padding: 0;
     font-size: 15px;
@@ -327,11 +387,10 @@ input[type="checkbox"] {
 
 .field {
     display: grid;
-    grid-template-columns: minmax(9rem, 14rem) minmax(0, 26rem) 3.5rem;
+    grid-template-columns: minmax(8rem, 11rem) minmax(0, 1fr) 3.5rem;
     grid-template-areas:
         "label control state"
         ".     meta    meta";
-    justify-content: start;
     column-gap: .75rem;
     align-items: center;
     padding: .35rem 1rem .35rem 2.3rem;
@@ -541,9 +600,14 @@ input[type="checkbox"] {
 
     .pane-live {
         position: static;
-        max-height: none;
+        height: auto;
         order: -1;
         border-bottom: 1px solid var(--line);
+    }
+
+    .frame-block iframe {
+        flex: none;
+        height: 70vh;
     }
 
     .pane-settings {
