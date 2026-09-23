@@ -64,12 +64,31 @@ final class RequestTest extends TestCase
         ];
     }
 
-    public function testBotlockActionIsMethodPlusSanitizedName(): void
+    public function testBotlockActionIsMethodPlusLowercasedName(): void
     {
-        $request = new Request('post', 'https://example.test/', queryParams: ['_botlock' => 'Ver-ify!']);
-
-        self::assertSame('POST verify', $request->getBotlockAction());
+        self::assertSame('POST verify', $this->requestWithAction('post', 'verify')->getBotlockAction());
+        self::assertSame('GET status', $this->requestWithAction('GET', 'STATUS')->getBotlockAction());
         self::assertNull((new Request('GET', 'https://example.test/'))->getBotlockAction());
+    }
+
+    #[DataProvider('malformedActions')]
+    public function testMalformedBotlockActionIsIgnored(mixed $value): void
+    {
+        self::assertNull($this->requestWithAction('GET', $value)->getBotlockAction());
+    }
+
+    public static function malformedActions(): iterable
+    {
+        yield 'array from ?_botlock[]=status' => [['status']];
+        yield 'punctuation' => ['Ver-ify!'];
+        yield 'empty' => [''];
+        yield 'whitespace' => ['status '];
+        yield 'nested array' => [['a' => ['status']]];
+    }
+
+    private function requestWithAction(string $method, mixed $value): Request
+    {
+        return new Request($method, 'https://example.test/', queryParams: ['_botlock' => $value]);
     }
 
     public function testJsonBodyAndPostAccessors(): void

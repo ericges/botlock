@@ -197,15 +197,19 @@ class Request
     /**
      * Returns the action for botlock, if present.
      * Example: GET challenge, POST verify, POST reset, GET status
+     *
+     * Anything but a plain [a-z0-9_] token (an array from `?_botlock[]=`,
+     * punctuation, an empty value) is treated as "no action".
      */
     public function getBotlockAction(): ?string
     {
-        if ($action = $this->get('_botlock')) {
-            $action = \preg_replace('/[^a-z0-9_]/', '', \strtolower($action));
-            return $this->getMethod() . ' ' . $action;
+        $action = $this->get('_botlock');
+
+        if (!\is_string($action) || !\preg_match('/^[a-z0-9_]+$/i', $action)) {
+            return null;
         }
 
-        return null;
+        return $this->getMethod() . ' ' . \strtolower($action);
     }
 
     public function getAbsoluteUrl(string $path): ?string
