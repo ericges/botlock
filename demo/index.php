@@ -31,6 +31,7 @@ $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Botlock - Demo</title>
     <link rel="stylesheet" href="/assets/panel.css">
+    <script src="/assets/panel.js" defer></script>
 </head>
 <body>
 
@@ -48,6 +49,31 @@ $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
     <?php if ($notice): ?>
         <p class="notice"><?= $e($notice) ?></p>
     <?php endif ?>
+
+    <h2>Status</h2>
+    <section data-status="/?_botlock=status">
+        <dl class="status-grid">
+            <div><dt>Effective threat level</dt><dd data-field="threat_level">—</dd></div>
+            <div><dt>Global level</dt><dd data-field="threat_level_global">—</dd></div>
+            <div><dt>Individual level</dt><dd data-field="threat_level_individual">—</dd></div>
+            <div><dt>Individual rate</dt><dd data-field="individual_rate">—</dd></div>
+            <div><dt>Crawler verification</dt><dd data-field="crawler_verification">—</dd></div>
+            <div><dt>Challenge passed</dt><dd data-field="passed">—</dd></div>
+            <div><dt>Fingerprint</dt><dd data-field="subject">—</dd></div>
+            <div><dt>User-Agent</dt><dd data-field="user_agent">—</dd></div>
+        </dl>
+        <pre class="status-headers" data-status-headers hidden></pre>
+        <div class="actions">
+            <button type="button" data-status-refresh>Refresh</button>
+            <label><input type="checkbox" data-status-poll> Refresh every 5 s</label>
+            <span class="hint" data-status-updated></span>
+        </div>
+        <p class="hint">
+            Shows <code>?_botlock=status</code>. Every status request passes BOTLOCK's rate
+            evaluation and counts toward the individual rate, so polling alone can raise the
+            level with low thresholds.
+        </p>
+    </section>
 
     <h2>Presets</h2>
     <form method="post" action="/_demo.php" class="presets">
