@@ -743,7 +743,7 @@ if (new URLSearchParams(location.search).has('demo')) {
 
     const count = burst.querySelector('[data-burst-count]');
     const start = burst.querySelector('[data-burst-start]');
-    const result = burst.querySelector('[data-burst-result]');
+    const result = document.querySelector('[data-burst-result]');
     const overrideHint = document.querySelector('[data-burst-override]');
 
     document.addEventListener('demo:values', (event) => {

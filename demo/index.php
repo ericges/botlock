@@ -261,26 +261,25 @@ $demoData = [
                     <input type="checkbox" data-frame-auto checked> auto-reload frame
                 </label>
             </div>
-            <div class="tool" data-burst>
-                <label for="burst-count">Burst</label>
-                <input type="number" id="burst-count" min="1" max="200" value="20" data-burst-count>
-                <button type="button" data-burst-start>Send</button>
-                <span class="muted" data-burst-result></span>
-            </div>
-            <p class="muted warning" data-burst-override <?= $values['THREAT_LEVEL_OVERRIDE'] === null ? 'hidden' : '' ?>>
-                An override is set, so requests are not rate-evaluated. Try the rate-limit sandbox.
-            </p>
-
             <div class="tool-row">
-                <form method="post" action="/_demo.php" data-action-form>
+                <div class="tool-group" data-burst>
+                    <label for="burst-count">Burst</label>
+                    <input type="number" id="burst-count" min="1" max="200" value="20" data-burst-count>
+                    <button type="button" data-burst-start>Send</button>
+                </div>
+                <form method="post" action="/_demo.php" class="tool-group" data-action-form>
                     <button type="submit" name="action" value="clear-state" title="Delete rate-limit counters and cached challenge pages">Clear state</button>
                     <button type="submit" name="action" value="rotate-secret" title="Delete the signing secret; every grant becomes invalid">Rotate secret</button>
                 </form>
-                <form method="post" action="/protected/?_botlock=reset" data-reset-form>
+                <form method="post" action="/protected/?_botlock=reset" class="tool-group" data-reset-form>
                     <input type="hidden" name="location" value="<?= $e($_SERVER['REQUEST_URI']) ?>">
-                    <button type="submit" title="Clear the BOTLOCK session via ?_botlock=reset">Reset challenge</button>
+                    <button type="submit" class="primary" title="Clear the BOTLOCK session via ?_botlock=reset">Reset challenge</button>
                 </form>
             </div>
+            <p class="muted tool-result" data-burst-result></p>
+            <p class="muted warning" data-burst-override <?= $values['THREAT_LEVEL_OVERRIDE'] === null ? 'hidden' : '' ?>>
+                An override is set, so requests are not rate-evaluated. Try the rate-limit sandbox.
+            </p>
         </section>
 
         <section class="block identity" data-identity>

@@ -8,6 +8,9 @@
     --text: #d7dce1;
     --muted: #8a939c;
     --accent: #4c9aff;
+    /* Primary buttons: white text needs >= 4.5:1 (WCAG AA); --accent is too light for that. */
+    --primary-bg: #2563eb;
+    --primary-text: #ffffff;
     --danger: #ff6b5b;
     --level-0: #3fb950;
     --level-1: #d4a72c;
@@ -29,10 +32,11 @@
         --text: #1f2328;
         --muted: #5d6670;
         --accent: #0969da;
+        --primary-bg: #0969da;
         --danger: #cf222e;
         --level-0: #1a7f37;
-        --level-1: #9a6700;
-        --level-2: #bc4c00;
+        --level-1: #8f5f00;
+        --level-2: #b04600;
         --level-3: #cf222e;
         --level-none: #d0d5db;
         color-scheme: light;
@@ -266,9 +270,13 @@ a.button:hover {
 }
 
 button.primary {
-    color: #fff;
-    background: var(--accent);
-    border-color: var(--accent);
+    color: var(--primary-text);
+    background: var(--primary-bg);
+    border-color: var(--primary-bg);
+}
+
+button.primary:hover {
+    border-color: var(--text);
 }
 
 button.small {
@@ -503,21 +511,36 @@ input[type="checkbox"] {
 
 /* Tools */
 
-.tool,
-.tool-row,
-.tool-row form {
+.tool-row {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    row-gap: .5rem;
+}
+
+.tool-group {
+    display: flex;
+    align-items: center;
     gap: .5rem;
+    padding: 0 .75rem;
+    border-left: 1px solid var(--line);
 }
 
-.tool {
-    margin-bottom: .6rem;
+.tool-group:first-child {
+    padding-left: 0;
+    border-left: none;
 }
 
-.tool input {
-    width: 5rem;
+.tool-group input {
+    width: 4.5rem;
+}
+
+.tool-result {
+    margin: .5rem 0 0;
+}
+
+.tool-result:empty {
+    display: none;
 }
 
 /* Recipes */
