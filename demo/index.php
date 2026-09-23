@@ -82,8 +82,21 @@ $e = static fn(string $value): string => \htmlspecialchars($value, \ENT_QUOTES);
         <button type="submit" name="action" value="clear-state">Clear state</button>
         <button type="submit" name="action" value="rotate-secret">Rotate secret</button>
     </form>
+    <div class="actions burst" data-burst="/">
+        <label for="burst-count">Requests</label>
+        <input type="number" id="burst-count" min="1" max="200" value="20" data-burst-count>
+        <button type="button" data-burst-start>Send burst</button>
+        <span class="hint" data-burst-result></span>
+    </div>
+    <?php if ($values['THREAT_LEVEL_OVERRIDE'] !== null): ?>
+        <p class="hint warning">
+            A threat level override is set, so requests are not rate-evaluated and a burst changes nothing.
+            Try the rate-limit sandbox preset.
+        </p>
+    <?php endif ?>
     <p class="hint">
-        <strong>Clear state</strong> deletes the rate-limit counters and cached challenge pages in
+        <strong>Send burst</strong> requests this page the given number of times, one after another,
+        then refreshes the status. <strong>Clear state</strong> deletes the rate-limit counters and cached challenge pages in
         <code>.demo/state/</code>. <strong>Rotate secret</strong> deletes the generated signing
         secret; BOTLOCK creates a new one and every issued grant becomes invalid.
     </p>

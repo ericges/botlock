@@ -65,3 +65,38 @@
 
     refresh();
 })();
+
+(() => {
+    const burst = document.querySelector('[data-burst]');
+
+    if (!burst) {
+        return;
+    }
+
+    const count = burst.querySelector('[data-burst-count]');
+    const start = burst.querySelector('[data-burst-start]');
+    const result = burst.querySelector('[data-burst-result]');
+
+    start.addEventListener('click', async () => {
+        const total = Math.min(200, Math.max(1, parseInt(count.value, 10) || 1));
+        const codes = {};
+
+        start.disabled = true;
+
+        for (let i = 1; i <= total; i++) {
+            try {
+                const response = await fetch(burst.dataset.burst, {cache: 'no-store', credentials: 'same-origin'});
+                codes[response.status] = (codes[response.status] || 0) + 1;
+            } catch (error) {
+                codes.failed = (codes.failed || 0) + 1;
+            }
+
+            result.textContent = `${i}/${total}`;
+        }
+
+        result.textContent = 'Done: ' + Object.entries(codes).map(([code, n]) => `${n}× ${code}`).join(', ');
+        start.disabled = false;
+
+        window.botlockDemo?.refreshStatus();
+    });
+})();
