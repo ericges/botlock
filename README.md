@@ -210,7 +210,16 @@ ddev start
 ddev composer install
 ```
 
-This serves the repository at `https://botlock.ddev.site` with Apache and PHP 8.3. The checked-in `.htaccess` and `.user.ini` prepend `bootstrap.php` to every request, enable BOTLOCK and pin the threat level to `2`, so opening the site in a browser immediately shows the challenge and, once solved, the demo page from `index.php`. Without DDEV, any local PHP setup works as long as `bootstrap.php` is configured as `auto_prepend_file` and `BOTLOCK_ENABLED` is set.
+This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that runs BOTLOCK only for the protected area `/protected/`; the dashboard at `/` stays open whatever the settings are. By default the demo uses the rate-limit sandbox: rate-based threat levels with low thresholds (10/20/30 requests per minute per client), so the protected page passes at first and a few reloads or a request burst escalate it. The dashboard has two panes:
+
+- the left pane shows the live `?_botlock=status` of the selected identity as threat-level meters with the individual rate against its thresholds, a history of recent samples and any `Botlock-Error` or `Botlock-Warning` header; below it presets (always challenge, off, a rate-limit sandbox with low thresholds, library defaults), every `BOTLOCK_*` setting except the secret, state directory and instance ID, grouped as in the tables above, with change markers, per-field reset and a sticky save bar, and copyable `curl` recipes;
+- the right pane stays in view with tools (request burst, clearing the rate-limit state, rotating the generated secret, resetting the challenge), an identity bar and a frame showing the protected page as BOTLOCK serves it to that identity, next to a request log.
+
+An identity is a forged client: a User-Agent, a client IP sent as `X-Forwarded-For`, an Accept-Language and extra headers. For any identity other than "This browser" the frame, status, burst and reset go through the relay `/_forge.php/<identity>/protected/…`, which repeats each request from inside the container with the identity's headers. Loopback is a trusted proxy by default, so BOTLOCK takes the forged address as the client IP, and `Host` and `X-Forwarded-Proto` are passed on so it sees the visitor's origin. Because the challenge page's own requests travel through the same relay, the challenge runs and is solved in the browser but for the forged fingerprint; the relay renames and path-scopes the session cookie per identity, so each identity keeps its own grant and never touches the browser's own session. The request log tab lists every relayed exchange (what was sent to BOTLOCK, the response headers and the start of the body). The identity is base64url-encoded in the relay URL, so nothing is stored for it.
+
+Presets, tools and saving apply in place and reload the frame (switch off "auto-reload frame" to control exactly which requests count); without JavaScript the same forms post to `/_demo.php` and redirect back. Settings are stored in the gitignored `.demo/settings.json` and exported with `putenv()` before `bootstrap.php` is required, so they apply on the next request without editing server configuration; the demo state directory is `.demo/state/`. The dashboard, `/_demo.php` and `/_forge.php` never run BOTLOCK; should the settings still get in the way, open `https://botlock.ddev.site/_demo.php?reset=1` (or delete `.demo/settings.json`) to restore the defaults. Do not add `BOTLOCK_*` `SetEnv` lines to the DDEV setup: FastCGI parameters would shadow the values the shim sets.
+
+Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_lib/prepend.php` for the demo) is configured as `auto_prepend_file`, and `BOTLOCK_ENABLED` is set when prepending `bootstrap.php` directly.
 
 ### Layout
 
@@ -228,13 +237,14 @@ This serves the repository at `https://botlock.ddev.site` with Apache and PHP 8.
 | `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering and the rendered-page cache. |
 | `bootstrap.php` | The prepend entry point, also used as the PHAR stub. |
 | `build-phar.php` | Builds the release archive. |
+| `demo/` | The DDEV docroot: open dashboard (`index.php`), settings endpoint (`_demo.php`), request forging relay (`_forge.php`), the protected area (`protected/`), and the prepend shim, settings schema, presets, identities and relay log in `_lib/`. Not part of the library or the PHAR. |
 
 ### Testing and checks
 
 ```bash
 ddev composer test                          # PHPUnit
 ddev composer validate --no-check-publish   # Composer metadata
-ddev exec sh -c "find src tests templates translations -name '*.php' -print0 | xargs -0 -n1 php -l"
+ddev exec sh -c "find src tests templates translations demo -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
 Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore` and `StubCrawlerVerifier` from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
