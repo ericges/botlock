@@ -10,3 +10,6 @@ AUDIT*.md
 
 # PHPUnit
 .phpunit.cache/
+
+# DDEV demo settings and state
+.demo/
