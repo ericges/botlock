@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace GES\Botlock\Challenge;
 
@@ -13,12 +13,12 @@ class ProofOfWork
 
     public function setDifficulty(float $difficulty): static
     {
-        $this->difficulty = \max(0, $difficulty);  // >= 1
+        $this->difficulty = \max(0.0, $difficulty);
 
         return $this;
     }
 
-    public function getDifficulty(): int
+    public function getDifficulty(): float
     {
         return $this->difficulty;
     }
@@ -30,9 +30,8 @@ class ProofOfWork
     public function create(string $subject): array
     {
         $factor = $this->getDifficulty();
-        $max = \floor($this->config->maxNumber * $factor);
-        $max = \max(100, $max);   // >= 100
-        $min = \floor($max / 10);  // 10% of max, >= 10
+        $max = \max(100, (int) \floor($this->config->maxNumber * $factor));
+        $min = \intdiv($max, 10);  // 10% of max, >= 10
 
         $number = \random_int($min, $max);
         $salt = randStr(15);

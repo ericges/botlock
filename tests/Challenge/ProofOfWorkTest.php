@@ -118,6 +118,14 @@ final class ProofOfWorkTest extends TestCase
         self::assertEquals(100, $pow->setDifficulty(0)->create(self::SUBJECT)['max'], 'floor of 100 even at difficulty 0');
     }
 
+    public function testFractionalDifficultyIsNotTruncated(): void
+    {
+        $pow = new ProofOfWork(new ProofOfWorkConfig(secret: self::SECRET, maxNumber: 50000));
+
+        self::assertSame(0.5, $pow->setDifficulty(0.5)->getDifficulty());
+        self::assertSame(25000, $pow->create(self::SUBJECT)['max'], 'a good bot factor of 0.5 halves max instead of collapsing to the floor');
+    }
+
     public function testUnsupportedAlgorithmIsRejectedByConfig(): void
     {
         $this->expectException(\InvalidArgumentException::class);
