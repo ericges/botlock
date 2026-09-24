@@ -193,13 +193,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
             left: 0;
             height: auto;
             filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 1px 3px rgba(0, 0, 0, .75));
-            touch-action: none;
-            user-select: none;
-            cursor: grab;
-        }
-
-        .puzzle-piece.is-dragging {
-            cursor: grabbing;
         }
 
         .puzzle-piece.is-hinting {
@@ -539,8 +532,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         button.focus();
     }
 
-    // The range input works by dragging, arrow keys or a click on the track;
-    // dragging the piece itself moves the range input along.
+    // The range input works by dragging, arrow keys or a click on the track.
     function showSlider(challenge, nonce, attempt, retried) {
         const { puzzle } = challenge;
 
@@ -560,7 +552,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
         piece.className = 'puzzle-piece';
         piece.alt = '';
         piece.src = puzzle.piece;
-        piece.draggable = false;
         piece.style.width = `${puzzle.size / puzzle.width * 100}%`;
         piece.style.top = `${puzzle.y / puzzle.height * 100}%`;
 
@@ -601,30 +592,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
             slider.addEventListener(type, stopHint, { once: true });
         }
         move();
-
-        let drag = null;
-        piece.addEventListener('pointerdown', (event) => {
-            stopHint();
-            drag = { x: event.clientX, value: Number(slider.value) };
-            piece.setPointerCapture(event.pointerId);
-            piece.classList.add('is-dragging');
-            event.preventDefault();
-        });
-        piece.addEventListener('pointermove', (event) => {
-            if (drag === null) {
-                return;
-            }
-            const scale = puzzle.width / frame.clientWidth;
-            const value = Math.round(drag.value + (event.clientX - drag.x) * scale);
-            slider.value = String(Math.min(Number(slider.max), Math.max(0, value)));
-            move();
-        });
-        const endDrag = () => {
-            drag = null;
-            piece.classList.remove('is-dragging');
-        };
-        piece.addEventListener('pointerup', endDrag);
-        piece.addEventListener('pointercancel', endDrag);
 
         widgetElement.replaceChildren(frame, slider, button);
         slider.focus();

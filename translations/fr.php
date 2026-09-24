@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Veuillez confirmer que vous n’êtes pas un robot pour continuer.',
     'verifyButton' => 'Vérifier',
     'sliderHeading' => 'Vérification de sécurité',
-    'sliderParagraph' => 'Faites glisser la pièce ou déplacez le curseur jusqu\'à ce qu\'elle s\'insère dans l\'espace de même forme.',
+    'sliderParagraph' => 'Déplacez le curseur jusqu\'à ce que la pièce s\'insère dans l\'espace de même forme.',
     'sliderLabel' => 'Position de la pièce',
     'sliderSubmit' => 'Confirmer',
     'sliderRetry' => 'Cela ne correspondait pas. Veuillez réessayer avec la nouvelle image.',

@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Vahvista, ettet ole robotti, jotta voit jatkaa.',
     'verifyButton' => 'Vahvista',
     'sliderHeading' => 'Turvatarkistus',
-    'sliderParagraph' => 'Vedä palaa tai siirrä liukusäädintä, kunnes pala sopii samanmuotoiseen aukkoon.',
+    'sliderParagraph' => 'Siirrä liukusäädintä, kunnes pala sopii samanmuotoiseen aukkoon.',
     'sliderLabel' => 'Palan sijainti',
     'sliderSubmit' => 'Vahvista',
     'sliderRetry' => 'Pala ei sopinut. Yritä uudelleen uudella kuvalla.',

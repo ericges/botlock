@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Bekreft at du ikke er en robot for å fortsette.',
     'verifyButton' => 'Bekreft',
     'sliderHeading' => 'Sikkerhetssjekk',
-    'sliderParagraph' => 'Dra brikken eller flytt glidebryteren til brikken passer inn i hullet med samme form.',
+    'sliderParagraph' => 'Flytt glidebryteren til brikken passer inn i hullet med samme form.',
     'sliderLabel' => 'Brikkens posisjon',
     'sliderSubmit' => 'Bekreft',
     'sliderRetry' => 'Det passet ikke. Prøv igjen med det nye bildet.',

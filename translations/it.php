@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Per continuare, conferma di non essere un robot.',
     'verifyButton' => 'Verifica',
     'sliderHeading' => 'Controllo di sicurezza',
-    'sliderParagraph' => 'Trascina il pezzo o sposta il cursore finché non si incastra nello spazio vuoto con la stessa forma.',
+    'sliderParagraph' => 'Sposta il cursore finché il pezzo non si incastra nello spazio vuoto con la stessa forma.',
     'sliderLabel' => 'Posizione del pezzo',
     'sliderSubmit' => 'Conferma',
     'sliderRetry' => 'Non combaciava. Riprova con la nuova immagine.',

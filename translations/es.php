@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Para continuar, confirma que no eres un robot.',
     'verifyButton' => 'Verificar',
     'sliderHeading' => 'Control de seguridad',
-    'sliderParagraph' => 'Arrastra la pieza o mueve el control deslizante hasta que encaje en el hueco con la misma forma.',
+    'sliderParagraph' => 'Mueve el control deslizante hasta que la pieza encaje en el hueco con la misma forma.',
     'sliderLabel' => 'Posición de la pieza',
     'sliderSubmit' => 'Confirmar',
     'sliderRetry' => 'No ha encajado. Inténtalo de nuevo con la nueva imagen.',

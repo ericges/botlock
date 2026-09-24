@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Aby kontynuować, potwierdź, że nie jesteś robotem.',
     'verifyButton' => 'Zweryfikuj',
     'sliderHeading' => 'Kontrola bezpieczeństwa',
-    'sliderParagraph' => 'Przeciągnij element lub przesuń suwak, aż wpasuje się w lukę o tym samym kształcie.',
+    'sliderParagraph' => 'Przesuń suwak, aż element wpasuje się w lukę o tym samym kształcie.',
     'sliderLabel' => 'Położenie elementu',
     'sliderSubmit' => 'Potwierdź',
     'sliderRetry' => 'Nie pasowało. Spróbuj ponownie z nowym obrazkiem.',
