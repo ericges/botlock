@@ -4,8 +4,9 @@ namespace GES\Botlock\Challenge;
 
 /**
  * Server-side record of one issued challenge. The client only ever sees the
- * id; the level, required interaction and slider target stay on the server,
- * and redeeming the ticket consumes it.
+ * id and, for an interaction, the key to seal its report with; the level,
+ * required interaction and slider target stay on the server, and redeeming
+ * the ticket consumes it.
  */
 final readonly class ChallengeTicket
 {
@@ -22,6 +23,7 @@ final readonly class ChallengeTicket
      * @param float       $difficulty   proof-of-work difficulty factor
      * @param int|null    $sliderTarget x offset the slider piece has to reach; null unless the interaction is Slider
      * @param bool        $interacted   whether the required interaction has been completed
+     * @param string|null $key          raw InteractionCipher key the interaction report is sealed with; null without an interaction
      */
     public function __construct(
         public string      $id,
@@ -32,6 +34,7 @@ final readonly class ChallengeTicket
         public float       $difficulty = 1.0,
         public ?int        $sliderTarget = null,
         public bool        $interacted = false,
+        public ?string     $key = null,
     ) {}
 
     public static function newId(): string
@@ -62,7 +65,10 @@ final readonly class ChallengeTicket
         return !$this->interaction->isInteractive() || $this->interacted;
     }
 
-    public function withInteracted(): self
+    /**
+     * @param float|null $difficulty proof-of-work difficulty from now on; null keeps it
+     */
+    public function withInteracted(?float $difficulty = null): self
     {
         return new self(
             $this->id,
@@ -70,9 +76,10 @@ final readonly class ChallengeTicket
             $this->level,
             $this->interaction,
             $this->issuedAt,
-            $this->difficulty,
+            $difficulty ?? $this->difficulty,
             $this->sliderTarget,
             true,
+            $this->key,
         );
     }
 
@@ -95,6 +102,7 @@ final readonly class ChallengeTicket
             'dif' => $this->difficulty,
             'tgt' => $this->sliderTarget,
             'done' => $this->interacted,
+            'key' => $this->key === null ? null : \base64_encode($this->key),
         ];
     }
 
@@ -120,6 +128,7 @@ final readonly class ChallengeTicket
             (float) $data['dif'],
             \is_int($data['tgt'] ?? null) ? $data['tgt'] : null,
             ($data['done'] ?? false) === true,
+            \is_string($data['key'] ?? null) && \is_string($key = \base64_decode($data['key'], true)) ? $key : null,
         );
     }
 }

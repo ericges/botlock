@@ -5,6 +5,7 @@ namespace GES\Botlock\Tests\Challenge;
 use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\FileChallengeTicketStore;
 use GES\Botlock\Challenge\Interaction;
+use GES\Botlock\Challenge\InteractionCipher;
 use PHPUnit\Framework\TestCase;
 
 final class FileChallengeTicketStoreTest extends TestCase
@@ -105,6 +106,7 @@ final class FileChallengeTicketStoreTest extends TestCase
             issuedAt: \microtime(true),
             difficulty: 0.5,
             sliderTarget: $sliderTarget,
+            key: InteractionCipher::newKey(),
         );
     }
 }

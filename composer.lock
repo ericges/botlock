@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1c9c6e8f7c3124c003283060c1bd7928",
+    "content-hash": "5124f9cd88044621735283ed6fa83bc0",
     "packages": [
         {
             "name": "jaybizzle/crawler-detect",
@@ -1831,7 +1831,8 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": "^8.2"
+        "php": "^8.2",
+        "ext-openssl": "*"
     },
     "platform-dev": {},
     "plugin-api-version": "2.9.0"

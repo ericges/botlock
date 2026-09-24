@@ -4,6 +4,7 @@ namespace GES\Botlock\Action;
 
 use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\ChallengeTicketStore;
+use GES\Botlock\Challenge\InteractionCipher;
 use GES\Botlock\Challenge\InteractionPolicy;
 use GES\Botlock\Challenge\Interaction;
 use GES\Botlock\Challenge\ProofOfWork;
@@ -21,8 +22,9 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  *
  * The answer names the required interaction. Only when none is required
  * does it carry the proof of work right away; otherwise the client gets it
- * from InteractAction once the interaction is done. For the slider it
- * carries the puzzle images, whose target stays in the ticket.
+ * from InteractAction once the interaction is done, and the answer carries
+ * the key the client seals its interaction report with. For the slider it
+ * also carries the puzzle images, whose target stays in the ticket.
  */
 final readonly class ChallengeAction implements ActionHandlerInterface
 {
@@ -63,6 +65,7 @@ final readonly class ChallengeAction implements ActionHandlerInterface
             issuedAt: $now,
             difficulty: $this->policy->difficulty($isCrawler, $isTrustedGoodBot),
             sliderTarget: $puzzle?->target,
+            key: $interaction->isInteractive() ? InteractionCipher::newKey() : null,
         );
 
         if (!$this->tickets->save($ticket)) {
@@ -77,6 +80,10 @@ final readonly class ChallengeAction implements ActionHandlerInterface
             $data['pow'] = self::proofOfWork($ticket, $this->config);
         }
 
+        if ($ticket->key !== null) {
+            $data['key'] = \base64_encode($ticket->key);
+        }
+
         if ($puzzle) {
             $data['puzzle'] = $puzzle->toArray();
         }
@@ -85,7 +92,8 @@ final readonly class ChallengeAction implements ActionHandlerInterface
     }
 
     /**
-     * Public ticket fields: never the slider target.
+     * Public ticket fields: never the slider target, and not the key, which
+     * only the challenge answer hands out.
      */
     public static function describe(ChallengeTicket $ticket, ProofOfWorkConfig $config): array
     {

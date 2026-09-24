@@ -14,6 +14,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Session;
 use GES\Botlock\Manager\BotTestManager;
 use GES\Botlock\Tests\Support\InMemoryChallengeTicketStore;
+use GES\Botlock\Tests\Support\Reports;
 use GES\Botlock\Tests\Support\Requests;
 use PHPUnit\Framework\TestCase;
 
@@ -75,7 +76,7 @@ final class TicketFlowTest extends TestCase
         self::assertSame('click', $challenge['int']);
         self::assertArrayNotHasKey('pow', $challenge);
 
-        $ready = $this->interact($challenge['cid'], level: 2);
+        $ready = $this->interact($challenge, level: 2);
         self::assertSame($challenge['cid'], $ready['cid']);
         self::assertArrayHasKey('pow', $ready);
 
@@ -95,7 +96,7 @@ final class TicketFlowTest extends TestCase
         self::assertIsInt($target);
         self::assertStringNotContainsString('"' . $target . '"', \json_encode($challenge), 'the target is not in the answer');
 
-        $ready = $this->interact($challenge['cid'], level: 3, details: ['pos' => $target + 3]);
+        $ready = $this->interact($challenge, level: 3, report: ['pos' => $target + 3]);
 
         $this->now += 1.5;
         self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 3));
@@ -107,15 +108,43 @@ final class TicketFlowTest extends TestCase
         $challenge = $this->challenge(level: 3);
         $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
 
-        $this->assertRejected(403, fn() => $this->interact($challenge['cid'], level: 3, details: ['pos' => $target + 20]));
-        $this->assertRejected(400, fn() => $this->interact($challenge['cid'], level: 3, details: ['pos' => $target]));
+        $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: ['pos' => $target + 20]));
+        $this->assertRejected(400, fn() => $this->interact($challenge, level: 3, report: ['pos' => $target]));
     }
 
     public function testSliderWithoutPositionIsRejected(): void
     {
         $challenge = $this->challenge(level: 3);
 
-        $this->assertRejected(403, fn() => $this->interact($challenge['cid'], level: 3));
+        $this->assertRejected(403, fn() => $this->interact($challenge, level: 3));
+    }
+
+    public function testOnlyInteractiveChallengesCarryAKey(): void
+    {
+        self::assertArrayNotHasKey('key', $this->challenge(level: 1));
+        self::assertSame(32, \strlen(\base64_decode($this->challenge(level: 3)['key'], true)));
+
+        $ready = $this->interact($this->challenge(level: 2), level: 2);
+        self::assertArrayNotHasKey('key', $ready, 'the proof answer does not echo the key');
+    }
+
+    public function testUnsealedReportIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 3);
+        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $action = new InteractAction($this->config, $this->store, fn(): float => $this->now);
+        $request = $this->request('POST', level: 3, body: ['cid' => $challenge['cid'], 'pos' => $target]);
+
+        $this->assertRejected(403, fn() => $action->handle($request));
+        self::assertSame([], $this->store->tickets, 'the ticket is spent');
+    }
+
+    public function testReportSealedWithAnotherKeyIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 2);
+        $challenge['key'] = $this->challenge(level: 2)['key'];
+
+        $this->assertRejected(403, fn() => $this->interact($challenge, level: 2));
     }
 
     public function testVerifyingWithoutTheInteractionIsRejected(): void
@@ -131,7 +160,7 @@ final class TicketFlowTest extends TestCase
     public function testProofForgedWithAnotherInteractionFailsTheSignature(): void
     {
         $challenge = $this->challenge(level: 2);
-        $this->interact($challenge['cid'], level: 2);
+        $this->interact($challenge, level: 2);
 
         // A solution signed for the same ticket id but a lower level must not verify.
         $challenge1 = $this->challenge(level: 1);
@@ -145,16 +174,16 @@ final class TicketFlowTest extends TestCase
     public function testInteractingTwiceIsRejected(): void
     {
         $challenge = $this->challenge(level: 2);
-        $this->interact($challenge['cid'], level: 2);
+        $this->interact($challenge, level: 2);
 
-        $this->assertRejected(400, fn() => $this->interact($challenge['cid'], level: 2));
+        $this->assertRejected(400, fn() => $this->interact($challenge, level: 2));
     }
 
     public function testInteractingWithASelfStartingTicketIsRejected(): void
     {
         $challenge = $this->challenge(level: 1);
 
-        $this->assertRejected(400, fn() => $this->interact($challenge['cid'], level: 1));
+        $this->assertRejected(400, fn() => $this->interact($challenge, level: 1));
     }
 
     public function testVerifyingTooFastIsRejected(): void
@@ -187,14 +216,14 @@ final class TicketFlowTest extends TestCase
         self::assertNull($this->session->get('grant'));
 
         $challenge = $this->challenge(level: 2);
-        $this->assertRejected(409, fn() => $this->interact($challenge['cid'], level: 3));
+        $this->assertRejected(409, fn() => $this->interact($challenge, level: 3));
         self::assertSame([], $this->store->tickets);
     }
 
     public function testDeescalationKeepsTheTicketsLevel(): void
     {
         $challenge = $this->challenge(level: 2);
-        $ready = $this->interact($challenge['cid'], level: 2);
+        $ready = $this->interact($challenge, level: 2);
 
         $this->now += 1.5;
         self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 1));
@@ -236,11 +265,18 @@ final class TicketFlowTest extends TestCase
         return self::json($this->challengeAction()->handle($this->request('GET', $level)));
     }
 
-    private function interact(string $cid, int $level, array $details = []): array
+    /**
+     * Reports the interaction sealed with the challenge's key, the way the
+     * challenge page does; a challenge without a key sends only its id.
+     */
+    private function interact(array $challenge, int $level, array $report = []): array
     {
         $action = new InteractAction($this->config, $this->store, fn(): float => $this->now);
+        $body = isset($challenge['key'])
+            ? Reports::seal(\base64_decode($challenge['key']), $challenge['cid'], $report)
+            : ['cid' => $challenge['cid']];
 
-        return self::json($action->handle($this->request('POST', $level, body: ['cid' => $cid] + $details)));
+        return self::json($action->handle($this->request('POST', $level, body: $body)));
     }
 
     private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP): int

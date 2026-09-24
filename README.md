@@ -7,7 +7,7 @@ BOTLOCK is a PHP script that blocks bad bots and scrapers from accessing your we
 
 ## Installation
 
-BOTLOCK requires PHP 8.2 or newer.
+BOTLOCK requires PHP 8.2 or newer with the OpenSSL extension.
 
 ### Using the PHAR file (recommended)
 
@@ -204,7 +204,11 @@ Each challenge is a single-use ticket kept in `BOTLOCK_STATE_DIR` for five
 minutes. `GET ?_botlock=challenge` issues it and names the required interaction
 (`int`: `none`, `click` or `slider`) together with the ticket's threat level; the
 proof of work is included only when no interaction is required, otherwise
-`POST ?_botlock=challenge` hands it out once the interaction is reported. The
+`POST ?_botlock=challenge` hands it out once the interaction is reported. An
+interactive ticket comes with a random key, and the page reports the
+interaction encrypted with it (AES-GCM); a report that does not decrypt
+counts as a miss. The key is handed to the page, so this only keeps
+automation that does not know BOTLOCK from posting the answer directly. The
 proof-of-work signature covers the ticket id, level and interaction, so a
 solution cannot be moved to another ticket. `POST ?_botlock=verify` spends the
 ticket whatever the outcome. A missed slider spends it as well, so every guess
@@ -236,7 +240,7 @@ shows `individual_rate` as `null`.
 
 ## Developers
 
-BOTLOCK needs PHP 8.2 or newer and Composer. A [DDEV](https://ddev.com/) project is checked in, so the quickest way to a working setup is:
+BOTLOCK needs PHP 8.2 or newer with the OpenSSL extension, and Composer. A [DDEV](https://ddev.com/) project is checked in, so the quickest way to a working setup is:
 
 ```bash
 ddev start
@@ -263,7 +267,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge` (`GET` issues a ticket, `POST` reports the interaction), `verify`, `reset` and `status`. |
 | `src/Config/` | Typed configuration objects, each with a `fromEnv()` factory reading `BOTLOCK_*` variables. |
 | `src/Manager/`, `src/Threat/` | Bot detection and rate-limit state. |
-| `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, and the slider puzzle. |
+| `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, and the slider puzzle. |
 | `src/Image/` | A dependency-free PNG encoder for the slider puzzle. |
 | `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
 | `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
@@ -282,7 +286,7 @@ ddev composer validate --no-check-publish   # Composer metadata
 ddev exec sh -c "find src tests templates translations demo -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
-Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore`, `InMemoryChallengeTicketStore` and `StubCrawlerVerifier` from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
+Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore`, `InMemoryChallengeTicketStore`, `StubCrawlerVerifier` and the `Reports` sealer from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
 
 ### Building the PHAR
 

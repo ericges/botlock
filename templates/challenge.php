@@ -350,6 +350,27 @@ if (!isset($lang, $trans, $transJson, $e)) {
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
+    function toBase64(bytes) {
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        }
+        return btoa(binary);
+    }
+
+    // Seals the interaction report with the challenge's key (AES-GCM, the
+    // challenge id as additional data), the only form the server accepts.
+    async function seal(challenge, report) {
+        const raw = Uint8Array.from(atob(challenge.key), (c) => c.charCodeAt(0));
+        const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt']);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const data = new TextEncoder().encode(JSON.stringify(report));
+        const additionalData = new TextEncoder().encode(challenge.cid);
+        const sealed = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData }, key, data);
+
+        return { cid: challenge.cid, iv: toBase64(iv), ct: toBase64(new Uint8Array(sealed)) };
+    }
+
     function showError() {
         security.classList.add('status-fail');
         headingElement.textContent = trans.errorHeading;
@@ -415,8 +436,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
     }
 
     // Reports the completed interaction; the answer carries the proof of work.
-    async function completeInteraction(challenge, nonce, details = {}) {
-        const response = await call('challenge', 'POST', nonce, { cid: challenge.cid, ...details });
+    async function completeInteraction(challenge, nonce, report = {}) {
+        const response = await call('challenge', 'POST', nonce, await seal(challenge, report));
         return response.ok ? await response.json() : null;
     }
 
