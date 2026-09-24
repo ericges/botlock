@@ -9,8 +9,10 @@ use GES\Botlock\Image\PngEncoder;
  * matching piece, which the visitor slides horizontally into the gap.
  *
  * The target offset only exists in the ticket; the images are the only
- * thing the client gets. This raises the cost for generic automation, it
- * does not stop a determined attacker with image processing.
+ * thing the client gets. The gap is shaded faintly and unevenly with soft
+ * edges, so it is not the sharpest shape in the picture. This raises the
+ * cost for generic automation, it does not stop a determined attacker with
+ * image processing.
  */
 final readonly class SliderPuzzle
 {
@@ -25,6 +27,14 @@ final readonly class SliderPuzzle
     private const MARGIN = 8;
     private const CORNER = 9;
     private const NOTCH = 7;
+
+    /** Width in pixels over which a gap fades in from its outline. */
+    private const FEATHER = 2.5;
+
+    /** Sides of the piece that carry a round notch, per shape. */
+    private const SHAPES = [
+        ['left'],
+    ];
 
     /**
      * @param int $target x offset of the gap
@@ -41,35 +51,15 @@ final readonly class SliderPuzzle
     {
         $target = \random_int(self::MIN_TARGET, self::WIDTH - self::PIECE - self::MARGIN);
         $pieceY = \random_int(self::MARGIN, self::HEIGHT - self::PIECE - self::MARGIN);
+        $shape = 0;
 
         $pixels = self::background();
-        $piece = '';
+        $piece = self::cut($pixels, $target, $pieceY, $shape);
 
-        for ($y = 0; $y < self::PIECE; $y++) {
-            for ($x = 0; $x < self::PIECE; $x++) {
-                $offset = (($pieceY + $y) * self::WIDTH + $target + $x) * 3;
-                $inside = self::inside($x, $y);
-
-                if (!$inside) {
-                    $piece .= "\0\0\0\0";
-                    continue;
-                }
-
-                [$r, $g, $b] = [\ord($pixels[$offset]), \ord($pixels[$offset + 1]), \ord($pixels[$offset + 2])];
-                $edge = self::isEdge($x, $y);
-
-                // The piece keeps the original pixels with fresh noise and a light rim …
-                $piece .= $edge
-                    ? "\xF5\xF5\xF5\xFF"
-                    : \chr(self::jitter($r, 6)) . \chr(self::jitter($g, 6)) . \chr(self::jitter($b, 6)) . "\xFF";
-
-                // … the gap is darkened, with a faint rim of its own.
-                $shade = $edge ? 0.75 : 0.45;
-                $pixels[$offset] = \chr((int) ($r * $shade));
-                $pixels[$offset + 1] = \chr((int) ($g * $shade));
-                $pixels[$offset + 2] = \chr((int) ($b * $shade));
-            }
-        }
+        $depth = \random_int(22, 36) / 100;
+        $waves = self::waves();
+        self::carve($pixels, $target, $pieceY, $shape, $depth, $waves);
+        self::overlay($pixels);
 
         return new self(
             $target,
@@ -104,7 +94,7 @@ final readonly class SliderPuzzle
     }
 
     /**
-     * Random two-colour gradient with translucent blobs and per-pixel noise.
+     * Random two-colour gradient with translucent blobs.
      */
     private static function background(): string
     {
@@ -135,7 +125,7 @@ final readonly class SliderPuzzle
                     }
                 }
 
-                $pixels .= \chr(self::jitter((int) $rgb[0], 8)) . \chr(self::jitter((int) $rgb[1], 8)) . \chr(self::jitter((int) $rgb[2], 8));
+                $pixels .= \chr((int) $rgb[0]) . \chr((int) $rgb[1]) . \chr((int) $rgb[2]);
             }
         }
 
@@ -143,27 +133,154 @@ final readonly class SliderPuzzle
     }
 
     /**
-     * Piece shape: a rounded square with a round notch in its left side.
+     * The piece: the pixels under the gap with fresh noise and an
+     * antialiased outline, transparent outside its shape.
      */
-    private static function inside(int $x, int $y): bool
+    private static function cut(string $pixels, int $left, int $top, int $shape): string
     {
-        $size = self::PIECE - 1;
-        $r = self::CORNER;
+        $piece = '';
 
-        $cx = \min(\max($x, $r), $size - $r);
-        $cy = \min(\max($y, $r), $size - $r);
+        for ($y = 0; $y < self::PIECE; $y++) {
+            for ($x = 0; $x < self::PIECE; $x++) {
+                $alpha = \min(1.0, \max(0.0, 0.5 - self::distance($shape, $x, $y)));
 
-        if (($x - $cx) ** 2 + ($y - $cy) ** 2 > $r * $r) {
-            return false;
+                if ($alpha === 0.0) {
+                    $piece .= "\0\0\0\0";
+                    continue;
+                }
+
+                $offset = (($top + $y) * self::WIDTH + $left + $x) * 3;
+                $piece .= \chr(self::jitter(\ord($pixels[$offset]), 6))
+                    . \chr(self::jitter(\ord($pixels[$offset + 1]), 6))
+                    . \chr(self::jitter(\ord($pixels[$offset + 2]), 6))
+                    . \chr((int) \round($alpha * 255));
+            }
         }
 
-        return $x ** 2 + ($y - $size / 2) ** 2 > self::NOTCH ** 2;
+        return $piece;
     }
 
-    private static function isEdge(int $x, int $y): bool
+    /**
+     * Darkens a piece-shaped gap: faintly, fading in from the outline and
+     * modulated by the waves, so it has neither a rim nor a flat inside.
+     *
+     * @param list<array{float, float, float, float}> $waves
+     */
+    private static function carve(string &$pixels, int $left, int $top, int $shape, float $depth, array $waves): void
     {
-        return !self::inside($x - 1, $y) || !self::inside($x + 1, $y)
-            || !self::inside($x, $y - 1) || !self::inside($x, $y + 1);
+        for ($y = 0; $y < self::PIECE; $y++) {
+            for ($x = 0; $x < self::PIECE; $x++) {
+                $t = \min(1.0, \max(0.0, (0.5 - self::distance($shape, $x, $y)) / (self::FEATHER + 0.5)));
+
+                if ($t === 0.0) {
+                    continue;
+                }
+
+                $coverage = $t * $t * (3 - 2 * $t);
+                $factor = 1 - $depth * $coverage * self::modulation($waves, $left + $x, $top + $y);
+                $offset = (($top + $y) * self::WIDTH + $left + $x) * 3;
+
+                for ($c = 0; $c < 3; $c++) {
+                    $pixels[$offset + $c] = \chr((int) (\ord($pixels[$offset + $c]) * $factor));
+                }
+            }
+        }
+    }
+
+    /**
+     * Soft translucent veils across everything, including gap outlines,
+     * then per-pixel noise.
+     */
+    private static function overlay(string &$pixels): void
+    {
+        $veils = [];
+        for ($i = \random_int(4, 6); $i > 0; $i--) {
+            $veils[] = [
+                \random_int(0, self::WIDTH), \random_int(0, self::HEIGHT), \random_int(15, 45),
+                [\random_int(0, 255), \random_int(0, 255), \random_int(0, 255)],
+            ];
+        }
+
+        for ($y = 0; $y < self::HEIGHT; $y++) {
+            for ($x = 0; $x < self::WIDTH; $x++) {
+                $offset = ($y * self::WIDTH + $x) * 3;
+                $rgb = [\ord($pixels[$offset]), \ord($pixels[$offset + 1]), \ord($pixels[$offset + 2])];
+
+                foreach ($veils as [$cx, $cy, $radius, $color]) {
+                    $fade = ($radius - \sqrt(($x - $cx) ** 2 + ($y - $cy) ** 2)) / 8;
+                    if ($fade > 0) {
+                        $alpha = 0.25 * \min(1.0, $fade);
+                        for ($c = 0; $c < 3; $c++) {
+                            $rgb[$c] += ($color[$c] - $rgb[$c]) * $alpha;
+                        }
+                    }
+                }
+
+                for ($c = 0; $c < 3; $c++) {
+                    $pixels[$offset + $c] = \chr(self::jitter((int) $rgb[$c], 8));
+                }
+            }
+        }
+    }
+
+    /**
+     * A few random plane waves that make a gap's shading uneven.
+     *
+     * @return list<array{float, float, float, float}> x and y frequency, phase and weight
+     */
+    private static function waves(): array
+    {
+        $waves = [];
+        for ($i = 0; $i < 3; $i++) {
+            $angle = \random_int(0, 359) / 180 * \M_PI;
+            $frequency = 2 * \M_PI / \random_int(20, 60);
+            $waves[] = [\cos($angle) * $frequency, \sin($angle) * $frequency, \random_int(0, 359) / 180 * \M_PI, \random_int(5, 10) / 10];
+        }
+
+        return $waves;
+    }
+
+    /**
+     * @param list<array{float, float, float, float}> $waves
+     * @return float between 0.75 and 1.25
+     */
+    private static function modulation(array $waves, int $x, int $y): float
+    {
+        $sum = 0.0;
+        $weights = 0.0;
+        foreach ($waves as [$fx, $fy, $phase, $weight]) {
+            $sum += $weight * \sin($fx * $x + $fy * $y + $phase);
+            $weights += $weight;
+        }
+
+        return 1 + 0.25 * $sum / $weights;
+    }
+
+    /**
+     * Signed distance from a point in the piece's box to its outline,
+     * negative inside: a rounded square with round notches cut into the
+     * sides the shape names.
+     */
+    private static function distance(int $shape, float $x, float $y): float
+    {
+        $size = self::PIECE - 1;
+        $half = $size / 2;
+
+        $qx = \abs($x - $half) - ($half - self::CORNER);
+        $qy = \abs($y - $half) - ($half - self::CORNER);
+        $distance = \sqrt(\max($qx, 0) ** 2 + \max($qy, 0) ** 2) + \min(\max($qx, $qy), 0) - self::CORNER;
+
+        foreach (self::SHAPES[$shape] as $side) {
+            [$nx, $ny] = match ($side) {
+                'left' => [0, $half],
+                'top' => [$half, 0],
+                'right' => [$size, $half],
+                'bottom' => [$half, $size],
+            };
+            $distance = \max($distance, self::NOTCH - \sqrt(($x - $nx) ** 2 + ($y - $ny) ** 2));
+        }
+
+        return $distance;
     }
 
     private static function jitter(int $value, int $amount): int
