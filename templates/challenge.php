@@ -563,6 +563,86 @@ if (!isset($lang, $trans, $transJson, $e)) {
         button.focus();
     }
 
+    // Records how the slider was moved, for the server to judge: each drag
+    // as {k: 'p', pt, t0, pts: [[dt, value, dy], …], co}, each key press
+    // that moved it as {k: 'k', t, v, r}, and each press on the track that
+    // barely dragged as {k: 'c', t, d, v}. Times are milliseconds since the
+    // puzzle was shown; dy is the pointer's vertical drift in puzzle pixels.
+    function recordTrack(slider, frame, width, signal) {
+        const MAX_SAMPLES = 2000;
+        const shownAt = performance.now();
+        const track = [];
+        let samples = 0;
+        let stroke = null;
+        let key = null;
+
+        const time = (event) => Math.round((event.timeStamp - shownAt) * 10) / 10;
+        const add = (entry, size = 1) => {
+            if (samples + size <= MAX_SAMPLES) {
+                samples += size;
+                track.push(entry);
+            }
+        };
+        const trusted = (listener) => (event) => event.isTrusted && listener(event);
+
+        slider.addEventListener('pointerdown', trusted((event) => {
+            if (!event.isPrimary) {
+                return;
+            }
+            stroke = {
+                id: event.pointerId,
+                pt: event.pointerType,
+                t0: time(event),
+                y0: event.clientY,
+                dy: 0,
+                pts: [],
+                co: 0,
+                scale: width / frame.getBoundingClientRect().width,
+            };
+        }), { signal });
+
+        document.addEventListener('pointermove', trusted((event) => {
+            if (stroke?.id === event.pointerId) {
+                stroke.co += event.getCoalescedEvents?.().length || 1;
+                stroke.dy = Math.round((event.clientY - stroke.y0) * stroke.scale * 10) / 10;
+            }
+        }), { signal });
+
+        const end = trusted((event) => {
+            if (stroke?.id !== event.pointerId) {
+                return;
+            }
+            const { pt, t0, pts, co } = stroke;
+            stroke = null;
+
+            if (pts.length > 2) {
+                add({ k: 'p', pt, t0, pts, co }, pts.length);
+            } else if (pts.length) {
+                add({ k: 'c', t: t0, d: Math.round((time(event) - t0) * 10) / 10, v: pts[pts.length - 1][1] });
+            }
+        });
+        document.addEventListener('pointerup', end, { signal });
+        document.addEventListener('pointercancel', end, { signal });
+
+        // The value changes after keydown; the next input event records it.
+        slider.addEventListener('keydown', trusted((event) => {
+            key = { t: time(event), r: event.repeat };
+        }), { signal });
+
+        slider.addEventListener('input', trusted((event) => {
+            const v = Number(slider.value);
+
+            if (stroke) {
+                samples + stroke.pts.length < MAX_SAMPLES && stroke.pts.push([Math.round((time(event) - stroke.t0) * 10) / 10, v, stroke.dy]);
+            } else {
+                add({ k: 'k', t: key?.t ?? time(event), v, r: key?.r ?? false });
+                key = null;
+            }
+        }), { signal });
+
+        return track;
+    }
+
     // The range input works by dragging, arrow keys or a click on the track.
     function showSlider(challenge, nonce, attempt, retried) {
         const { puzzle } = challenge;
@@ -606,9 +686,13 @@ if (!isset($lang, $trans, $transJson, $e)) {
         button.type = 'button';
         button.className = 'verify-button';
         button.textContent = trans.sliderSubmit;
+        const recording = new AbortController();
+        const track = recordTrack(slider, frame, puzzle.width, recording.signal);
+
         button.addEventListener('click', () => {
+            recording.abort();
             showWorking();
-            completeInteraction(challenge, nonce, { pos: Number(slider.value) })
+            completeInteraction(challenge, nonce, { pos: Number(slider.value), track })
                 .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
                 .catch((error) => handleFailure(error, attempt));
         }, { once: true });
