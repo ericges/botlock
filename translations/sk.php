@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Ak chcete pokračovať, potvrďte, že nie ste robot.',
     'verifyButton' => 'Overiť',
     'sliderHeading' => 'Bezpečnostná kontrola',
-    'sliderParagraph' => 'Posuňte posúvač tak, aby dielik zapadol do medzery s rovnakým tvarom.',
+    'sliderParagraph' => 'Potiahnite dielik alebo posuňte posúvač tak, aby zapadol do medzery s rovnakým tvarom.',
     'sliderLabel' => 'Poloha dielika',
     'sliderSubmit' => 'Potvrdiť',
     'sliderRetry' => 'Nepasovalo to. Skúste to prosím znova s novým obrázkom.',

@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Pro pokračování prosím potvrďte, že nejste robot.',
     'verifyButton' => 'Ověřit',
     'sliderHeading' => 'Bezpečnostní kontrola',
-    'sliderParagraph' => 'Posuňte posuvník tak, aby dílek zapadl do mezery se stejným tvarem.',
+    'sliderParagraph' => 'Přetáhněte dílek nebo posuňte posuvník tak, aby zapadl do mezery se stejným tvarem.',
     'sliderLabel' => 'Poloha dílku',
     'sliderSubmit' => 'Potvrdit',
     'sliderRetry' => 'Nepasovalo to. Zkuste to prosím znovu s novým obrázkem.',

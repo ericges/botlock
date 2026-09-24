@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Pentru a continua, vă rugăm să confirmați că nu sunteți robot.',
     'verifyButton' => 'Verificați',
     'sliderHeading' => 'Verificare de securitate',
-    'sliderParagraph' => 'Mutați glisorul până când piesa se potrivește în golul cu aceeași formă.',
+    'sliderParagraph' => 'Trageți piesa sau mutați glisorul până când piesa se potrivește în golul cu aceeași formă.',
     'sliderLabel' => 'Poziția piesei',
     'sliderSubmit' => 'Confirmă',
     'sliderRetry' => 'Nu s-a potrivit. Vă rugăm să încercați din nou cu noua imagine.',

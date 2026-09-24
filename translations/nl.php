@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Bevestig dat u geen robot bent om door te gaan.',
     'verifyButton' => 'Verifiëren',
     'sliderHeading' => 'Beveiligingscontrole',
-    'sliderParagraph' => 'Verschuif de schuifregelaar tot het stukje in de opening met dezelfde vorm past.',
+    'sliderParagraph' => 'Sleep het stukje of verschuif de schuifregelaar tot het in de opening met dezelfde vorm past.',
     'sliderLabel' => 'Positie van het stukje',
     'sliderSubmit' => 'Bevestigen',
     'sliderRetry' => 'Dat paste niet. Probeer het opnieuw met de nieuwe afbeelding.',

@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Za nadaljevanje potrdite, da niste robot.',
     'verifyButton' => 'Potrdi',
     'sliderHeading' => 'Varnostno preverjanje',
-    'sliderParagraph' => 'Premikajte drsnik, dokler se košček ne prilega vrzeli enake oblike.',
+    'sliderParagraph' => 'Povlecite košček ali premaknite drsnik, dokler se košček ne prilega vrzeli enake oblike.',
     'sliderLabel' => 'Položaj koščka',
     'sliderSubmit' => 'Potrdi',
     'sliderRetry' => 'Ni se prilegalo. Poskusite znova z novo sliko.',
