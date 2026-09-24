@@ -10,7 +10,8 @@ use GES\Botlock\Image\PngEncoder;
  *
  * The target offset only exists in the ticket; the images are the only
  * thing the client gets. The gap is shaded faintly and unevenly with soft
- * edges, so it is not the sharpest shape in the picture. This raises the
+ * edges, among distractor shapes shaded the same way, so it is neither the
+ * sharpest nor the only piece-sized outline in the picture. This raises the
  * cost for generic automation, it does not stop a determined attacker with
  * image processing.
  */
@@ -53,11 +54,12 @@ final readonly class SliderPuzzle
         $pieceY = \random_int(self::MARGIN, self::HEIGHT - self::PIECE - self::MARGIN);
         $shape = 0;
 
+        $waves = self::waves();
         $pixels = self::background();
+        self::distractors($pixels, $waves, $pieceY);
         $piece = self::cut($pixels, $target, $pieceY, $shape);
 
         $depth = \random_int(22, 36) / 100;
-        $waves = self::waves();
         self::carve($pixels, $target, $pieceY, $shape, $depth, $waves);
         self::overlay($pixels);
 
@@ -176,14 +178,69 @@ final readonly class SliderPuzzle
                     continue;
                 }
 
-                $coverage = $t * $t * (3 - 2 * $t);
-                $factor = 1 - $depth * $coverage * self::modulation($waves, $left + $x, $top + $y);
-                $offset = (($top + $y) * self::WIDTH + $left + $x) * 3;
+                self::shade($pixels, $left + $x, $top + $y, $depth * $t * $t * (3 - 2 * $t), $waves);
+            }
+        }
+    }
 
-                for ($c = 0; $c < 3; $c++) {
-                    $pixels[$offset + $c] = \chr((int) (\ord($pixels[$offset + $c]) * $factor));
+    /**
+     * Rounded rectangles, circles and half rings, darkened or lightened
+     * like a gap, so the gap's outline has company of the same contrast.
+     * A few sit on the piece's row with about its size, where a solver
+     * that knows the row looks.
+     *
+     * @param list<array{float, float, float, float}> $waves
+     */
+    private static function distractors(string &$pixels, array $waves, int $pieceY): void
+    {
+        $inRow = \random_int(3, 5);
+
+        for ($i = \random_int(10, 14); $i > 0; $i--) {
+            $cx = \random_int(0, self::WIDTH);
+
+            if ($i <= $inRow) {
+                $cy = $pieceY + \intdiv(self::PIECE, 2) + \random_int(-6, 6);
+                $half = \intdiv(self::PIECE, 2);
+                $shape = ['rect', $cx, $cy, \random_int($half - 6, $half + 2), \random_int($half - 6, $half + 2), \random_int(6, 12)];
+            } else {
+                $cy = \random_int(0, self::HEIGHT);
+                $shape = null;
+            }
+
+            $shape ??= match (\random_int(0, 2)) {
+                0 => ['rect', $cx, $cy, \random_int(12, 30), \random_int(12, 30), \random_int(4, 14)],
+                1 => ['circle', $cx, $cy, \random_int(12, 30)],
+                2 => ['arc', $cx, $cy, \random_int(12, 30), \random_int(3, 6), \random_int(0, 359) / 180 * \M_PI],
+            };
+            $reach = (int) \ceil(\max($shape[3], $shape[4] ?? 0) + self::FEATHER + 1);
+            $depth = \random_int(22, 36) / 100 * (\random_int(0, 1) === 1 ? 1 : -1);
+
+            for ($y = \max(0, $cy - $reach); $y < \min(self::HEIGHT, $cy + $reach); $y++) {
+                for ($x = \max(0, $cx - $reach); $x < \min(self::WIDTH, $cx + $reach); $x++) {
+                    $t = \min(1.0, \max(0.0, (0.5 - self::shapeDistance($shape, $x, $y)) / (self::FEATHER + 0.5)));
+                    if ($t > 0.0) {
+                        self::shade($pixels, $x, $y, $depth * $t * $t * (3 - 2 * $t), $waves);
+                    }
                 }
             }
+        }
+    }
+
+    /**
+     * Darkens a pixel by the given amount, or lightens it for a negative
+     * one, modulated by the waves.
+     *
+     * @param list<array{float, float, float, float}> $waves
+     */
+    private static function shade(string &$pixels, int $x, int $y, float $amount, array $waves): void
+    {
+        $amount *= self::modulation($waves, $x, $y);
+        $offset = ($y * self::WIDTH + $x) * 3;
+
+        for ($c = 0; $c < 3; $c++) {
+            $value = \ord($pixels[$offset + $c]);
+            $value = $amount > 0 ? $value * (1 - $amount) : $value - (255 - $value) * $amount;
+            $pixels[$offset + $c] = \chr(\min(255, (int) $value));
         }
     }
 
@@ -281,6 +338,31 @@ final readonly class SliderPuzzle
         }
 
         return $distance;
+    }
+
+    /**
+     * Signed distance to a distractor outline, negative inside.
+     */
+    private static function shapeDistance(array $shape, int $x, int $y): float
+    {
+        [$kind, $cx, $cy] = $shape;
+        $dx = $x - $cx;
+        $dy = $y - $cy;
+
+        return match ($kind) {
+            'rect' => (static function () use ($shape, $dx, $dy): float {
+                [, , , $halfWidth, $halfHeight, $corner] = $shape;
+                $qx = \abs($dx) - $halfWidth + $corner;
+                $qy = \abs($dy) - $halfHeight + $corner;
+
+                return \sqrt(\max($qx, 0) ** 2 + \max($qy, 0) ** 2) + \min(\max($qx, $qy), 0) - $corner;
+            })(),
+            'circle' => \sqrt($dx ** 2 + $dy ** 2) - $shape[3],
+            'arc' => \max(
+                \abs(\sqrt($dx ** 2 + $dy ** 2) - $shape[3]) - $shape[4] / 2,
+                $dx * \cos($shape[5]) + $dy * \sin($shape[5]),
+            ),
+        };
     }
 
     private static function jitter(int $value, int $amount): int
