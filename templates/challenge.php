@@ -177,6 +177,19 @@ if (!isset($lang, $trans, $transJson, $e)) {
             cursor: not-allowed;
         }
 
+        .puzzle-error {
+            box-sizing: border-box;
+            width: 100%;
+            max-width: 280px;
+            margin-bottom: 1rem;
+            padding: .6rem .8rem;
+            color: var(--error-color);
+            background: var(--noscript-bg);
+            border: 1px solid var(--error-color);
+            border-radius: .25rem;
+            text-wrap: balance;
+        }
+
         .puzzle {
             position: relative;
             width: 100%;
@@ -541,7 +554,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         const { puzzle } = challenge;
 
         headingElement.textContent = trans.sliderHeading;
-        infoElement.textContent = retried ? trans.sliderRetry : trans.sliderParagraph;
+        infoElement.textContent = trans.sliderParagraph;
 
         const frame = document.createElement('div');
         frame.className = 'puzzle';
@@ -598,6 +611,15 @@ if (!isset($lang, $trans, $transJson, $e)) {
         move();
 
         widgetElement.replaceChildren(frame, slider, button);
+
+        // After a miss the instructions stay; the error sits above the new puzzle.
+        if (retried) {
+            const error = document.createElement('p');
+            error.className = 'puzzle-error';
+            error.setAttribute('role', 'alert');
+            error.textContent = trans.sliderRetry;
+            widgetElement.prepend(error);
+        }
         slider.focus();
     }
 
