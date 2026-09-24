@@ -86,6 +86,10 @@ if (!isset($lang, $trans, $transJson, $e)) {
             line-height: 1.7;
         }
 
+        #info-paragraph {
+            text-wrap: balance;
+        }
+
         #bot-check-widget {
             min-height: 3rem;
             margin-bottom: 2rem;
