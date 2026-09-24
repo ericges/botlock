@@ -168,6 +168,11 @@ if (!isset($lang, $trans, $transJson, $e)) {
             opacity: .85;
         }
 
+        .verify-button:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
         .puzzle {
             position: relative;
             width: 100%;
@@ -575,8 +580,21 @@ if (!isset($lang, $trans, $transJson, $e)) {
         slider.value = '0';
         slider.setAttribute('aria-label', trans.sliderLabel);
 
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'verify-button';
+        button.textContent = trans.sliderSubmit;
+        button.addEventListener('click', () => {
+            showWorking();
+            completeInteraction(challenge, nonce, { pos: Number(slider.value) })
+                .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
+                .catch((error) => handleFailure(error, attempt));
+        }, { once: true });
+
+        // Nothing to confirm while the piece is still at its start.
         const move = () => {
             piece.style.left = `${slider.value / puzzle.width * 100}%`;
+            button.disabled = Number(slider.value) === 0;
         };
         slider.addEventListener('input', move);
         for (const type of ['input', 'keydown', 'pointerdown']) {
@@ -607,17 +625,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
         };
         piece.addEventListener('pointerup', endDrag);
         piece.addEventListener('pointercancel', endDrag);
-
-        const button = document.createElement('button');
-        button.type = 'button';
-        button.className = 'verify-button';
-        button.textContent = trans.sliderSubmit;
-        button.addEventListener('click', () => {
-            showWorking();
-            completeInteraction(challenge, nonce, { pos: Number(slider.value) })
-                .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
-                .catch((error) => handleFailure(error, attempt));
-        }, { once: true });
 
         widgetElement.replaceChildren(frame, slider, button);
         slider.focus();
