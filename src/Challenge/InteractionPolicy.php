@@ -14,6 +14,9 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  * | browser              | none   | click | slider |
  * | untrusted crawler    | click  | click | slider |
  * | trusted good bot     | none   | none  | none   |
+ *
+ * A slider moved by keys or track presses instead of a drag multiplies
+ * the difficulty by the assisted factor on top.
  */
 final readonly class InteractionPolicy
 {
@@ -41,5 +44,13 @@ final readonly class InteractionPolicy
             $isCrawler => (float) $this->config->getCrawlerFactor(),
             default => 1.0,
         };
+    }
+
+    /**
+     * Difficulty multiplier for a slider solved without a drag.
+     */
+    public function assistedFactor(): float
+    {
+        return (float) $this->config->getAssistedFactor();
     }
 }

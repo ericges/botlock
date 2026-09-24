@@ -21,6 +21,9 @@ final class InteractionCipher
     /** Largest sealed report accepted, in bytes; a full slider track fits easily. */
     private const MAX_BYTES = 65536;
 
+    /** JSON nesting of a slider report: report, track, entry, samples, sample, number. */
+    private const MAX_DEPTH = 6;
+
     public static function newKey(): string
     {
         return \random_bytes(self::KEY_BYTES);
@@ -58,7 +61,7 @@ final class InteractionCipher
         }
 
         try {
-            $data = \json_decode($plain, true, 5, \JSON_THROW_ON_ERROR);
+            $data = \json_decode($plain, true, self::MAX_DEPTH, \JSON_THROW_ON_ERROR);
         } catch (\JsonException) {
             return null;
         }

@@ -104,6 +104,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_EXPIRE` | `3600` | Session lifetime in seconds. A challenge ticket always expires after five minutes. |
 | `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
 | `BOTLOCK_CRAWLER_FACTOR` | `15` | Multiplies proof-of-work difficulty for crawlers that are not listed as good bots. The effective minimum is `1`. |
+| `BOTLOCK_SLIDER_ASSISTED_FACTOR` | `4` | Multiplies proof-of-work difficulty when the slider captcha was solved with the keyboard or by clicking the track instead of dragging, on top of any crawler factor. The effective minimum is `1`. |
 | `BOTLOCK_MIN_SOLVE_MS` | `1000` | Minimum time in milliseconds between issuing a challenge and accepting its solution. Faster solutions are rejected and spend the ticket; the challenge page waits out the rest of this time before it submits. `0` disables the check. |
 
 ### Language
@@ -176,7 +177,7 @@ spike. The elevated threat levels behave as follows:
 | --- | --- | --- | --- |
 | `1` | Proof of work, starts on its own | Click, then proof of work (× `BOTLOCK_CRAWLER_FACTOR`) | Pass without a challenge |
 | `2` | Click, then proof of work | Click, then proof of work (× factor) | Easy proof of work, starts on its own |
-| `3` | Slider captcha, then proof of work | Slider captcha, then proof of work (× factor) | Easy proof of work, starts on its own |
+| `3` | Slider captcha, then proof of work (× `BOTLOCK_SLIDER_ASSISTED_FACTOR` without a drag) | Slider captcha, then proof of work (× factors) | Easy proof of work, starts on its own |
 | `4` | `429 Too Many Requests` with `Retry-After`, no challenge | same | same |
 
 A good bot is trusted when it is listed in `BOTLOCK_GOOD_BOTS` and, for providers
@@ -189,7 +190,14 @@ the arrow keys or by clicking the track, with the mouse or by touch. The target 
 comes in one of ten notch layouts. Its gap is shaded faintly and unevenly with
 soft edges, among distractor shapes shaded the same way, and one or two decoy gaps
 on the same row look alike except for notches on other sides; sliding onto a decoy
-counts as a miss. It makes generic automation more expensive; like every self-hosted captcha it does
+counts as a miss. The page also reports how the slider was moved, and the
+server judges that track with plain rules: a drag must take a plausible time,
+drift a little vertically, speed up and slow down instead of gliding evenly,
+and not jump, and the time it claims must fit into the time the server saw
+pass. Keyboard and track clicks say less about the visitor, so they pass
+looser checks and pay with a harder proof of work instead. A track that fails
+counts as a miss too, with the same answer, so a script cannot tell which
+check it tripped. It makes generic automation more expensive; like every self-hosted captcha it does
 not stop a determined attacker with image processing, and visitors who cannot
 see the picture cannot solve it, so level `3` should stay reserved for real abuse.
 
@@ -267,7 +275,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge` (`GET` issues a ticket, `POST` reports the interaction), `verify`, `reset` and `status`. |
 | `src/Config/` | Typed configuration objects, each with a `fromEnv()` factory reading `BOTLOCK_*` variables. |
 | `src/Manager/`, `src/Threat/` | Bot detection and rate-limit state. |
-| `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, and the slider puzzle. |
+| `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, the slider puzzle and the rules that judge how its slider was moved. |
 | `src/Image/` | A dependency-free PNG encoder for the slider puzzle. |
 | `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
 | `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
@@ -286,7 +294,7 @@ ddev composer validate --no-check-publish   # Composer metadata
 ddev exec sh -c "find src tests templates translations demo -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
-Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore`, `InMemoryChallengeTicketStore`, `StubCrawlerVerifier` and the `Reports` sealer from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
+Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore`, `InMemoryChallengeTicketStore`, `StubCrawlerVerifier`, the `Reports` sealer and the `Tracks` factory for slider tracks from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
 
 ### Building the PHAR
 

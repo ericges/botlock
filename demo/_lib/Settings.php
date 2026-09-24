@@ -68,6 +68,7 @@ final class Settings
             'POW_ALGORITHM' => ['group' => 'Proof of work', 'type' => self::TYPE_ENUM, 'options' => ['sha256', 'sha384', 'sha512'], 'label' => 'Algorithm', 'default' => 'sha256'],
             'MAX_NUMBER' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Max number', 'default' => '50000', 'help' => 'Base difficulty.'],
             'CRAWLER_FACTOR' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Crawler factor', 'default' => '15'],
+            'SLIDER_ASSISTED_FACTOR' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Slider keyboard/click factor', 'default' => '4', 'help' => 'Slider solved without a drag.'],
             'EXPIRE' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Session lifetime (s)', 'default' => '3600'],
             'MIN_SOLVE_MS' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Minimum solve time (ms)', 'default' => '1000', 'help' => 'Between issuing and verifying.'],
 

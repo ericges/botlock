@@ -45,8 +45,14 @@ final class InteractionPolicyTest extends TestCase
         self::assertSame(0.5, $policy->difficulty(true, true));
     }
 
-    private static function policy(int $crawlerFactor = 15): InteractionPolicy
+    public function testAssistedFactorIsAtLeastOne(): void
     {
-        return new InteractionPolicy(new ProofOfWorkConfig(secret: 's', crawlerFactor: $crawlerFactor));
+        self::assertSame(4.0, self::policy()->assistedFactor());
+        self::assertSame(1.0, self::policy(assistedFactor: 0)->assistedFactor());
+    }
+
+    private static function policy(int $crawlerFactor = 15, int $assistedFactor = 4): InteractionPolicy
+    {
+        return new InteractionPolicy(new ProofOfWorkConfig(secret: 's', crawlerFactor: $crawlerFactor, assistedFactor: $assistedFactor));
     }
 }

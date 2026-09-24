@@ -105,6 +105,7 @@ readonly class Kernel
 
         $translations = new TranslationLoader($this->botlockRoot . '/translations');
         $middleware = new MiddlewareDispatcher();
+        $policy = new InteractionPolicy($this->pow);
 
         $middleware
             ->add(new ErrorMiddleware)
@@ -116,8 +117,8 @@ readonly class Kernel
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))
             ->add(new ActionMiddleware([
-                'GET challenge' => new ChallengeAction($this->detective, $this->pow, $this->tickets, new InteractionPolicy($this->pow), $this->rate->gcProbability),
-                'POST challenge' => new InteractAction($this->pow, $this->tickets),
+                'GET challenge' => new ChallengeAction($this->detective, $this->pow, $this->tickets, $policy, $this->rate->gcProbability),
+                'POST challenge' => new InteractAction($this->pow, $this->tickets, $policy),
                 'POST verify' => new VerifyAction($this->pow, $this->tickets),
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),

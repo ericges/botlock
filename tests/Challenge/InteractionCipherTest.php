@@ -4,6 +4,7 @@ namespace GES\Botlock\Tests\Challenge;
 
 use GES\Botlock\Challenge\InteractionCipher;
 use GES\Botlock\Tests\Support\Reports;
+use GES\Botlock\Tests\Support\Tracks;
 use PHPUnit\Framework\TestCase;
 
 final class InteractionCipherTest extends TestCase
@@ -17,6 +18,18 @@ final class InteractionCipherTest extends TestCase
 
         self::assertSame(['pos' => 120], InteractionCipher::open($key, self::CID, $sealed['iv'], $sealed['ct']));
         self::assertSame([], InteractionCipher::open($key, self::CID, ...\array_slice(Reports::seal($key, self::CID, []), 1)));
+    }
+
+    public function testOpensAFullSliderReportButNothingNestedDeeper(): void
+    {
+        $key = InteractionCipher::newKey();
+        $report = ['pos' => 150, 'track' => Tracks::humanDrag(150)];
+        $sealed = Reports::seal($key, self::CID, $report);
+
+        self::assertEquals($report, InteractionCipher::open($key, self::CID, $sealed['iv'], $sealed['ct']));
+
+        $deeper = Reports::seal($key, self::CID, ['track' => [[[[[1]]]]]]);
+        self::assertNull(InteractionCipher::open($key, self::CID, $deeper['iv'], $deeper['ct']));
     }
 
     public function testRejectsAnotherKey(): void

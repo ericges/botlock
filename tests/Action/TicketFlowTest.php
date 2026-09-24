@@ -15,6 +15,7 @@ use GES\Botlock\Http\Session;
 use GES\Botlock\Manager\BotTestManager;
 use GES\Botlock\Tests\Support\InMemoryChallengeTicketStore;
 use GES\Botlock\Tests\Support\Reports;
+use GES\Botlock\Tests\Support\Tracks;
 use GES\Botlock\Tests\Support\Requests;
 use PHPUnit\Framework\TestCase;
 
@@ -96,11 +97,25 @@ final class TicketFlowTest extends TestCase
         self::assertIsInt($target);
         self::assertStringNotContainsString('"' . $target . '"', \json_encode($challenge), 'the target is not in the answer');
 
-        $ready = $this->interact($challenge, level: 3, report: ['pos' => $target + 3]);
+        $this->now += 3;
+        $ready = $this->interact($challenge, level: 3, report: self::slide($target + 3));
+        self::assertSame(200, $ready['pow']['max'], 'a drag keeps the difficulty');
 
-        $this->now += 1.5;
         self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 3));
         self::assertSame(3, $this->session->get('grant'));
+    }
+
+    public function testSliderSolvedByKeysGetsAHarderProof(): void
+    {
+        $challenge = $this->challenge(level: 3);
+        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $track = Tracks::keyboard($target);
+
+        $this->now += Tracks::end($track) / 1000 + 1;
+        $ready = $this->interact($challenge, level: 3, report: ['pos' => $target, 'track' => $track]);
+
+        self::assertSame(800, $ready['pow']['max'], 'the difficulty times the assisted factor');
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 3));
     }
 
     public function testMissedSliderSpendsTheTicket(): void
@@ -108,15 +123,44 @@ final class TicketFlowTest extends TestCase
         $challenge = $this->challenge(level: 3);
         $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
 
-        $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: ['pos' => $target + 20]));
-        $this->assertRejected(400, fn() => $this->interact($challenge, level: 3, report: ['pos' => $target]));
+        $this->now += 3;
+        $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: self::slide($target + 20)));
+        $this->assertRejected(400, fn() => $this->interact($challenge, level: 3, report: self::slide($target)));
     }
 
-    public function testSliderWithoutPositionIsRejected(): void
+    public function testSliderWithoutPositionOrTrackIsRejected(): void
+    {
+        foreach ([[], ['pos' => 0], 'no track' => ['pos' => null], 'string pos' => null] as $case => $report) {
+            $challenge = $this->challenge(level: 3);
+            $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+            $report = match ($case) {
+                'no track' => ['pos' => $target],
+                'string pos' => ['pos' => (string) $target, 'track' => Tracks::humanDrag($target)],
+                default => $report,
+            };
+
+            $this->now += 3;
+            $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: $report));
+        }
+    }
+
+    public function testScriptedSlideIsRejectedLikeAMiss(): void
     {
         $challenge = $this->challenge(level: 3);
+        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
 
-        $this->assertRejected(403, fn() => $this->interact($challenge, level: 3));
+        $this->now += 3;
+        $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: ['pos' => $target, 'track' => Tracks::linearDrag($target)]));
+        self::assertSame([], $this->store->tickets, 'the ticket is spent');
+    }
+
+    public function testSlideAnsweredTooSoonIsRejected(): void
+    {
+        $challenge = $this->challenge(level: 3);
+        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+
+        $this->now += 0.5;
+        $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: self::slide($target)));
     }
 
     public function testOnlyInteractiveChallengesCarryAKey(): void
@@ -132,7 +176,7 @@ final class TicketFlowTest extends TestCase
     {
         $challenge = $this->challenge(level: 3);
         $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
-        $action = new InteractAction($this->config, $this->store, fn(): float => $this->now);
+        $action = new InteractAction($this->config, $this->store, new InteractionPolicy($this->config), fn(): float => $this->now);
         $request = $this->request('POST', level: 3, body: ['cid' => $challenge['cid'], 'pos' => $target]);
 
         $this->assertRejected(403, fn() => $action->handle($request));
@@ -271,7 +315,7 @@ final class TicketFlowTest extends TestCase
      */
     private function interact(array $challenge, int $level, array $report = []): array
     {
-        $action = new InteractAction($this->config, $this->store, fn(): float => $this->now);
+        $action = new InteractAction($this->config, $this->store, new InteractionPolicy($this->config), fn(): float => $this->now);
         $body = isset($challenge['key'])
             ? Reports::seal(\base64_decode($challenge['key']), $challenge['cid'], $report)
             : ['cid' => $challenge['cid']];
@@ -332,6 +376,14 @@ final class TicketFlowTest extends TestCase
     private static function session(): Session
     {
         return new Session(secret: 'test-secret', ttl: 300, sub: self::FP, origin: 'https://example.test', host: 'example.test', secure: true);
+    }
+
+    /**
+     * A human-like drag ending at $pos, as the slider's report.
+     */
+    private static function slide(int $pos): array
+    {
+        return ['pos' => $pos, 'track' => Tracks::humanDrag($pos)];
     }
 
     private static function solve(array $pow): array

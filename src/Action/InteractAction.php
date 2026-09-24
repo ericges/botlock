@@ -6,7 +6,10 @@ use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\Interaction;
 use GES\Botlock\Challenge\InteractionCipher;
+use GES\Botlock\Challenge\InteractionPolicy;
 use GES\Botlock\Challenge\SliderPuzzle;
+use GES\Botlock\Challenge\SliderTrack;
+use GES\Botlock\Challenge\SliderVerdict;
 use GES\Botlock\Config\ProofOfWorkConfig;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
@@ -16,10 +19,12 @@ use GES\Botlock\Http\Response\JsonResponse;
 /**
  * POST ?_botlock=challenge — reports the completed interaction of a ticket
  * (body {"cid": …, "iv": …, "ct": …}: the report sealed with the ticket's
- * key, see InteractionCipher; for the slider it holds "pos") and answers
- * with its proof of work. A report that does not open or a slider offset
- * outside the tolerance answers 403 "retry"; the ticket is gone either way,
- * so every guess costs a new challenge.
+ * key, see InteractionCipher; for the slider it holds "pos" and "track")
+ * and answers with its proof of work. A report that does not open, a
+ * slider offset outside the tolerance or a track SliderTrack rejects all
+ * answer the same 403 "retry"; the ticket is gone either way, so every
+ * guess costs a new challenge. A slider moved by keys or track presses
+ * instead of a drag gets a harder proof of work.
  *
  * The ticket is consumed and stored again as interacted, so a concurrent
  * verify of the same ticket cannot slip in between. A threat level that
@@ -34,6 +39,7 @@ final readonly class InteractAction implements ActionHandlerInterface
     public function __construct(
         private ProofOfWorkConfig $config,
         private ChallengeTicketStore $tickets,
+        private InteractionPolicy $policy,
         private ?\Closure $clock = null,
     ) {}
 
@@ -45,7 +51,8 @@ final readonly class InteractAction implements ActionHandlerInterface
         SessionNonce::assertMatches($request);
 
         $data = $request->getJsonBody() ?? [];
-        $ticket = self::redeem($this->tickets, $data['cid'] ?? null, $request, $this->now());
+        $now = $this->now();
+        $ticket = self::redeem($this->tickets, $data['cid'] ?? null, $request, $now);
 
         if (!$ticket->interaction->isInteractive() || $ticket->interacted) {
             throw new JsonResponseException('Invalid challenge', 400);
@@ -53,14 +60,19 @@ final readonly class InteractAction implements ActionHandlerInterface
 
         $report = $ticket->key === null ? null : InteractionCipher::open($ticket->key, $ticket->id, $data['iv'] ?? null, $data['ct'] ?? null);
 
-        if ($report === null
-            || ($ticket->interaction === Interaction::Slider
-                && ($ticket->sliderTarget === null || !SliderPuzzle::accepts($report['pos'] ?? null, $ticket->sliderTarget))))
-        {
+        $verdict = match (true) {
+            $report === null => SliderVerdict::Rejected,
+            $ticket->interaction === Interaction::Slider => self::judgeSlider($ticket, $report, ($now - $ticket->issuedAt) * 1000),
+            default => null,
+        };
+
+        if ($verdict === SliderVerdict::Rejected) {
             throw new JsonResponseException('retry', 403);
         }
 
-        $ticket = $ticket->withInteracted();
+        $ticket = $ticket->withInteracted(
+            $verdict === SliderVerdict::Assisted ? $ticket->difficulty * $this->policy->assistedFactor() : null,
+        );
 
         if (!$this->tickets->save($ticket)) {
             throw new JsonResponseException('Challenge unavailable', 503);
@@ -92,6 +104,21 @@ final readonly class InteractAction implements ActionHandlerInterface
         }
 
         return $ticket;
+    }
+
+    private static function judgeSlider(ChallengeTicket $ticket, array $report, float $elapsedMs): SliderVerdict
+    {
+        $pos = $report['pos'] ?? null;
+
+        if ($ticket->sliderTarget === null
+            || !\is_int($pos)
+            || !SliderPuzzle::accepts($pos, $ticket->sliderTarget)
+            || !($track = SliderTrack::fromArray($report['track'] ?? null)))
+        {
+            return SliderVerdict::Rejected;
+        }
+
+        return $track->judge($pos, $elapsedMs);
     }
 
     private function now(): float

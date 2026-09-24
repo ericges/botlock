@@ -13,9 +13,9 @@ use GES\Botlock\Image\PngEncoder;
  * edges, among distractor shapes shaded the same way, so it is neither the
  * sharpest nor the only piece-sized outline in the picture. One or two decoy
  * gaps on the piece's row are shaded exactly like the real one but have
- * their notches on other sides. This raises the
- * cost for generic automation, it does not stop a determined attacker with
- * image processing.
+ * their notches on other sides. How the slider got there is judged
+ * separately by SliderTrack. This raises the cost for generic automation,
+ * it does not stop a determined attacker with image processing.
  */
 final readonly class SliderPuzzle
 {
