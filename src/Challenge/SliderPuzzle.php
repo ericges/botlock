@@ -68,7 +68,7 @@ final readonly class SliderPuzzle
 
         $waves = self::waves();
         $pixels = self::background();
-        self::distractors($pixels, $waves, $pieceY, [$target, ...\array_column($decoys, 0)]);
+        self::distractors($pixels, $waves, $pieceY, [0, $target, ...\array_column($decoys, 0)]);
         $piece = self::cut($pixels, $target, $pieceY, $shape);
 
         $depth = \random_int(22, 36) / 100;
@@ -243,10 +243,10 @@ final readonly class SliderPuzzle
      * like a gap, so the gap's outline has company of the same contrast.
      * A few sit on the piece's row with about its size, where a solver
      * that knows the row looks, but clear of the gaps so their outlines
-     * stay readable.
+     * stay readable. None touches the piece's start, so it stands out.
      *
      * @param list<array{float, float, float, float}> $waves
-     * @param list<int> $gaps x offsets of the gap and the decoys
+     * @param list<int> $gaps x offsets of the piece's start, the gap and the decoys
      */
     private static function distractors(string &$pixels, array $waves, int $pieceY, array $gaps): void
     {
@@ -254,8 +254,6 @@ final readonly class SliderPuzzle
         $half = \intdiv(self::PIECE, 2);
 
         for ($i = \random_int(10, 14); $i > 0; $i--) {
-            $cx = \random_int(0, self::WIDTH);
-
             if ($i <= $inRow) {
                 $width = \random_int($half - 6, $half + 2);
                 $cx = self::clearOf($gaps, $width);
@@ -265,16 +263,13 @@ final readonly class SliderPuzzle
                 $cy = $pieceY + $half + \random_int(-6, 6);
                 $shape = ['rect', $cx, $cy, $width, \random_int($half - 6, $half + 2), \random_int(6, 12)];
             } else {
-                $cy = \random_int(0, self::HEIGHT);
-                $shape = null;
+                $shape = self::looseShape($pieceY);
+                if ($shape === null) {
+                    continue;
+                }
+                [, $cx, $cy] = $shape;
             }
-
-            $shape ??= match (\random_int(0, 2)) {
-                0 => ['rect', $cx, $cy, \random_int(12, 30), \random_int(12, 30), \random_int(4, 14)],
-                1 => ['circle', $cx, $cy, \random_int(12, 30)],
-                2 => ['arc', $cx, $cy, \random_int(12, 30), \random_int(3, 6), \random_int(0, 359) / 180 * \M_PI],
-            };
-            $reach = (int) \ceil(\max($shape[3], $shape[4] ?? 0) + self::FEATHER + 1);
+            $reach = self::reach($shape);
             $depth = \random_int(22, 36) / 100 * (\random_int(0, 1) === 1 ? 1 : -1);
 
             for ($y = \max(0, $cy - $reach); $y < \min(self::HEIGHT, $cy + $reach); $y++) {
@@ -300,7 +295,7 @@ final readonly class SliderPuzzle
             $cx = \random_int(0, self::WIDTH);
 
             foreach ($gaps as $x) {
-                if (\abs($cx - $x - \intdiv(self::PIECE, 2)) < \intdiv(self::PIECE, 2) + $halfWidth + 2) {
+                if (\abs($cx - $x - \intdiv(self::PIECE, 2)) < \intdiv(self::PIECE, 2) + $halfWidth + 6) {
                     continue 2;
                 }
             }
@@ -309,6 +304,45 @@ final readonly class SliderPuzzle
         }
 
         return null;
+    }
+
+    /**
+     * A rounded rectangle, circle or half ring anywhere but on the piece's
+     * start, or null if none turns up.
+     */
+    private static function looseShape(int $pieceY): ?array
+    {
+        for ($attempt = 0; $attempt < 10; $attempt++) {
+            $cx = \random_int(0, self::WIDTH);
+            $cy = \random_int(0, self::HEIGHT);
+            $shape = match (\random_int(0, 2)) {
+                0 => ['rect', $cx, $cy, \random_int(12, 30), \random_int(12, 30), \random_int(4, 14)],
+                1 => ['circle', $cx, $cy, \random_int(12, 30)],
+                2 => ['arc', $cx, $cy, \random_int(12, 30), \random_int(3, 6), \random_int(0, 359) / 180 * \M_PI],
+            };
+
+            // Clear of the start box by a few pixels.
+            $reach = self::reach($shape) + 4;
+            if ($cx - $reach >= self::PIECE || $cy + $reach <= $pieceY || $cy - $reach >= $pieceY + self::PIECE) {
+                return $shape;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * How far a distractor's shading reaches from its centre.
+     */
+    private static function reach(array $shape): int
+    {
+        $extent = match ($shape[0]) {
+            'rect' => \max($shape[3], $shape[4]),
+            'circle' => $shape[3],
+            'arc' => $shape[3] + $shape[4] / 2,
+        };
+
+        return (int) \ceil($extent + self::FEATHER + 1);
     }
 
     /**
