@@ -13,6 +13,6 @@ enum SliderVerdict
     /** The piece was dragged into place with a human-looking motion. */
     case Drag;
 
-    /** The piece got there by keys or presses on the track, which say less; the proof of work gets harder. */
+    /** The piece got there by keys, which say less; the proof of work gets harder. */
     case Assisted;
 }

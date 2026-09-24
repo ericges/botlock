@@ -14,13 +14,15 @@ namespace GES\Botlock\Challenge;
  *   start time and one sample per value change (time since t0, slider
  *   value, vertical drift in puzzle pixels);
  * - {k: "k", t, v, r}: a key press that moved the slider, r for auto-repeat;
- * - {k: "c", t, d, v}: a press on the track that barely dragged, d long.
+ * - {k: "c", t, d, v}: a press on the handle that barely dragged, d long.
  *
+ * The page only lets the handle be dragged, never jump to a press on the
+ * track, so the value never leaps except by a key to a page or an end.
  * All of it comes from the client, so a determined attacker can forge a
  * plausible track; the rules raise the cost, they do not prove a person.
- * Keyboard and track presses are judged by weaker rules and answered with
- * a harder proof of work instead of being refused, so the slider stays
- * usable without a pointer.
+ * Key presses are judged by weaker rules and answered with a harder proof
+ * of work instead of being refused, so the slider stays usable without a
+ * pointer.
  */
 final readonly class SliderTrack
 {
@@ -59,7 +61,7 @@ final readonly class SliderTrack
     /** Smallest spread of the sample intervals; identical intervals are a timer. */
     private const MIN_INTERVAL_SPREAD_MS = 0.5;
 
-    /** Shortest time between two separate key presses or track presses. */
+    /** Shortest time between two separate key presses or presses on the handle. */
     private const MIN_ACTION_GAP_MS = 40;
 
     /** Tolerance within which three or more gaps between actions count as identical. */
@@ -68,13 +70,13 @@ final readonly class SliderTrack
     /** Shortest delay before a held key starts repeating. */
     private const MIN_REPEAT_DELAY_MS = 150;
 
-    /** Shortest press on the track. */
+    /** Shortest press on the handle. */
     private const MIN_PRESS_MS = 20;
 
     private const POINTER_TYPES = ['mouse', 'pen', 'touch'];
 
     /**
-     * @param list<array{k: string, t: float, end: float, v: int, pt?: string, pts?: list<array{float, int, float}>, r?: bool}> $entries
+     * @param list<array{k: string, t: float, end: float, from: int, v: int, pt?: string, pts?: list<array{float, int, float}>, r?: bool}> $entries
      */
     private function __construct(private array $entries) {}
 
@@ -91,6 +93,7 @@ final readonly class SliderTrack
         $entries = [];
         $samples = 0;
         $previousEnd = 0.0;
+        $value = 0;
 
         foreach ($data as $item) {
             $entry = match (\is_array($item) ? ($item['k'] ?? null) : null) {
@@ -116,7 +119,8 @@ final readonly class SliderTrack
             }
 
             $previousEnd = $entry['end'];
-            $entries[] = $entry;
+            $entries[] = $entry + ['from' => $value];
+            $value = $entry['v'];
         }
 
         return new self($entries);
@@ -134,7 +138,7 @@ final readonly class SliderTrack
             || $last['end'] > $elapsedMs + self::CLOCK_SLACK_MS
             || $this->entries[0]['t'] < self::MIN_REACTION_MS
             || $last['v'] !== $pos
-            || !$this->keysStepPlausibly())
+            || !$this->stepsArePlausible())
         {
             return SliderVerdict::Rejected;
         }
@@ -148,30 +152,52 @@ final readonly class SliderTrack
     }
 
     /**
-     * A key moves the slider by one, by a page (a tenth of the range) or
-     * to either end; anything else did not come from a key.
+     * No value change the input could not have made: a key moves the
+     * slider by one, by a page (a tenth of the range) or to either end, and
+     * a pointer only drags the handle, never faster than a hand, from
+     * where it was.
      */
-    private function keysStepPlausibly(): bool
+    private function stepsArePlausible(): bool
     {
         $max = SliderPuzzle::WIDTH - SliderPuzzle::PIECE;
         $page = (int) \ceil($max / 10) + 1;
-        $value = 0;
 
         foreach ($this->entries as $entry) {
-            if ($entry['k'] === 'k' && \abs($entry['v'] - $value) > $page && !\in_array($entry['v'], [0, $max], true)) {
+            $plausible = match ($entry['k']) {
+                'k' => \abs($entry['v'] - $entry['from']) <= $page || \in_array($entry['v'], [0, $max], true),
+                'c' => \abs($entry['v'] - $entry['from']) <= 2 * self::MAX_STEP_PER_FRAME,
+                'p' => self::dragsSmoothly($entry),
+            };
+
+            if (!$plausible) {
                 return false;
             }
-            $value = $entry['v'];
         }
 
         return true;
     }
 
     /**
-     * The last drag, when it moved the piece over most of the way on its
-     * own: the part before its first sample may be a press on the track.
+     * @param array{from: int, pts: list<array{float, int, float}>} $drag
+     */
+    private static function dragsSmoothly(array $drag): bool
+    {
+        [$time, $value] = [0.0, $drag['from']];
+
+        foreach ($drag['pts'] as [$dt, $v]) {
+            if (\abs($v - $value) > self::MAX_STEP_PER_FRAME * \max($dt - $time, self::FRAME_MS) / self::FRAME_MS) {
+                return false;
+            }
+            [$time, $value] = [$dt, $v];
+        }
+
+        return true;
+    }
+
+    /**
+     * The last drag, when it moved the piece over most of the way on its own.
      *
-     * @return array{k: string, t: float, end: float, v: int, pt: string, pts: list<array{float, int, float}>}|null
+     * @return array{k: string, t: float, end: float, from: int, v: int, pt: string, pts: list<array{float, int, float}>}|null
      */
     private function finalDrag(int $pos): ?array
     {
@@ -181,10 +207,7 @@ final readonly class SliderTrack
                 continue;
             }
 
-            $first = $entry['pts'][0][1];
-            $end = $entry['pts'][\count($entry['pts']) - 1][1];
-
-            return \abs($end - $first) >= self::DRAG_SHARE * $pos ? $entry : null;
+            return \abs($entry['v'] - $entry['from']) >= self::DRAG_SHARE * $pos ? $entry : null;
         }
 
         return null;
@@ -207,17 +230,11 @@ final readonly class SliderTrack
         $speeds = [];
         $drifts = [];
 
-        // The first sample may be the jump of a press on the track; the motion starts there.
+        // Between samples only: the first one's time since the press includes the reaction.
         for ($i = 1; $i < $count; $i++) {
             $interval = $pts[$i][0] - $pts[$i - 1][0];
-            $step = \abs($pts[$i][1] - $pts[$i - 1][1]);
-
-            if ($step > self::MAX_STEP_PER_FRAME * \max($interval, self::FRAME_MS) / self::FRAME_MS) {
-                return false;
-            }
-
             $intervals[] = $interval;
-            $speeds[] = $step / \max($interval, 1.0);
+            $speeds[] = \abs($pts[$i][1] - $pts[$i - 1][1]) / \max($interval, 1.0);
         }
 
         foreach ($pts as [, , $dy]) {

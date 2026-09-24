@@ -23,8 +23,8 @@ use GES\Botlock\Http\Response\JsonResponse;
  * and answers with its proof of work. A report that does not open, a
  * slider offset outside the tolerance or a track SliderTrack rejects all
  * answer the same 403 "retry"; the ticket is gone either way, so every
- * guess costs a new challenge. A slider moved by keys or track presses
- * instead of a drag gets a harder proof of work.
+ * guess costs a new challenge. A slider moved by keys instead of a drag
+ * gets a harder proof of work.
  *
  * The ticket is consumed and stored again as interacted, so a concurrent
  * verify of the same ticket cannot slip in between. A threat level that

@@ -68,9 +68,10 @@ final class Tracks
     }
 
     /**
-     * One press on the track right where the gap is.
+     * One press on the track right where the gap is, jumping the handle
+     * there: the page blocks it, so only a script reports it.
      */
-    public static function click(int $target, float $t = 900.0): array
+    public static function trackPress(int $target, float $t = 900.0): array
     {
         return [['k' => 'c', 't' => $t, 'd' => 85.0, 'v' => $target]];
     }

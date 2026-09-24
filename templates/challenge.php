@@ -233,7 +233,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
             height: 28px;
             margin: 0 0 1.5rem;
             background: transparent;
-            cursor: pointer;
         }
 
         .puzzle-slider::-webkit-slider-runnable-track {
@@ -248,8 +247,10 @@ if (!isset($lang, $trans, $transJson, $e)) {
             background: var(--spinner-bg);
         }
 
+        /* The page script assumes this thumb size (THUMB_SIZE). */
         .puzzle-slider::-webkit-slider-thumb {
             -webkit-appearance: none;
+            cursor: grab;
             width: 28px;
             height: 28px;
             margin-top: -11px;
@@ -259,6 +260,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         }
 
         .puzzle-slider::-moz-range-thumb {
+            cursor: grab;
             width: 28px;
             height: 28px;
             border: 0;
@@ -565,7 +567,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
 
     // Records how the slider was moved, for the server to judge: each drag
     // as {k: 'p', pt, t0, pts: [[dt, value, dy], …], co}, each key press
-    // that moved it as {k: 'k', t, v, r}, and each press on the track that
+    // that moved it as {k: 'k', t, v, r}, and each press on the handle that
     // barely dragged as {k: 'c', t, d, v}. Times are milliseconds since the
     // puzzle was shown; dy is the pointer's vertical drift in puzzle pixels.
     function recordTrack(slider, frame, width, signal) {
@@ -586,7 +588,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         const trusted = (listener) => (event) => event.isTrusted && listener(event);
 
         slider.addEventListener('pointerdown', trusted((event) => {
-            if (!event.isPrimary) {
+            if (!event.isPrimary || event.defaultPrevented) {
                 return;
             }
             stroke = {
@@ -643,7 +645,30 @@ if (!isset($lang, $trans, $transJson, $e)) {
         return track;
     }
 
-    // The range input works by dragging, arrow keys or a click on the track.
+    const THUMB_SIZE = 28;
+
+    // Only the handle moves the piece: a press elsewhere on the track would
+    // make the range input jump there, which the server takes for a script.
+    // Fingers get a wider margin than a mouse or pen.
+    function lockToThumb(slider, signal) {
+        const onThumb = (clientX, pointerType) => {
+            const rect = slider.getBoundingClientRect();
+            const center = rect.left + THUMB_SIZE / 2 + slider.value / slider.max * (rect.width - THUMB_SIZE);
+            const margin = pointerType === 'touch' ? 12 : 4;
+            return Math.abs(clientX - center) <= THUMB_SIZE / 2 + margin;
+        };
+        const block = (clientX, pointerType) => (event) => {
+            if (!onThumb(clientX(event), pointerType(event))) {
+                event.preventDefault();
+            }
+        };
+
+        slider.addEventListener('pointerdown', block((e) => e.clientX, (e) => e.pointerType), { signal });
+        slider.addEventListener('mousedown', block((e) => e.clientX, () => 'mouse'), { signal });
+        slider.addEventListener('touchstart', block((e) => e.touches[0].clientX, () => 'touch'), { signal, passive: false });
+    }
+
+    // The range input works by dragging its handle or by the arrow keys.
     function showSlider(challenge, nonce, attempt, retried) {
         const { puzzle } = challenge;
 
@@ -687,6 +712,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         button.className = 'verify-button';
         button.textContent = trans.sliderSubmit;
         const recording = new AbortController();
+        lockToThumb(slider, recording.signal);
         const track = recordTrack(slider, frame, puzzle.width, recording.signal);
 
         button.addEventListener('click', () => {

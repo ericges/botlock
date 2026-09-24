@@ -104,7 +104,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_EXPIRE` | `3600` | Session lifetime in seconds. A challenge ticket always expires after five minutes. |
 | `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
 | `BOTLOCK_CRAWLER_FACTOR` | `15` | Multiplies proof-of-work difficulty for crawlers that are not listed as good bots. The effective minimum is `1`. |
-| `BOTLOCK_SLIDER_ASSISTED_FACTOR` | `4` | Multiplies proof-of-work difficulty when the slider captcha was solved with the keyboard or by clicking the track instead of dragging, on top of any crawler factor. The effective minimum is `1`. |
+| `BOTLOCK_SLIDER_ASSISTED_FACTOR` | `4` | Multiplies proof-of-work difficulty when the slider captcha was solved with the keyboard instead of dragging, on top of any crawler factor. The effective minimum is `1`. |
 | `BOTLOCK_MIN_SOLVE_MS` | `1000` | Minimum time in milliseconds between issuing a challenge and accepting its solution. Faster solutions are rejected and spend the ticket; the challenge page waits out the rest of this time before it submits. `0` disables the check. |
 
 ### Language
@@ -185,8 +185,9 @@ listed in `BOTLOCK_VERIFY_BOTS`, passed the DNS check; a failed check raises the
 request to at least level `2`.
 
 The slider captcha shows a picture with a gap and a matching piece that the
-visitor slides into place with the slider below it, by dragging its handle, with
-the arrow keys or by clicking the track, with the mouse or by touch. The target position stays on the server. The piece
+visitor slides into place with the slider below it, by dragging its handle with
+the mouse or by touch, or with the arrow keys; a press elsewhere on the track
+does not jump the handle there. The target position stays on the server. The piece
 comes in one of ten notch layouts. Its gap is shaded faintly and unevenly with
 soft edges, among distractor shapes shaded the same way, and one or two decoy gaps
 on the same row look alike except for notches on other sides; sliding onto a decoy
@@ -194,7 +195,7 @@ counts as a miss. The page also reports how the slider was moved, and the
 server judges that track with plain rules: a drag must take a plausible time,
 drift a little vertically, speed up and slow down instead of gliding evenly,
 and not jump, and the time it claims must fit into the time the server saw
-pass. Keyboard and track clicks say less about the visitor, so they pass
+pass. Key presses say less about the visitor, so they pass
 looser checks and pay with a harder proof of work instead. A track that fails
 counts as a miss too, with the same answer, so a script cannot tell which
 check it tripped. It makes generic automation more expensive; like every self-hosted captcha it does

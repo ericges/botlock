@@ -22,7 +22,7 @@ final readonly class ProofOfWorkConfig
         public int    $crawlerFactor = 15,
         /** Minimum milliseconds between issuing a challenge and accepting its solution. */
         public int    $minSolveMs = 1000,
-        /** Difficulty multiplier for slider solves by keys or track presses instead of a drag; clamped to >= 1. */
+        /** Difficulty multiplier for slider solves by keys instead of a drag; clamped to >= 1. */
         public int    $assistedFactor = 4,
     ) {
         if (!\in_array($this->algorithm, self::ALLOWED_ALGORITHMS, true)) {

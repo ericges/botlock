@@ -34,14 +34,26 @@ final class SliderTrackTest extends TestCase
         self::assertSame(SliderVerdict::Drag, self::judge($track));
     }
 
-    public function testKeyboardAndTrackPressesAreAssisted(): void
+    public function testKeyboardSolvesAreAssisted(): void
     {
         self::assertSame(SliderVerdict::Assisted, self::judge(Tracks::keyboard(self::TARGET)));
-        self::assertSame(SliderVerdict::Assisted, self::judge(Tracks::click(self::TARGET)));
+
+        $nudged = Tracks::keyboard(self::TARGET - 3);
+        $nudged[] = ['k' => 'c', 't' => Tracks::end($nudged) + 600, 'd' => 90.0, 'v' => self::TARGET];
+        self::assertSame(SliderVerdict::Assisted, self::judge($nudged), 'keys, then a nudge of the handle');
+    }
+
+    public function testJumpsToAPressOnTheTrackAreRejected(): void
+    {
+        self::assertSame(SliderVerdict::Rejected, self::judge(Tracks::trackPress(self::TARGET)), 'a press right on the gap');
 
         $pressThenDrag = Tracks::humanDrag(60);
         $pressThenDrag[0]['pts'] = \array_map(fn(array $p): array => [$p[0], $p[1] + 90, $p[2]], $pressThenDrag[0]['pts']);
-        self::assertSame(SliderVerdict::Assisted, self::judge($pressThenDrag), 'a press on the track, then a short drag');
+        self::assertSame(SliderVerdict::Rejected, self::judge($pressThenDrag), 'a press on the track, then a short drag');
+
+        $jumpAfterDrag = Tracks::humanDrag(20, durationMs: 400);
+        $jumpAfterDrag[] = ['k' => 'c', 't' => Tracks::end($jumpAfterDrag) + 500, 'd' => 90.0, 'v' => self::TARGET];
+        self::assertSame(SliderVerdict::Rejected, self::judge($jumpAfterDrag), 'a drag, then a press on the gap');
     }
 
     public function testScriptedDragsAreRejected(): void
@@ -115,7 +127,8 @@ final class SliderTrackTest extends TestCase
         $leap = [['k' => 'k', 't' => 700.0, 'v' => self::TARGET, 'r' => false]];
         self::assertSame(SliderVerdict::Rejected, self::judge($leap), 'a key that leaps to the target');
 
-        $tap = [['k' => 'c', 't' => 900.0, 'd' => 3.0, 'v' => self::TARGET]];
+        $tap = Tracks::keyboard(self::TARGET - 3);
+        $tap[] = ['k' => 'c', 't' => Tracks::end($tap) + 600, 'd' => 3.0, 'v' => self::TARGET];
         self::assertSame(SliderVerdict::Rejected, self::judge($tap), 'a 3 ms press');
     }
 

@@ -15,7 +15,7 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  * | untrusted crawler    | click  | click | slider |
  * | trusted good bot     | none   | none  | none   |
  *
- * A slider moved by keys or track presses instead of a drag multiplies
+ * A slider moved by keys instead of a drag multiplies
  * the difficulty by the assisted factor on top.
  */
 final readonly class InteractionPolicy
