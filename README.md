@@ -184,8 +184,8 @@ listed in `BOTLOCK_VERIFY_BOTS`, passed the DNS check; a failed check raises the
 request to at least level `2`.
 
 The slider captcha shows a picture with a gap and a matching piece that the
-visitor slides into place. It works with the mouse, by touch, with the arrow keys
-or by clicking the track. The target position stays on the server. The piece
+visitor slides into place. The piece can be dragged directly, or moved with the
+slider handle, the arrow keys or a click on the track, by mouse or touch. The target position stays on the server. The piece
 comes in one of ten notch layouts. Its gap is shaded faintly and unevenly with
 soft edges, among distractor shapes shaded the same way, and one or two decoy gaps
 on the same row look alike except for notches on other sides; sliding onto a decoy

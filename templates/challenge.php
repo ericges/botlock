@@ -32,6 +32,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
             --noscript-color: #d8000c;
             --error-color: #d8000c;
             --success-color: #28a745;
+            --slider-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E");
         }
 
         @media (prefers-color-scheme: dark) {
@@ -46,6 +47,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
                 --noscript-color: #ff7076;
                 --error-color: #ff7076;
                 --success-color: #5cb85c;
+                --slider-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23202124' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E");
             }
         }
 
@@ -186,6 +188,13 @@ if (!isset($lang, $trans, $transJson, $e)) {
             left: 0;
             height: auto;
             filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 1px 3px rgba(0, 0, 0, .75));
+            touch-action: none;
+            user-select: none;
+            cursor: grab;
+        }
+
+        .puzzle-piece.is-dragging {
+            cursor: grabbing;
         }
 
         .puzzle-piece.is-hinting {
@@ -209,10 +218,55 @@ if (!isset($lang, $trans, $transJson, $e)) {
         }
 
         .puzzle-slider {
+            -webkit-appearance: none;
+            appearance: none;
             width: 100%;
             max-width: 280px;
+            height: 28px;
             margin: 0 0 1.5rem;
-            accent-color: var(--title-color);
+            background: transparent;
+            cursor: pointer;
+        }
+
+        .puzzle-slider::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--spinner-bg);
+        }
+
+        .puzzle-slider::-moz-range-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--spinner-bg);
+        }
+
+        .puzzle-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 28px;
+            height: 28px;
+            margin-top: -11px;
+            border-radius: 50%;
+            background: var(--title-color) var(--slider-arrow) center / 18px no-repeat;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+        }
+
+        .puzzle-slider::-moz-range-thumb {
+            width: 28px;
+            height: 28px;
+            border: 0;
+            border-radius: 50%;
+            background: var(--title-color) var(--slider-arrow) center / 18px no-repeat;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+        }
+
+        .puzzle-slider:focus {
+            outline: none;
+        }
+
+        .puzzle-slider:focus-visible {
+            outline: 2px solid var(--title-color);
+            outline-offset: 4px;
+            border-radius: 14px;
         }
 
     </style>
@@ -480,7 +534,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
         button.focus();
     }
 
-    // The range input works by dragging, arrow keys or a click on the track.
+    // The range input works by dragging, arrow keys or a click on the track;
+    // dragging the piece itself moves the range input along.
     function showSlider(challenge, nonce, attempt, retried) {
         const { puzzle } = challenge;
 
@@ -500,6 +555,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         piece.className = 'puzzle-piece';
         piece.alt = '';
         piece.src = puzzle.piece;
+        piece.draggable = false;
         piece.style.width = `${puzzle.size / puzzle.width * 100}%`;
         piece.style.top = `${puzzle.y / puzzle.height * 100}%`;
 
@@ -527,6 +583,30 @@ if (!isset($lang, $trans, $transJson, $e)) {
             slider.addEventListener(type, stopHint, { once: true });
         }
         move();
+
+        let drag = null;
+        piece.addEventListener('pointerdown', (event) => {
+            stopHint();
+            drag = { x: event.clientX, value: Number(slider.value) };
+            piece.setPointerCapture(event.pointerId);
+            piece.classList.add('is-dragging');
+            event.preventDefault();
+        });
+        piece.addEventListener('pointermove', (event) => {
+            if (drag === null) {
+                return;
+            }
+            const scale = puzzle.width / frame.clientWidth;
+            const value = Math.round(drag.value + (event.clientX - drag.x) * scale);
+            slider.value = String(Math.min(Number(slider.max), Math.max(0, value)));
+            move();
+        });
+        const endDrag = () => {
+            drag = null;
+            piece.classList.remove('is-dragging');
+        };
+        piece.addEventListener('pointerup', endDrag);
+        piece.addEventListener('pointercancel', endDrag);
 
         const button = document.createElement('button');
         button.type = 'button';
