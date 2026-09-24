@@ -185,7 +185,27 @@ if (!isset($lang, $trans, $transJson, $e)) {
             position: absolute;
             left: 0;
             height: auto;
-            filter: drop-shadow(0 0 3px rgba(0, 0, 0, .6));
+            filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 1px 3px rgba(0, 0, 0, .75));
+        }
+
+        .puzzle-piece.is-hinting {
+            animation: puzzle-hint 1.1s ease-in-out .4s 2;
+        }
+
+        @keyframes puzzle-hint {
+            0%, 100% {
+                transform: translateX(0);
+            }
+
+            50% {
+                transform: translateX(14px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .puzzle-piece.is-hinting {
+                animation: none;
+            }
         }
 
         .puzzle-slider {
@@ -483,6 +503,11 @@ if (!isset($lang, $trans, $transJson, $e)) {
         piece.style.width = `${puzzle.size / puzzle.width * 100}%`;
         piece.style.top = `${puzzle.y / puzzle.height * 100}%`;
 
+        // A short nudge shows what to move, until the visitor starts.
+        piece.classList.add('is-hinting');
+        const stopHint = () => piece.classList.remove('is-hinting');
+        piece.addEventListener('animationend', stopHint, { once: true });
+
         frame.append(background, piece);
 
         const slider = document.createElement('input');
@@ -498,6 +523,9 @@ if (!isset($lang, $trans, $transJson, $e)) {
             piece.style.left = `${slider.value / puzzle.width * 100}%`;
         };
         slider.addEventListener('input', move);
+        for (const type of ['input', 'keydown', 'pointerdown']) {
+            slider.addEventListener(type, stopHint, { once: true });
+        }
         move();
 
         const button = document.createElement('button');
