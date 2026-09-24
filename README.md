@@ -185,8 +185,11 @@ request to at least level `2`.
 
 The slider captcha shows a picture with a gap and a matching piece that the
 visitor slides into place. It works with the mouse, by touch, with the arrow keys
-or by clicking the track. The target position stays on the server. It
-makes generic automation more expensive; like every self-hosted captcha it does
+or by clicking the track. The target position stays on the server. The piece
+comes in one of ten notch layouts. Its gap is shaded faintly and unevenly with
+soft edges, among distractor shapes shaded the same way, and one or two decoy gaps
+on the same row look alike except for notches on other sides; sliding onto a decoy
+counts as a miss. It makes generic automation more expensive; like every self-hosted captcha it does
 not stop a determined attacker with image processing, and visitors who cannot
 see the picture cannot solve it, so level `3` should stay reserved for real abuse.
 

@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Bekräfta att du inte är en robot för att fortsätta.',
     'verifyButton' => 'Bekräfta',
     'sliderHeading' => 'Säkerhetskontroll',
-    'sliderParagraph' => 'Flytta reglaget tills biten passar in i luckan i bilden.',
+    'sliderParagraph' => 'Flytta reglaget tills biten passar in i luckan med samma form.',
     'sliderLabel' => 'Bitens position',
     'sliderSubmit' => 'Bekräfta',
     'sliderRetry' => 'Det passade inte. Försök igen med den nya bilden.',

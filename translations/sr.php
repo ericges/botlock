@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Da biste nastavili, potvrdite da niste robot.',
     'verifyButton' => 'Potvrdi',
     'sliderHeading' => 'Безбедносна провера',
-    'sliderParagraph' => 'Померајте клизач док се део не уклопи у празнину на слици.',
+    'sliderParagraph' => 'Померајте клизач док се део не уклопи у празнину истог облика.',
     'sliderLabel' => 'Положај дела',
     'sliderSubmit' => 'Потврди',
     'sliderRetry' => 'Није се уклопило. Покушајте поново са новом сликом.',

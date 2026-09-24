@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Para continuar, confirme que não é um robô.',
     'verifyButton' => 'Verificar',
     'sliderHeading' => 'Verificação de segurança',
-    'sliderParagraph' => 'Mova o controlo deslizante até a peça encaixar no espaço da imagem.',
+    'sliderParagraph' => 'Mova o controlo deslizante até a peça encaixar no espaço com a mesma forma.',
     'sliderLabel' => 'Posição da peça',
     'sliderSubmit' => 'Confirmar',
     'sliderRetry' => 'Não encaixou. Tente novamente com a nova imagem.',

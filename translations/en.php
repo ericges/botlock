@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Please confirm that you are not a robot to continue.',
     'verifyButton' => 'Verify',
     'sliderHeading' => 'Security Check',
-    'sliderParagraph' => 'Move the slider until the piece fits into the gap in the picture.',
+    'sliderParagraph' => 'Move the slider until the piece fits into the gap with the same shape.',
     'sliderLabel' => 'Piece position',
     'sliderSubmit' => 'Confirm',
     'sliderRetry' => 'That did not fit. Please try again with the new picture.',

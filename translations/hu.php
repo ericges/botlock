@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'A folytatáshoz erősítse meg, hogy Ön nem robot.',
     'verifyButton' => 'Megerősítés',
     'sliderHeading' => 'Biztonsági ellenőrzés',
-    'sliderParagraph' => 'Mozgassa a csúszkát, amíg a darab bele nem illik a kép résébe.',
+    'sliderParagraph' => 'Mozgassa a csúszkát, amíg a darab bele nem illik az azonos alakú résbe.',
     'sliderLabel' => 'A darab helyzete',
     'sliderSubmit' => 'Megerősítés',
     'sliderRetry' => 'Nem illett bele. Kérjük, próbálja újra az új képpel.',

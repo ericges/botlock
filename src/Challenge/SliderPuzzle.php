@@ -11,7 +11,9 @@ use GES\Botlock\Image\PngEncoder;
  * The target offset only exists in the ticket; the images are the only
  * thing the client gets. The gap is shaded faintly and unevenly with soft
  * edges, among distractor shapes shaded the same way, so it is neither the
- * sharpest nor the only piece-sized outline in the picture. This raises the
+ * sharpest nor the only piece-sized outline in the picture. One or two decoy
+ * gaps on the piece's row are shaded exactly like the real one but have
+ * their notches on other sides. This raises the
  * cost for generic automation, it does not stop a determined attacker with
  * image processing.
  */
@@ -32,18 +34,27 @@ final readonly class SliderPuzzle
     /** Width in pixels over which a gap fades in from its outline. */
     private const FEATHER = 2.5;
 
+    /** Minimum horizontal distance between two gaps. */
+    private const GAP_SPACING = self::PIECE + 6;
+
     /** Sides of the piece that carry a round notch, per shape. */
-    private const SHAPES = [
-        ['left'],
+    public const SHAPES = [
+        ['left'], ['top'], ['right'], ['bottom'],
+        ['left', 'top'], ['left', 'right'], ['left', 'bottom'],
+        ['top', 'right'], ['top', 'bottom'], ['right', 'bottom'],
     ];
 
     /**
      * @param int $target x offset of the gap
-     * @param int $pieceY y offset of the piece and the gap
+     * @param int $pieceY y offset of the piece and all gaps
+     * @param int $shape index into SHAPES of the piece and its gap
+     * @param list<array{int, int}> $decoys x offset and shape of each decoy gap
      */
     private function __construct(
         public int $target,
         public int $pieceY,
+        public int $shape,
+        public array $decoys,
         private string $background,
         private string $piece,
     ) {}
@@ -52,20 +63,26 @@ final readonly class SliderPuzzle
     {
         $target = \random_int(self::MIN_TARGET, self::WIDTH - self::PIECE - self::MARGIN);
         $pieceY = \random_int(self::MARGIN, self::HEIGHT - self::PIECE - self::MARGIN);
-        $shape = 0;
+        $shape = \random_int(0, \count(self::SHAPES) - 1);
+        $decoys = self::decoys($target, $shape);
 
         $waves = self::waves();
         $pixels = self::background();
-        self::distractors($pixels, $waves, $pieceY);
+        self::distractors($pixels, $waves, $pieceY, [$target, ...\array_column($decoys, 0)]);
         $piece = self::cut($pixels, $target, $pieceY, $shape);
 
         $depth = \random_int(22, 36) / 100;
         self::carve($pixels, $target, $pieceY, $shape, $depth, $waves);
+        foreach ($decoys as [$x, $decoyShape]) {
+            self::carve($pixels, $x, $pieceY, $decoyShape, $depth, $waves);
+        }
         self::overlay($pixels);
 
         return new self(
             $target,
             $pieceY,
+            $shape,
+            $decoys,
             PngEncoder::encode(self::WIDTH, self::HEIGHT, $pixels),
             PngEncoder::encode(self::PIECE, self::PIECE, $piece, true),
         );
@@ -93,6 +110,44 @@ final readonly class SliderPuzzle
             'size' => self::PIECE,
             'y' => $this->pieceY,
         ];
+    }
+
+    /**
+     * One or two decoy gaps on the piece's row, spaced apart from the gap
+     * and each other, whose notches differ from the piece's and each
+     * other's on at least two sides.
+     *
+     * @return list<array{int, int}>
+     */
+    private static function decoys(int $target, int $shape): array
+    {
+        $taken = [[$target, $shape]];
+        $wanted = \random_int(1, 2);
+
+        for ($attempt = 0; $attempt < 50 && \count($taken) <= $wanted; $attempt++) {
+            $x = \random_int(self::PIECE + self::MARGIN, self::WIDTH - self::PIECE - self::MARGIN);
+            $candidate = \random_int(0, \count(self::SHAPES) - 1);
+
+            foreach ($taken as [$otherX, $otherShape]) {
+                if (\abs($x - $otherX) < self::GAP_SPACING || !self::isDistinct($candidate, $otherShape)) {
+                    continue 2;
+                }
+            }
+
+            $taken[] = [$x, $candidate];
+        }
+
+        return \array_slice($taken, 1);
+    }
+
+    /**
+     * Whether two shapes differ in at least two notches.
+     */
+    public static function isDistinct(int $a, int $b): bool
+    {
+        $difference = \array_merge(\array_diff(self::SHAPES[$a], self::SHAPES[$b]), \array_diff(self::SHAPES[$b], self::SHAPES[$a]));
+
+        return \count($difference) >= 2;
     }
 
     /**
@@ -187,21 +242,28 @@ final readonly class SliderPuzzle
      * Rounded rectangles, circles and half rings, darkened or lightened
      * like a gap, so the gap's outline has company of the same contrast.
      * A few sit on the piece's row with about its size, where a solver
-     * that knows the row looks.
+     * that knows the row looks, but clear of the gaps so their outlines
+     * stay readable.
      *
      * @param list<array{float, float, float, float}> $waves
+     * @param list<int> $gaps x offsets of the gap and the decoys
      */
-    private static function distractors(string &$pixels, array $waves, int $pieceY): void
+    private static function distractors(string &$pixels, array $waves, int $pieceY, array $gaps): void
     {
-        $inRow = \random_int(3, 5);
+        $inRow = \random_int(2, 3);
+        $half = \intdiv(self::PIECE, 2);
 
         for ($i = \random_int(10, 14); $i > 0; $i--) {
             $cx = \random_int(0, self::WIDTH);
 
             if ($i <= $inRow) {
-                $cy = $pieceY + \intdiv(self::PIECE, 2) + \random_int(-6, 6);
-                $half = \intdiv(self::PIECE, 2);
-                $shape = ['rect', $cx, $cy, \random_int($half - 6, $half + 2), \random_int($half - 6, $half + 2), \random_int(6, 12)];
+                $width = \random_int($half - 6, $half + 2);
+                $cx = self::clearOf($gaps, $width);
+                if ($cx === null) {
+                    continue;
+                }
+                $cy = $pieceY + $half + \random_int(-6, 6);
+                $shape = ['rect', $cx, $cy, $width, \random_int($half - 6, $half + 2), \random_int(6, 12)];
             } else {
                 $cy = \random_int(0, self::HEIGHT);
                 $shape = null;
@@ -224,6 +286,29 @@ final readonly class SliderPuzzle
                 }
             }
         }
+    }
+
+    /**
+     * A random centre for a shape of the given half width that keeps clear
+     * of the gaps, or null if none turns up.
+     *
+     * @param list<int> $gaps
+     */
+    private static function clearOf(array $gaps, int $halfWidth): ?int
+    {
+        for ($attempt = 0; $attempt < 20; $attempt++) {
+            $cx = \random_int(0, self::WIDTH);
+
+            foreach ($gaps as $x) {
+                if (\abs($cx - $x - \intdiv(self::PIECE, 2)) < \intdiv(self::PIECE, 2) + $halfWidth + 2) {
+                    continue 2;
+                }
+            }
+
+            return $cx;
+        }
+
+        return null;
     }
 
     /**

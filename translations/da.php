@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Bekræft, at du ikke er en robot, for at fortsætte.',
     'verifyButton' => 'Bekræft',
     'sliderHeading' => 'Sikkerhedstjek',
-    'sliderParagraph' => 'Flyt skyderen, indtil brikken passer ind i hullet i billedet.',
+    'sliderParagraph' => 'Flyt skyderen, indtil brikken passer ind i hullet med samme form.',
     'sliderLabel' => 'Brikkens position',
     'sliderSubmit' => 'Bekræft',
     'sliderRetry' => 'Det passede ikke. Prøv igen med det nye billede.',

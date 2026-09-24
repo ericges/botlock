@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Bitte bestätigen Sie, dass Sie kein Roboter sind, um fortzufahren.',
     'verifyButton' => 'Überprüfen',
     'sliderHeading' => 'Sicherheitsüberprüfung',
-    'sliderParagraph' => 'Bewegen Sie den Schieberegler, bis das Puzzleteil in die Lücke im Bild passt.',
+    'sliderParagraph' => 'Bewegen Sie den Schieberegler, bis das Puzzleteil in die Lücke mit derselben Form passt.',
     'sliderLabel' => 'Position des Puzzleteils',
     'sliderSubmit' => 'Bestätigen',
     'sliderRetry' => 'Das hat nicht gepasst. Bitte versuchen Sie es mit dem neuen Bild noch einmal.',

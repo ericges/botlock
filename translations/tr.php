@@ -10,7 +10,7 @@ return [
     'confirmParagraph' => 'Devam etmek için lütfen robot olmadığınızı doğrulayın.',
     'verifyButton' => 'Doğrula',
     'sliderHeading' => 'Güvenlik Kontrolü',
-    'sliderParagraph' => 'Parça resimdeki boşluğa oturana kadar kaydırıcıyı hareket ettirin.',
+    'sliderParagraph' => 'Parça aynı şekildeki boşluğa oturana kadar kaydırıcıyı hareket ettirin.',
     'sliderLabel' => 'Parçanın konumu',
     'sliderSubmit' => 'Onayla',
     'sliderRetry' => 'Parça oturmadı. Lütfen yeni resimle tekrar deneyin.',
