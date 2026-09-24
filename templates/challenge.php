@@ -178,14 +178,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
         }
 
         .puzzle-error {
-            box-sizing: border-box;
-            width: 100%;
-            margin-bottom: 1rem;
-            padding: .6rem .8rem;
+            margin: -1rem 0 1rem;
             color: var(--error-color);
-            background: var(--noscript-bg);
-            border: 1px solid var(--error-color);
-            border-radius: .25rem;
             text-wrap: balance;
         }
 
