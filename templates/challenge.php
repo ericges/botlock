@@ -180,7 +180,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
         .puzzle-error {
             box-sizing: border-box;
             width: 100%;
-            max-width: 280px;
             margin-bottom: 1rem;
             padding: .6rem .8rem;
             color: var(--error-color);
