@@ -88,13 +88,9 @@ final readonly class SliderPuzzle
         );
     }
 
-    public static function accepts(mixed $position, int $target): bool
+    public static function accepts(int $position, int $target): bool
     {
-        if (\is_string($position) && \ctype_digit($position)) {
-            $position = (int) $position;
-        }
-
-        return \is_int($position) && \abs($position - $target) <= self::TOLERANCE;
+        return \abs($position - $target) <= self::TOLERANCE;
     }
 
     /**

@@ -79,10 +79,15 @@ final class SliderPuzzleTest extends TestCase
     {
         self::assertTrue(SliderPuzzle::accepts(100, 100));
         self::assertTrue(SliderPuzzle::accepts(100 + SliderPuzzle::TOLERANCE, 100));
-        self::assertTrue(SliderPuzzle::accepts('97', 100));
+        self::assertTrue(SliderPuzzle::accepts(100 - SliderPuzzle::TOLERANCE, 100));
         self::assertFalse(SliderPuzzle::accepts(100 + SliderPuzzle::TOLERANCE + 1, 100));
-        self::assertFalse(SliderPuzzle::accepts(null, 100));
-        self::assertFalse(SliderPuzzle::accepts('100.0', 100));
-        self::assertFalse(SliderPuzzle::accepts([100], 100));
+        self::assertFalse(SliderPuzzle::accepts(100 - SliderPuzzle::TOLERANCE - 1, 100));
+    }
+
+    public function testOnlyIntegerPositionsAreAccepted(): void
+    {
+        $this->expectException(\TypeError::class);
+
+        SliderPuzzle::accepts('97', 100);
     }
 }
