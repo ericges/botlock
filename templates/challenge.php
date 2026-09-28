@@ -348,7 +348,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
     // The threat level rose above the one the challenge was issued for: start over.
     class RestartError extends Error {}
 
-    // The slider missed the gap; the ticket is spent, a new puzzle follows.
+    // A 403 "retry": the interaction was not accepted (a missed slider, or a
+    // report that did not open); the ticket is spent, a new challenge follows.
     class RetryError extends Error {}
 
     // The client used up its slider puzzles for now; Retry-After says for how long.
@@ -480,7 +481,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
         infoElement.textContent = trans.infoParagraph;
     }
 
-    function handleFailure(error, attempt) {
+    // interaction: the one that failed ('click' or 'slider'), null when none had started.
+    function handleFailure(error, attempt, interaction = null) {
         if (error instanceof BlockedError) {
             showBlocked(error.seconds);
             return;
@@ -499,7 +501,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
 
         if ((error instanceof RestartError || error instanceof RetryError) && attempt < MAX_ATTEMPTS) {
             showWorking();
-            botlock(attempt + 1, error instanceof RetryError).catch((error) => {
+            // "Missed" belongs above a new puzzle only after a slider that missed.
+            botlock(attempt + 1, error instanceof RetryError && interaction === 'slider').catch((error) => {
                 console.error(error);
                 showError();
             });
@@ -568,7 +571,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
             showWorking();
             completeInteraction(challenge, nonce)
                 .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
-                .catch((error) => handleFailure(error, attempt));
+                .catch((error) => handleFailure(error, attempt, 'click'));
         }, { once: true });
 
         widgetElement.replaceChildren(button);
@@ -730,7 +733,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
             showWorking();
             completeInteraction(challenge, nonce, { pos: Number(slider.value), track })
                 .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
-                .catch((error) => handleFailure(error, attempt));
+                .catch((error) => handleFailure(error, attempt, 'slider'));
         }, { once: true });
 
         // Nothing to confirm while the piece is still at its start.

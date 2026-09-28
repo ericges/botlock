@@ -214,6 +214,16 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('error instanceof BusyError && attempt < MAX_ATTEMPTS', $body);
     }
 
+    public function testOnlyASliderMissShowsTheMissedMessage(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertStringContainsString('function handleFailure(error, attempt, interaction = null)', $body);
+        self::assertStringContainsString("botlock(attempt + 1, error instanceof RetryError && interaction === 'slider')", $body);
+        self::assertStringContainsString("handleFailure(error, attempt, 'click')", $body);
+        self::assertStringContainsString("handleFailure(error, attempt, 'slider')", $body);
+    }
+
     private function middleware(?string $template = null, ?RenderedPageCache $cache = null): ChallengeDocumentMiddleware
     {
         return new ChallengeDocumentMiddleware(new LocalizedPage(
