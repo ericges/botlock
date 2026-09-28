@@ -83,6 +83,19 @@ final class ThreatBlockMiddlewareTest extends TestCase
         self::assertStringContainsString('data-retry-template="Sie können es {time} erneut versuchen."', $body);
     }
 
+    public function testBlockedPageAsksForRetryAfterWithHead(): void
+    {
+        $request = Requests::make(headers: ['Accept' => 'text/html']);
+        $request->context->threatLevel = 4;
+
+        $body = (string) $this->middleware()->process($request, self::failingNext())->getBody();
+
+        self::assertStringContainsString("fetch(location.href, { method: 'HEAD'", $body);
+        self::assertStringContainsString("response.headers.get('Retry-After')", $body);
+        self::assertStringContainsString('new Intl.RelativeTimeFormat(', $body);
+        self::assertStringContainsString("note.dataset.retryTemplate.replace('{time}', time)", $body);
+    }
+
     public function testSecondBrowserRequestIsServedFromCache(): void
     {
         $middleware = $this->middleware();

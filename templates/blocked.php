@@ -51,5 +51,31 @@ if (!isset($lang, $trans, $e)) {
     <p id="footer-note"><?= $e($trans['blockedFooter']) ?></p>
 </div>
 
+<script>
+    // A page cannot read its own response headers, so ask again for Retry-After.
+    // Any failure keeps the generic wait note; there is no countdown and no reload.
+    (() => {
+        const note = document.getElementById('retry-note');
+        const lang = document.documentElement.lang;
+
+        fetch(location.href, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' })
+            .then((response) => {
+                const seconds = Number(response.headers.get('Retry-After'));
+
+                // Also skips a missing header (0) and the HTTP-date form (NaN).
+                if (response.status !== 429 || !Number.isInteger(seconds) || seconds < 1) {
+                    return;
+                }
+
+                // Plain "sr" formats in Cyrillic; the Serbian strings are Latin.
+                const format = new Intl.RelativeTimeFormat(lang === 'sr' ? 'sr-Latn' : lang);
+                const time = seconds % 60 === 0 ? format.format(seconds / 60, 'minute') : format.format(seconds, 'second');
+
+                note.textContent = note.dataset.retryTemplate.replace('{time}', time);
+            })
+            .catch(() => {});
+    })();
+</script>
+
 </body>
 </html>
