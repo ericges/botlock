@@ -14,6 +14,7 @@ namespace GES\Botlock\Demo;
 final class Settings
 {
     public const TYPE_INT = 'int';
+    public const TYPE_FLOAT = 'float';
     public const TYPE_BOOL = 'bool';
     public const TYPE_ENUM = 'enum';
     public const TYPE_LIST = 'list';
@@ -54,6 +55,7 @@ final class Settings
             'ENABLE_GLOBAL_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Global rate limit', 'default' => 'yes'],
             'ENABLE_INDIVIDUAL_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Individual rate limit', 'default' => 'yes'],
 
+            'THRESHOLD_FACTOR' => ['group' => 'Rate limits', 'type' => self::TYPE_FLOAT, 'label' => 'Threshold factor', 'default' => '1', 'help' => 'Multiplies every level threshold.'],
             'LEVEL_1_THRESHOLD_GLOBAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Global level 1', 'default' => '120', 'help' => 'Weighted five-minute score.'],
             'LEVEL_2_THRESHOLD_GLOBAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Global level 2', 'default' => '300'],
             'LEVEL_3_THRESHOLD_GLOBAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Global level 3', 'default' => '600'],
@@ -219,6 +221,10 @@ final class Settings
             case self::TYPE_INT:
                 $value = \is_int($value) ? (string) $value : $value;
                 return \is_string($value) && \ctype_digit($value) ? (string) (int) $value : null;
+
+            case self::TYPE_FLOAT:
+                $number = \is_int($value) || \is_float($value) || (\is_string($value) && \is_numeric($value)) ? (float) $value : null;
+                return $number !== null && \is_finite($number) && $number > 0 ? (string) $number : null;
 
             case self::TYPE_BOOL:
                 $value = \is_bool($value) ? ($value ? 'yes' : 'no') : $value;

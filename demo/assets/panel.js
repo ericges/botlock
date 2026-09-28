@@ -108,10 +108,19 @@ const effectiveInt = (key) => {
     return Number.isNaN(number) ? null : number;
 };
 
+// Mirrors RateLimitConfig::fromEnv(): the threshold scaled by BOTLOCK_THRESHOLD_FACTOR.
+const effectiveThreshold = (key) => {
+    const value = effectiveInt(key);
+    const factor = parseFloat(demo.values.THRESHOLD_FACTOR ?? demo.schema.THRESHOLD_FACTOR?.default);
+    const scale = Number.isFinite(factor) && factor > 0 ? factor : 1;
+
+    return value === null || value <= 0 ? value : Math.max(1, Math.round(value * scale));
+};
+
 // Mirrors RateLimitConfig::isLevel4Enabled(): null while level 4 is off.
 const level4Threshold = () => {
-    const level3 = effectiveInt('LEVEL_3_THRESHOLD_INDIVIDUAL');
-    const level4 = effectiveInt('LEVEL_4_THRESHOLD_INDIVIDUAL');
+    const level3 = effectiveThreshold('LEVEL_3_THRESHOLD_INDIVIDUAL');
+    const level4 = effectiveThreshold('LEVEL_4_THRESHOLD_INDIVIDUAL');
 
     return level4 !== null && level4 > 0 && (level3 === null || level4 > level3) ? level4 : null;
 };
@@ -177,7 +186,7 @@ const level4Threshold = () => {
 
     const renderRate = (data) => {
         const window = effectiveInt('INDIVIDUAL_RATE_WINDOW_SEC');
-        const thresholds = [1, 2, 3, 4].map((n) => effectiveInt(`LEVEL_${n}_THRESHOLD_INDIVIDUAL`));
+        const thresholds = [1, 2, 3, 4].map((n) => effectiveThreshold(`LEVEL_${n}_THRESHOLD_INDIVIDUAL`));
         const level4 = level4Threshold();
 
         status.querySelector('[data-rate]').textContent = format(data?.individual_rate);
@@ -200,7 +209,7 @@ const level4Threshold = () => {
     };
 
     const renderHistory = () => {
-        const scale = Math.max(level4Threshold() ?? effectiveInt('LEVEL_3_THRESHOLD_INDIVIDUAL') ?? 1, ...samples.map((s) => s.rate ?? 0), 1);
+        const scale = Math.max(level4Threshold() ?? effectiveThreshold('LEVEL_3_THRESHOLD_INDIVIDUAL') ?? 1, ...samples.map((s) => s.rate ?? 0), 1);
         const slot = 240 / HISTORY_SIZE;
         const offset = HISTORY_SIZE - samples.length;
 

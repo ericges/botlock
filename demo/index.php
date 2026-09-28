@@ -198,8 +198,8 @@ $demoData = [
                             <label for="<?= $e($id) ?>"><?= $e($field['label']) ?></label>
 
                             <div class="control">
-                                <?php if ($field['type'] === Settings::TYPE_INT): ?>
-                                    <input type="number" min="0" id="<?= $e($id) ?>" name="<?= $e($name) ?>"
+                                <?php if ($field['type'] === Settings::TYPE_INT || $field['type'] === Settings::TYPE_FLOAT): ?>
+                                    <input type="number" min="0"<?= $field['type'] === Settings::TYPE_FLOAT ? ' step="any"' : '' ?> id="<?= $e($id) ?>" name="<?= $e($name) ?>"
                                            value="<?= $e((string) $value) ?>" placeholder="<?= $e($field['default']) ?>">
 
                                 <?php elseif ($field['type'] === Settings::TYPE_LIST): ?>

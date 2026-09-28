@@ -3,7 +3,8 @@
 namespace GES\Botlock\Config;
 
 /**
- * Thresholds and switches for the rate-based threat evaluation.
+ * Thresholds and switches for the rate-based threat evaluation. fromEnv()
+ * multiplies every level threshold by BOTLOCK_THRESHOLD_FACTOR.
  */
 final readonly class RateLimitConfig
 {
@@ -41,21 +42,25 @@ final readonly class RateLimitConfig
     public static function fromEnv(): self
     {
         $override = Env::get('THREAT_LEVEL_OVERRIDE');
+        $factor = Env::float('THRESHOLD_FACTOR', 1.0);
+        $factor = \is_finite($factor) && $factor > 0 ? $factor : 1.0;
+        // Zero (level 4 off) and negative values keep their meaning; a positive threshold never rounds to 0.
+        $scale = static fn(int $threshold): int => $threshold <= 0 ? $threshold : \max(1, (int) \round($threshold * $factor));
 
         return new self(
             threatLevelOverride: \is_null($override) ? null : \min(self::MAX_LEVEL, \max(0, (int) $override)),
             enableGlobalRateLimit: (bool) Env::bool('ENABLE_GLOBAL_RATE_LIMIT', true),
             enableIndividualRateLimit: (bool) Env::bool('ENABLE_INDIVIDUAL_RATE_LIMIT', true),
             enableRateLimit: (bool) Env::bool('ENABLE_RATE_LIMIT', true),
-            level1ThresholdGlobal: Env::int('LEVEL_1_THRESHOLD_GLOBAL', 120),
-            level2ThresholdGlobal: Env::int('LEVEL_2_THRESHOLD_GLOBAL', 300),
-            level3ThresholdGlobal: Env::int('LEVEL_3_THRESHOLD_GLOBAL', 600),
+            level1ThresholdGlobal: $scale(Env::int('LEVEL_1_THRESHOLD_GLOBAL', 120)),
+            level2ThresholdGlobal: $scale(Env::int('LEVEL_2_THRESHOLD_GLOBAL', 300)),
+            level3ThresholdGlobal: $scale(Env::int('LEVEL_3_THRESHOLD_GLOBAL', 600)),
             levelDecayGracePeriod: Env::int('LEVEL_DECAY_GRACE_PERIOD', 300),
             individualRateWindowSec: Env::int('INDIVIDUAL_RATE_WINDOW_SEC', 60),
-            level1ThresholdIndividual: Env::int('LEVEL_1_THRESHOLD_INDIVIDUAL', 60),
-            level2ThresholdIndividual: Env::int('LEVEL_2_THRESHOLD_INDIVIDUAL', 90),
-            level3ThresholdIndividual: Env::int('LEVEL_3_THRESHOLD_INDIVIDUAL', 120),
-            level4ThresholdIndividual: Env::int('LEVEL_4_THRESHOLD_INDIVIDUAL', 180),
+            level1ThresholdIndividual: $scale(Env::int('LEVEL_1_THRESHOLD_INDIVIDUAL', 60)),
+            level2ThresholdIndividual: $scale(Env::int('LEVEL_2_THRESHOLD_INDIVIDUAL', 90)),
+            level3ThresholdIndividual: $scale(Env::int('LEVEL_3_THRESHOLD_INDIVIDUAL', 120)),
+            level4ThresholdIndividual: $scale(Env::int('LEVEL_4_THRESHOLD_INDIVIDUAL', 180)),
             gcProbability: \max(0, Env::int('GC_PROBABILITY', 1000)),
         );
     }

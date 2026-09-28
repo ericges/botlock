@@ -76,4 +76,11 @@ final class Env
 
         return \is_numeric($value) ? (int) $value : $default;
     }
+
+    public static function float(string $name, float $default): float
+    {
+        $value = self::get($name);
+
+        return \is_numeric($value) ? (float) $value : $default;
+    }
 }
