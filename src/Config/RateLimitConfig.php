@@ -86,6 +86,15 @@ final readonly class RateLimitConfig
         return $this->level4ThresholdIndividual > 0 && $this->level4ThresholdIndividual > $this->level3ThresholdIndividual;
     }
 
+    /**
+     * Seconds a level-4 client is told to wait: the individual window,
+     * which it has to fall below again, and at least one.
+     */
+    public function retryAfterSec(): int
+    {
+        return \max(1, $this->individualRateWindowSec);
+    }
+
     /** True when rate evaluation runs at all. */
     public function isRateLimitEnabled(): bool
     {

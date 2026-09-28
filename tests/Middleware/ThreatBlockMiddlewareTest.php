@@ -83,15 +83,17 @@ final class ThreatBlockMiddlewareTest extends TestCase
         self::assertStringContainsString('data-retry-template="Sie können es {time} erneut versuchen."', $body);
     }
 
-    public function testBlockedPageAsksForRetryAfterWithHead(): void
+    public function testBlockedPageCarriesTheRetryTimeOfTheHeader(): void
     {
         $request = Requests::make(headers: ['Accept' => 'text/html']);
         $request->context->threatLevel = 4;
 
-        $body = (string) $this->middleware()->process($request, self::failingNext())->getBody();
+        $response = $this->middleware(window: 90)->process($request, self::failingNext());
+        $body = (string) $response->getBody();
 
-        self::assertStringContainsString("fetch(location.href, { method: 'HEAD'", $body);
-        self::assertStringContainsString("response.headers.get('Retry-After')", $body);
+        self::assertSame('90', $response->getHeader('Retry-After'));
+        self::assertStringContainsString('data-retry-after="90"', $body);
+        self::assertStringNotContainsString("method: 'HEAD'", $body, 'the page does not ask again');
         self::assertStringContainsString('new Intl.RelativeTimeFormat(', $body);
         self::assertStringContainsString("note.dataset.retryTemplate.replace('{time}', time)", $body);
     }
@@ -166,9 +168,10 @@ final class ThreatBlockMiddlewareTest extends TestCase
     private function middleware(int $window = 60): ThreatBlockMiddleware
     {
         $translations = new TranslationLoader(self::ROOT . '/translations');
+        $config = new RateLimitConfig(individualRateWindowSec: $window);
 
         return new ThreatBlockMiddleware(
-            new RateLimitConfig(individualRateWindowSec: $window),
+            $config,
             new LocalizedPage(
                 new LanguageNegotiator($translations->supported()),
                 $translations,
@@ -177,6 +180,7 @@ final class ThreatBlockMiddlewareTest extends TestCase
                 'blocked',
                 self::ROOT . '/templates/blocked.php',
                 [self::ROOT . '/templates/partials/style.css'],
+                ['retryAfter' => $config->retryAfterSec()],
             ),
         );
     }

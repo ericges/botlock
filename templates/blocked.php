@@ -4,11 +4,12 @@
  * Template\LocalizedPage for Middleware\ThreatBlockMiddleware, once per
  * language, then cached. The shared styles come from partials/style.css.
  *
- * @var string                $lang  Language code, always one of I18n\TranslationLoader::LANGUAGES
- * @var array<string,string>  $trans Strings for that language (keys: I18n\TranslationLoader::KEYS)
- * @var \Closure(string):string $e   HTML escape helper
+ * @var string                $lang       Language code, always one of I18n\TranslationLoader::LANGUAGES
+ * @var array<string,string>  $trans      Strings for that language (keys: I18n\TranslationLoader::KEYS)
+ * @var \Closure(string):string $e        HTML escape helper
+ * @var int                   $retryAfter Seconds until the client may retry, the same value as the Retry-After header
  */
-if (!isset($lang, $trans, $e)) {
+if (!isset($lang, $trans, $e, $retryAfter)) {
     \http_response_code(404);
     return;
 }
@@ -45,34 +46,29 @@ if (!isset($lang, $trans, $e)) {
         <path d="M7 2v4.172a2 2 0 0 0 .586 1.414L12 12l4.414-4.414A2 2 0 0 0 17 6.172V2"></path>
     </svg>
 
-    <p id="retry-note" data-retry-template="<?= $e($trans['blockedRetry']) ?>"><?= $e($trans['blockedWait']) ?></p>
+    <p id="retry-note" data-retry-template="<?= $e($trans['blockedRetry']) ?>" data-retry-after="<?= (int) $retryAfter ?>"><?= $e($trans['blockedWait']) ?></p>
 
     <p id="footer-note"><?= $e($trans['blockedFooter']) ?></p>
 </div>
 
 <script>
-    // A page cannot read its own response headers, so ask again for Retry-After.
-    // Any failure keeps the generic wait note; there is no countdown and no reload.
+    // Retry-After as rendered with the page: a page cannot read its own
+    // response headers, and asking again would count as another request.
+    // Without JavaScript the generic wait note stays.
     (() => {
         const note = document.getElementById('retry-note');
+        const seconds = Number(note.dataset.retryAfter);
+
+        if (!Number.isInteger(seconds) || seconds < 1) {
+            return;
+        }
+
         const lang = document.documentElement.lang;
+        // Plain "sr" formats in Cyrillic; the Serbian strings are Latin.
+        const format = new Intl.RelativeTimeFormat(lang === 'sr' ? 'sr-Latn' : lang);
+        const time = seconds % 60 === 0 ? format.format(seconds / 60, 'minute') : format.format(seconds, 'second');
 
-        fetch(location.href, { method: 'HEAD', cache: 'no-store', credentials: 'same-origin' })
-            .then((response) => {
-                const seconds = Number(response.headers.get('Retry-After'));
-
-                // Also skips a missing header (0) and the HTTP-date form (NaN).
-                if (response.status !== 429 || !Number.isInteger(seconds) || seconds < 1) {
-                    return;
-                }
-
-                // Plain "sr" formats in Cyrillic; the Serbian strings are Latin.
-                const format = new Intl.RelativeTimeFormat(lang === 'sr' ? 'sr-Latn' : lang);
-                const time = seconds % 60 === 0 ? format.format(seconds / 60, 'minute') : format.format(seconds, 'second');
-
-                note.textContent = note.dataset.retryTemplate.replace('{time}', time);
-            })
-            .catch(() => {});
+        note.textContent = note.dataset.retryTemplate.replace('{time}', time);
     })();
 </script>
 

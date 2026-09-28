@@ -12,7 +12,8 @@ use GES\Botlock\I18n\TranslationLoader;
  * One browser page in the language negotiated from Accept-Language. Each
  * language is rendered once and then served from the on-disk cache in the
  * state directory; the cache version covers the template, the partials it
- * includes and the translation file.
+ * includes and the translation file. Page variables are passed to the
+ * template and are part of the cache version.
  */
 final readonly class LocalizedPage
 {
@@ -20,9 +21,10 @@ final readonly class LocalizedPage
         | \JSON_UNESCAPED_UNICODE | \JSON_THROW_ON_ERROR;
 
     /**
-     * @param string       $page         Cache name of the page, lowercase letters only
-     * @param string       $templatePath Page template
-     * @param list<string> $includes     Partials the template includes
+     * @param string                $page         Cache name of the page, lowercase letters only
+     * @param string                $templatePath Page template
+     * @param list<string>          $includes     Partials the template includes
+     * @param array<string, scalar> $vars         Further template variables; lang, trans and transJson are reserved
      */
     public function __construct(
         private LanguageNegotiator $negotiator,
@@ -32,6 +34,7 @@ final readonly class LocalizedPage
         private string             $page,
         private string             $templatePath,
         private array              $includes = [],
+        private array              $vars = [],
     ) {}
 
     /**
@@ -41,6 +44,8 @@ final readonly class LocalizedPage
     {
         $lang = $this->negotiator->negotiate($request->getHeader('Accept-Language'));
         $version = RenderedPageCache::versionOf(...[$this->templatePath, ...$this->includes, $this->translations->file($lang)]);
+        // What the page variables say is rendered into the page as well.
+        $version = \substr(\sha1($version . "\0" . \json_encode($this->vars, self::JSON_FLAGS)), 0, 12);
 
         $headers = [
             'Content-Language' => $lang,
@@ -55,6 +60,7 @@ final readonly class LocalizedPage
         $trans = $this->translations->load($lang);
 
         $html = $this->renderer->render($this->templatePath, [
+            ...$this->vars,
             'lang' => $lang,
             'trans' => $trans,
             'transJson' => \json_encode($trans, self::JSON_FLAGS),

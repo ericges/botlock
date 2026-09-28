@@ -293,7 +293,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
 | `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
 | `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
-| `templates/blocked.php` | The level-4 page answered with `429`, rendered and cached the same way; its script reads `Retry-After` with a `HEAD` request and shows the wait time. |
+| `templates/blocked.php` | The level-4 page answered with `429`, rendered and cached the same way; it carries the `Retry-After` value, which its script formats as the wait time. |
 | `templates/partials/style.css` | Styles shared by both pages (colour tokens, card layout, text), printed in its own `<style>` element before the page-specific one. |
 | `translations/` | One `<code>.php` file per language returning the strings of both pages. |
 | `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering, `LocalizedPage` (negotiate, render once, serve from cache) and the rendered-page cache. |

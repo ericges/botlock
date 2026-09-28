@@ -57,6 +57,7 @@ final class TemplateRendererTest extends TestCase
         $html = (new TemplateRenderer())->render(self::BLOCKED_TEMPLATE, [
             'lang' => 'de',
             'trans' => $trans,
+            'retryAfter' => 90,
         ]);
 
         self::assertStringStartsWith('<!DOCTYPE html>', $html);

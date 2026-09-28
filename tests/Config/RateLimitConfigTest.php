@@ -61,6 +61,12 @@ final class RateLimitConfigTest extends TestCase
         self::assertFalse($config->isLevel4Enabled(), 'level 4 equal to level 3 stays off');
     }
 
+    public function testRetryAfterIsTheWindowAndAtLeastOneSecond(): void
+    {
+        self::assertSame(90, (new RateLimitConfig(individualRateWindowSec: 90))->retryAfterSec());
+        self::assertSame(1, (new RateLimitConfig(individualRateWindowSec: 0))->retryAfterSec());
+    }
+
     public function testDisabledLevel4StaysDisabled(): void
     {
         \putenv('BOTLOCK_THRESHOLD_FACTOR=2');

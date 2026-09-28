@@ -118,7 +118,7 @@ readonly class Kernel
         $negotiator = new LanguageNegotiator($translations->supported());
         $renderer = new TemplateRenderer();
         $templates = $this->botlockRoot . '/templates';
-        $page = fn (string $name): LocalizedPage => new LocalizedPage(
+        $page = fn (string $name, array $vars = []): LocalizedPage => new LocalizedPage(
             $negotiator,
             $translations,
             $renderer,
@@ -126,6 +126,7 @@ readonly class Kernel
             $name,
             "{$templates}/{$name}.php",
             ["{$templates}/partials/style.css"],
+            $vars,
         );
         $middleware = new MiddlewareDispatcher();
         $policy = new InteractionPolicy($this->pow);
@@ -138,7 +139,7 @@ readonly class Kernel
             ->add(new ThreatEvaluationMiddleware($this->rate, $this->rateLimiter))
             // Before crawler verification: a level-4 client is refused without
             // DNS lookups, and verification can never lift a level to 4.
-            ->add(new ThreatBlockMiddleware($this->rate, $page('blocked')))
+            ->add(new ThreatBlockMiddleware($this->rate, $page('blocked', ['retryAfter' => $this->rate->retryAfterSec()])))
             ->add(new VerifyCrawlerMiddleware($this->detective, $this->detection))
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))

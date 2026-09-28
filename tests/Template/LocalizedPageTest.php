@@ -66,7 +66,17 @@ final class LocalizedPageTest extends TestCase
         self::assertCount(1, \glob($this->dir . '/cache/botlock_test_*') ?: []);
     }
 
-    private function page(): LocalizedPage
+    public function testVarsReachTheTemplateAndItsCacheVersion(): void
+    {
+        \file_put_contents($this->template, '<p data-wait="<?= $e((string) $wait) ?>"></p>');
+        \clearstatcache();
+        $request = Requests::make(headers: ['Accept-Language' => 'de']);
+
+        self::assertSame('<p data-wait="60"></p>', $this->page(['wait' => 60])->respond($request, 200)->getBody());
+        self::assertSame('<p data-wait="90"></p>', $this->page(['wait' => 90])->respond($request, 200)->getBody(), 'another value renders anew');
+    }
+
+    private function page(array $vars = []): LocalizedPage
     {
         $translations = new TranslationLoader(__DIR__ . '/../../translations');
 
@@ -78,6 +88,7 @@ final class LocalizedPageTest extends TestCase
             'test',
             $this->template,
             [$this->partial],
+            $vars,
         );
     }
 }

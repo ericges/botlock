@@ -37,7 +37,7 @@ final readonly class ThreatBlockMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        $retryAfter = (string) \max(1, $this->config->individualRateWindowSec);
+        $retryAfter = (string) $this->config->retryAfterSec();
 
         // Same precedence as ErrorMiddleware::createErrorResponse(): JSON wins over HTML.
         $accept = \strtolower($request->getHeader('Accept', ''));
