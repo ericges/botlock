@@ -1,7 +1,5 @@
-/* Styles shared by the BOTLOCK pages: colour tokens with dark mode, the page
-   and card layout, text and the status icon. templates/challenge.php and
-   templates/blocked.php print this file as its own style element, before
-   their page-specific styles. */
+/* Styles shared by the pages: colour tokens with dark mode, the page and card layout, text and the status icon.
+   Templates print this file as its own style element, before page-specific styles. */
 
 :root {
     --body-bg: #f0f0f0;
