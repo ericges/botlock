@@ -488,7 +488,7 @@ if (new URLSearchParams(location.search).has('demo')) {
                 return 'challenge';
             }
 
-            return doc?.querySelector('h1')?.textContent === 'Error 429' ? 'blocked' : 'error';
+            return doc?.body?.hasAttribute('data-botlock-blocked') ? 'blocked' : 'error';
         } catch {
             return 'error';
         }
