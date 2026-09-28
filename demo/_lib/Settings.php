@@ -61,7 +61,7 @@ final class Settings
             'LEVEL_1_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 1', 'default' => '60', 'help' => 'Requests per window.'],
             'LEVEL_2_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 2', 'default' => '90'],
             'LEVEL_3_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 3', 'default' => '120'],
-            'LEVEL_4_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 4', 'default' => '180', 'help' => 'Answered with 429, no challenge.'],
+            'LEVEL_4_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 4', 'default' => '180', 'help' => 'Answered with 429, no challenge. 0 or not above level 3: off.'],
             'INDIVIDUAL_RATE_WINDOW_SEC' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual window (s)', 'default' => '60'],
             'GC_PROBABILITY' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'GC probability (1 in N)', 'default' => '1000', 'help' => '0 disables the sweep.'],
 

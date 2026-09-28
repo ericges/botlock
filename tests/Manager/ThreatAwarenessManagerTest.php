@@ -60,6 +60,33 @@ final class ThreatAwarenessManagerTest extends TestCase
         }
     }
 
+    public function testLevel4IsOffAtZeroOrNotAboveLevel3(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $store->individual = [self::FP => \array_fill(0, 500, \time())];
+
+        foreach (['zero' => 0, 'below level 3' => 150, 'equal to level 3' => 200] as $case => $threshold) {
+            $config = new RateLimitConfig(level3ThresholdIndividual: 200, level4ThresholdIndividual: $threshold, gcProbability: 0);
+
+            self::assertFalse($config->isLevel4Enabled(), $case);
+            self::assertSame(3, (new ThreatAwarenessManager($config, $store))->getIndividualThreatLevel(self::FP), $case);
+        }
+
+        $config = new RateLimitConfig(level3ThresholdIndividual: 200, level4ThresholdIndividual: 201, gcProbability: 0);
+
+        self::assertTrue($config->isLevel4Enabled());
+        self::assertSame(4, (new ThreatAwarenessManager($config, $store))->getIndividualThreatLevel(self::FP));
+    }
+
+    public function testRaisedLevel3ThresholdIsNotUndercutByTheLevel4Default(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $store->individual = [self::FP => \array_fill(0, 250, \time())];
+        $config = new RateLimitConfig(level1ThresholdIndividual: 200, level2ThresholdIndividual: 250, level3ThresholdIndividual: 300, gcProbability: 0);
+
+        self::assertSame(2, (new ThreatAwarenessManager($config, $store))->getIndividualThreatLevel(self::FP));
+    }
+
     public function testIndividualRateIgnoresTimestampsOutsideWindow(): void
     {
         $store = new InMemoryThreatStateStore();

@@ -138,7 +138,7 @@ class ThreatAwarenessManager
         }
 
         $level = match (true) {
-            $rate >= $this->config->level4ThresholdIndividual => 4,
+            $this->config->isLevel4Enabled() && $rate >= $this->config->level4ThresholdIndividual => 4,
             $rate >= $this->config->level3ThresholdIndividual => 3,
             $rate >= $this->config->level2ThresholdIndividual => 2,
             $rate >= $this->config->level1ThresholdIndividual => 1,

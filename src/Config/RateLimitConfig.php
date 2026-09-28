@@ -29,7 +29,10 @@ final readonly class RateLimitConfig
         public int  $level1ThresholdIndividual = 60,
         public int  $level2ThresholdIndividual = 90,
         public int  $level3ThresholdIndividual = 120,
-        /** Requests per individual window that activate level 4: answered with 429, no challenge. */
+        /**
+         * Requests per individual window that activate level 4: answered with 429, no challenge.
+         * Off when 0 or not above the level 3 threshold, see isLevel4Enabled().
+         */
         public int  $level4ThresholdIndividual = 180,
         /** One request in this many sweeps stale per-client state; 0 disables. */
         public int  $gcProbability = 1000,
@@ -55,6 +58,17 @@ final readonly class RateLimitConfig
             level4ThresholdIndividual: Env::int('LEVEL_4_THRESHOLD_INDIVIDUAL', 180),
             gcProbability: \max(0, Env::int('GC_PROBABILITY', 1000)),
         );
+    }
+
+    /**
+     * True when the individual rate can reach level 4. A threshold at or below
+     * level 3's would block clients before they are ever challenged at level 3,
+     * which is what a deployment that raised its thresholds before level 4
+     * existed would get from the default, so level 4 stays off then.
+     */
+    public function isLevel4Enabled(): bool
+    {
+        return $this->level4ThresholdIndividual > 0 && $this->level4ThresholdIndividual > $this->level3ThresholdIndividual;
     }
 
     /** True when rate evaluation runs at all. */

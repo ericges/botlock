@@ -244,7 +244,7 @@ shows `individual_rate` as `null`.
 | `BOTLOCK_LEVEL_1_THRESHOLD_INDIVIDUAL` | `60` | Requests per individual window that activate threat level 1. |
 | `BOTLOCK_LEVEL_2_THRESHOLD_INDIVIDUAL` | `90` | Requests per individual window that activate threat level 2. |
 | `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL` | `120` | Requests per individual window that activate threat level 3. |
-| `BOTLOCK_LEVEL_4_THRESHOLD_INDIVIDUAL` | `180` | Requests per individual window that activate threat level 4: every request of that client is answered with `429` and no challenge until its rate drops. `GET ?_botlock=status` stays reachable. |
+| `BOTLOCK_LEVEL_4_THRESHOLD_INDIVIDUAL` | `180` | Requests per individual window that activate threat level 4: every request of that client is answered with `429` and no challenge until its rate drops. `GET ?_botlock=status` stays reachable. `0`, or a value not above `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL`, turns level 4 off, so thresholds raised above the default cannot block clients before they are challenged at level 3. |
 | `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. Each sweep inspects up to 500 files, starting at a random shard so that every shard is reached over time. `0` disables the sweep. |
 
 ## Developers
