@@ -5,9 +5,11 @@ namespace GES\Botlock\Challenge;
 use GES\Botlock\Filesystem\PrivateDirectory;
 
 /**
- * One JSON file per ticket in the state directory. Consuming reads the file
- * and unlinks it; only the caller whose unlink() succeeds gets the ticket,
- * so concurrent redemptions of one ticket cannot both win.
+ * One JSON file per ticket in the state directory. Consuming first renames
+ * the file to a name of its own and only then reads and unlinks it; only the
+ * caller whose rename() succeeds gets the ticket, so concurrent redemptions
+ * of one ticket cannot both win, and none of them can remove a ticket that
+ * another one has saved again under the same name meanwhile.
  */
 final readonly class FileChallengeTicketStore implements ChallengeTicketStore
 {
@@ -56,8 +58,16 @@ final readonly class FileChallengeTicketStore implements ChallengeTicketStore
         }
 
         $path = $this->file($id);
+        $claimed = $path . '.' . \bin2hex(\random_bytes(4)) . '.claimed';
 
-        if (false === ($json = @\file_get_contents($path)) || !@\unlink($path)) {
+        if (!@\rename($path, $claimed)) {
+            return null;
+        }
+
+        $json = @\file_get_contents($claimed);
+        @\unlink($claimed);
+
+        if ($json === false) {
             return null;
         }
 
