@@ -359,6 +359,14 @@ if (!isset($lang, $trans, $transJson, $e)) {
         }
     }
 
+    // Too many slider puzzles right now for everyone; Retry-After says when the next minute starts.
+    class BusyError extends Error {
+        constructor(seconds) {
+            super('busy');
+            this.seconds = seconds;
+        }
+    }
+
     // Retry-After in whole seconds, or null when it is missing or not a number of seconds.
     function retryAfter(response) {
         const seconds = Number(response.headers.get('Retry-After'));
@@ -391,6 +399,10 @@ if (!isset($lang, $trans, $transJson, $e)) {
 
         if (response.status === 429) {
             throw new BlockedError(retryAfter(response));
+        }
+
+        if (response.status === 503) {
+            throw new BusyError(retryAfter(response));
         }
 
         return response;
@@ -471,6 +483,17 @@ if (!isset($lang, $trans, $transJson, $e)) {
     function handleFailure(error, attempt) {
         if (error instanceof BlockedError) {
             showBlocked(error.seconds);
+            return;
+        }
+
+        if (error instanceof BusyError && attempt < MAX_ATTEMPTS) {
+            showWorking();
+            sleep(Math.min(60, error.seconds ?? 5) * 1000)
+                .then(() => botlock(attempt + 1))
+                .catch((error) => {
+                    console.error(error);
+                    showError();
+                });
             return;
         }
 

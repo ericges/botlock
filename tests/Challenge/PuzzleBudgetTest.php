@@ -116,10 +116,73 @@ final class PuzzleBudgetTest extends TestCase
         self::assertSame([['windowStart' => $this->now - 600, 'maxEntries' => 500]], $this->store->gcCalls);
     }
 
-    private function budget(int $limit = 10, int $window = 600, int $gcProbability = 0, string $instanceId = 'inst'): PuzzleBudget
+    // 1_800_000_000 is the first second of a minute.
+
+    public function testTheGlobalLimitCapsAllClientsPerMinute(): void
+    {
+        $budget = $this->budget(globalLimit: 2);
+
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve('203.0.113.1', 'a'));
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve('203.0.113.2', 'b'));
+        self::assertSame(PuzzleBudgetResult::GlobalExhausted, $budget->reserve('203.0.113.3', 'c'));
+
+        $this->now += 59;
+        self::assertSame(PuzzleBudgetResult::GlobalExhausted, $budget->reserve('203.0.113.3', 'c'), 'the last second of the minute');
+
+        $this->now += 1;
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve('203.0.113.3', 'c'), 'a new minute');
+    }
+
+    public function testAClientOverItsBudgetTakesNoGlobalSlot(): void
+    {
+        $budget = $this->budget(limit: 1, globalLimit: 2);
+
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve('203.0.113.1', 'a'));
+        self::assertSame(PuzzleBudgetResult::ClientExhausted, $budget->reserve('203.0.113.1', 'a'));
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve('203.0.113.2', 'b'), 'the refused client took no slot');
+    }
+
+    public function testARefusedGlobalSlotCostsTheClientNothing(): void
+    {
+        $budget = $this->budget(limit: 1, globalLimit: 1);
+
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve('203.0.113.1', 'a'));
+        self::assertSame(PuzzleBudgetResult::GlobalExhausted, $budget->reserve('203.0.113.2', 'b'));
+
+        $this->now += 60;
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve('203.0.113.2', 'b'), 'its own budget is untouched');
+    }
+
+    public function testZeroGlobalLimitDisablesTheCap(): void
+    {
+        $budget = $this->budget(globalLimit: 0);
+
+        for ($i = 1; $i <= 50; $i++) {
+            self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve("203.0.113.$i", 'fp'));
+        }
+        self::assertSame([], $this->store->global, 'nothing is counted');
+    }
+
+    public function testAFailedGlobalUpdateRefuses(): void
+    {
+        $this->store = new InMemoryThreatStateStore(failGlobalWrite: true);
+
+        self::assertSame(PuzzleBudgetResult::GlobalExhausted, $this->budget()->reserve(self::IP, 'fp'));
+        self::assertSame([], $this->store->individual, 'the client keeps its render');
+    }
+
+    public function testBusyClientsRetryAtTheNextMinute(): void
+    {
+        self::assertSame(60, $this->budget()->retryAfter(PuzzleBudgetResult::GlobalExhausted));
+
+        $this->now += 45;
+        self::assertSame(15, $this->budget()->retryAfter(PuzzleBudgetResult::GlobalExhausted));
+    }
+
+    private function budget(int $limit = 10, int $window = 600, int $gcProbability = 0, string $instanceId = 'inst', int $globalLimit = 300): PuzzleBudget
     {
         return new PuzzleBudget(
-            new RateLimitConfig(gcProbability: $gcProbability, sliderIpLimit: $limit, sliderIpWindowSec: $window),
+            new RateLimitConfig(gcProbability: $gcProbability, sliderIpLimit: $limit, sliderIpWindowSec: $window, sliderGlobalLimit: $globalLimit),
             $this->store,
             $instanceId,
             fn(): int => $this->now,

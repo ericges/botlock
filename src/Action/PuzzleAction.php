@@ -20,8 +20,9 @@ use GES\Botlock\Http\Response\JsonResponse;
  * client seals its slider report with.
  *
  * The ticket is consumed first and only stored again with its puzzle, so a
- * wrong gate solution (401) or a used-up budget (429 with Retry-After)
- * spends it. Each render counts against PuzzleBudget whatever the slider
+ * wrong gate solution (401), a used-up client budget (429) or a full minute
+ * for all clients (503, both with Retry-After) spends it. Each render
+ * counts against PuzzleBudget whatever the slider
  * later does, so every guess costs a gate proof of work and a render of
  * the client's budget. The ticket gets a fresh deadline for the slider, and
  * the slider is timed from the render.
@@ -81,6 +82,7 @@ final readonly class PuzzleAction implements ActionHandlerInterface
     {
         [$status, $error] = match ($result) {
             PuzzleBudgetResult::ClientExhausted => [429, 'Too Many Requests'],
+            PuzzleBudgetResult::GlobalExhausted => [503, 'Busy'],
         };
 
         return new JsonResponse(

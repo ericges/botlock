@@ -289,6 +289,20 @@ final class TicketFlowTest extends TestCase
         self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
     }
 
+    public function testTheGlobalCapAnswers503UntilTheNextMinute(): void
+    {
+        $this->rate = new RateLimitConfig(gcProbability: 0, sliderGlobalLimit: 1);
+        $this->sliderChallenge();
+
+        $challenge = $this->challenge(level: 3);
+        $response = $this->puzzle($challenge['cid'], self::solve($challenge['gate']));
+
+        self::assertSame(503, $response->getStatus());
+        self::assertSame((string) (60 - (int) $this->now % 60), $response->getHeader('Retry-After'));
+        self::assertSame(['ok' => false, 'error' => 'Busy', 'code' => 503], \json_decode((string) $response->getBody(), true));
+        self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
+    }
+
     public function testReportSealedWithAnotherKeyIsRejected(): void
     {
         $challenge = $this->challenge(level: 2);

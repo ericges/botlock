@@ -42,6 +42,8 @@ final readonly class RateLimitConfig
         public int  $sliderIpLimit = 10,
         /** Window of the per-client puzzle budget in seconds; also its Retry-After. */
         public int  $sliderIpWindowSec = 600,
+        /** Slider puzzles rendered per minute across all clients; 0 disables the cap. */
+        public int  $sliderGlobalLimit = 300,
     ) {}
 
     public static function fromEnv(): self
@@ -69,6 +71,7 @@ final readonly class RateLimitConfig
             gcProbability: \max(0, Env::int('GC_PROBABILITY', 1000)),
             sliderIpLimit: \max(0, Env::int('SLIDER_IP_LIMIT', 10)),
             sliderIpWindowSec: \max(1, Env::int('SLIDER_IP_WINDOW_SEC', 600)),
+            sliderGlobalLimit: \max(0, Env::int('SLIDER_GLOBAL_LIMIT', 300)),
         );
     }
 

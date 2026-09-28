@@ -205,6 +205,15 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('trans.blockedRetry.replace(', $body);
     }
 
+    public function testBusyPuzzleRendersAreWaitedOut(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertStringContainsString('response.status === 503', $body);
+        self::assertStringContainsString('throw new BusyError(retryAfter(response))', $body);
+        self::assertStringContainsString('error instanceof BusyError && attempt < MAX_ATTEMPTS', $body);
+    }
+
     private function middleware(?string $template = null, ?RenderedPageCache $cache = null): ChallengeDocumentMiddleware
     {
         return new ChallengeDocumentMiddleware(new LocalizedPage(

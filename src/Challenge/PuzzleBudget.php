@@ -14,10 +14,15 @@ use GES\Botlock\Threat\ThreatStateStore;
  * Clients are stored under a hash of the instance id and the IP (or
  * network), never the IP itself.
  *
+ * All clients together get BOTLOCK_SLIDER_GLOBAL_LIMIT renders per
+ * minute, counted in the store's global state, so a flood from many IPs,
+ * each within its budget, still cannot render more than that.
+ *
  * The store is a ThreatStateStore of its own (Kernel roots it at
  * <stateDir>/puzzles), so its window and sweeps do not mix with the rate
  * limiter's. When it cannot be read or written the budget counts as used
- * up: a storage fault must not hand out uncounted guesses.
+ * up (per client or globally, whichever failed): a storage fault must not
+ * hand out uncounted guesses.
  */
 final readonly class PuzzleBudget
 {
@@ -32,25 +37,32 @@ final readonly class PuzzleBudget
     ) {}
 
     /**
-     * Takes one render from the client's budget, or says why not.
+     * Takes one render from the client's budget and one from the current
+     * minute's, or says why not. A client over its budget takes no global
+     * slot, and a client refused a global slot keeps its render.
      */
     public function reserve(?string $clientIp, string $fingerprint): PuzzleBudgetResult
     {
         $now = $this->now();
         $this->maybeCollectGarbage($now);
 
-        if ($this->config->sliderIpLimit <= 0) {
-            return PuzzleBudgetResult::Granted;
-        }
-
+        $limit = $this->config->sliderIpLimit;
         $client = $this->clientKey($clientIp, $fingerprint);
         $windowStart = $now - $this->window();
-        $count = $this->store->countIndividual($client, $windowStart);
 
-        if ($count === null
-            || $count >= $this->config->sliderIpLimit
-            || !$this->store->recordIndividual($client, $now, $windowStart))
-        {
+        if ($limit > 0) {
+            $count = $this->store->countIndividual($client, $windowStart);
+
+            if ($count === null || $count >= $limit) {
+                return PuzzleBudgetResult::ClientExhausted;
+            }
+        }
+
+        if (!$this->takeGlobalSlot($now)) {
+            return PuzzleBudgetResult::GlobalExhausted;
+        }
+
+        if ($limit > 0 && !$this->store->recordIndividual($client, $now, $windowStart)) {
             return PuzzleBudgetResult::ClientExhausted;
         }
 
@@ -65,7 +77,37 @@ final readonly class PuzzleBudget
         return match ($result) {
             PuzzleBudgetResult::Granted => 0,
             PuzzleBudgetResult::ClientExhausted => $this->window(),
+            PuzzleBudgetResult::GlobalExhausted => 60 - $this->now() % 60,
         };
+    }
+
+    /**
+     * Counts one render in the current minute unless the minute is full.
+     * False when it is full or the count could not be updated.
+     */
+    private function takeGlobalSlot(int $now): bool
+    {
+        $limit = $this->config->sliderGlobalLimit;
+
+        if ($limit <= 0) {
+            return true;
+        }
+
+        $minute = \intdiv($now, 60);
+        $taken = false;
+
+        $state = $this->store->updateGlobal(static function (array $state) use ($minute, $limit, &$taken): array {
+            $count = ($state['minute'] ?? null) === $minute ? (int) ($state['count'] ?? 0) : 0;
+
+            if ($count < $limit) {
+                $taken = true;
+                $count++;
+            }
+
+            return ['minute' => $minute, 'count' => $count];
+        });
+
+        return $state !== null && $taken;
     }
 
     private function clientKey(?string $clientIp, string $fingerprint): string

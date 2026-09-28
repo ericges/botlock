@@ -19,6 +19,7 @@ final class RateLimitConfigTest extends TestCase
         'LEVEL_4_THRESHOLD_INDIVIDUAL',
         'SLIDER_IP_LIMIT',
         'SLIDER_IP_WINDOW_SEC',
+        'SLIDER_GLOBAL_LIMIT',
     ];
 
     protected function tearDown(): void
@@ -84,6 +85,18 @@ final class RateLimitConfigTest extends TestCase
 
         \putenv('BOTLOCK_SLIDER_IP_LIMIT=25');
         self::assertSame(25, RateLimitConfig::fromEnv()->sliderIpLimit);
+    }
+
+    public function testSliderGlobalLimitDefaultAndClamping(): void
+    {
+        self::assertSame(300, RateLimitConfig::fromEnv()->sliderGlobalLimit);
+
+        \putenv('BOTLOCK_THRESHOLD_FACTOR=2');
+        \putenv('BOTLOCK_SLIDER_GLOBAL_LIMIT=-1');
+        self::assertSame(0, RateLimitConfig::fromEnv()->sliderGlobalLimit, 'clamped, and not scaled by the factor');
+
+        \putenv('BOTLOCK_SLIDER_GLOBAL_LIMIT=1200');
+        self::assertSame(1200, RateLimitConfig::fromEnv()->sliderGlobalLimit);
     }
 
     #[DataProvider('invalidFactors')]

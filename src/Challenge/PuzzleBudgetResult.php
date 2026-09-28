@@ -11,4 +11,7 @@ enum PuzzleBudgetResult
 
     /** The client used up its puzzles for the window. */
     case ClientExhausted;
+
+    /** All clients together used up the puzzles of the current minute. */
+    case GlobalExhausted;
 }

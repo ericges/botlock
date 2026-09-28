@@ -22,11 +22,12 @@ final class InMemoryThreatStateStore implements ThreatStateStore
         public bool $failing = false,
         public bool $failIndividualRead = false,
         public bool $failIndividualWrite = false,
+        public bool $failGlobalWrite = false,
     ) {}
 
     public function updateGlobal(callable $reducer): ?array
     {
-        if ($this->failing) {
+        if ($this->failing || $this->failGlobalWrite) {
             return null;
         }
 

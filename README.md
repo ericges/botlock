@@ -220,6 +220,7 @@ At level `3` the answer carries a proof of work at base difficulty instead of a
 picture: `POST ?_botlock=puzzle` takes its solution, counts the render against
 `BOTLOCK_SLIDER_IP_LIMIT` and only then draws the puzzle, so a bare request never
 costs the server a picture, and the slider is timed from the moment it was drawn.
+`BOTLOCK_SLIDER_GLOBAL_LIMIT` caps the renders of all clients together per minute.
 An interactive ticket comes with a random key, and the page reports the
 interaction encrypted with it (AES-GCM); a report that does not decrypt
 counts as a miss. The key is handed to the page, so this only keeps
@@ -256,6 +257,7 @@ shows `individual_rate` as `null`.
 | `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. Each sweep inspects up to 500 files, starting at a random shard so that every shard is reached over time. Roughly one challenge request in this many also deletes expired challenge tickets, whole issue minutes at a time and up to twice this many files per sweep. `0` disables both sweeps. |
 | `BOTLOCK_SLIDER_IP_LIMIT` | `10` | Slider puzzles rendered per client IP within `BOTLOCK_SLIDER_IP_WINDOW_SEC`. Further puzzle requests from that IP are answered with `429` and the page shows how long to wait. Every render counts, solved or not, so blind guessing gets this many tries per window. Clients without a known IP are counted by fingerprint. IPv6 clients are counted per /64 network. Not scaled by `BOTLOCK_THRESHOLD_FACTOR`. `0` disables the budget. |
 | `BOTLOCK_SLIDER_IP_WINDOW_SEC` | `600` | Window of the per-IP slider puzzle budget in seconds, also sent as its `Retry-After`. The effective minimum is `1`. |
+| `BOTLOCK_SLIDER_GLOBAL_LIMIT` | `300` | Slider puzzles rendered per minute across all clients. Beyond it, puzzle requests are answered with `503` and `Retry-After` until the next minute, and the page waits and starts over. Each render costs roughly 90 ms of CPU, so the default keeps a flood from many IPs to about half a core. Not scaled by `BOTLOCK_THRESHOLD_FACTOR`. `0` disables the cap. |
 
 ## Developers
 
@@ -286,7 +288,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge` (`GET` issues a ticket, `POST` reports the interaction), `puzzle` (pays the level-3 gate for the slider picture), `verify`, `reset` and `status`. They share `TicketService` for saving, redeeming and describing tickets. |
 | `src/Config/` | Typed configuration objects, each with a `fromEnv()` factory reading `BOTLOCK_*` variables. |
 | `src/Manager/`, `src/Threat/` | Bot detection and rate-limit state. |
-| `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, the per-IP budget of slider puzzle renders, the slider puzzle and the rules that judge how its slider was moved. |
+| `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, the per-IP and per-minute budgets of slider puzzle renders, the slider puzzle and the rules that judge how its slider was moved. |
 | `src/Image/` | A dependency-free PNG encoder for the slider puzzle. |
 | `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
 | `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
