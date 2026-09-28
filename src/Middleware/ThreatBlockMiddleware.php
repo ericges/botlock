@@ -14,6 +14,8 @@ use GES\Botlock\Template\LocalizedPage;
  * client this fast is refused until its individual rate drops again.
  * Browsers get the blocked page in their language, JSON clients and
  * everything else the plain error answer; Retry-After is always set.
+ * It runs before VerifyCrawlerMiddleware, so a blocked crawler costs no
+ * DNS lookups; verification only ever raises a level to 2.
  *
  * GET ?_botlock=status stays reachable so a blocked client can still see
  * why.

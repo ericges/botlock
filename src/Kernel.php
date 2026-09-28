@@ -136,8 +136,10 @@ readonly class Kernel
             ->add(new WhoIsMiddleware($this->detection))
             ->add(new IgnoreListMiddleware($this->whitelist))
             ->add(new ThreatEvaluationMiddleware($this->rate, $this->rateLimiter))
-            ->add(new VerifyCrawlerMiddleware($this->detective, $this->detection))
+            // Before crawler verification: a level-4 client is refused without
+            // DNS lookups, and verification can never lift a level to 4.
             ->add(new ThreatBlockMiddleware($this->rate, $page('blocked')))
+            ->add(new VerifyCrawlerMiddleware($this->detective, $this->detection))
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))
             ->add(new ActionMiddleware([
