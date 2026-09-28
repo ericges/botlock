@@ -58,7 +58,7 @@ final readonly class ChallengeAction implements ActionHandlerInterface
         $now = $this->now();
 
         $ticket = new ChallengeTicket(
-            id: ChallengeTicket::newId(),
+            id: ChallengeTicket::newId($now),
             subject: $request->context->fingerprint,
             level: $level,
             interaction: $interaction,
@@ -125,8 +125,9 @@ final readonly class ChallengeAction implements ActionHandlerInterface
     private function maybeCollectGarbage(float $now): void
     {
         if ($this->gcProbability > 0 && \random_int(1, $this->gcProbability) === 1) {
-            // A minute of slack past the lifetime; mtime has second resolution.
-            $this->tickets->collectGarbage($now - ChallengeTicket::TTL - 60);
+            // A minute of slack past the lifetime. Every request here issues one
+            // ticket, so a budget of twice the sweep interval outpaces them.
+            $this->tickets->collectGarbage($now - ChallengeTicket::TTL - 60, 2 * $this->gcProbability);
         }
     }
 }

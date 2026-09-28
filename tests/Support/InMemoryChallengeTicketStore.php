@@ -13,7 +13,7 @@ final class InMemoryChallengeTicketStore implements ChallengeTicketStore
     /** @var array<string, ChallengeTicket> */
     public array $tickets = [];
 
-    /** @var list<float> */
+    /** @var list<array{float, int}> issuedBefore and maxEntries of each sweep */
     public array $gcCalls = [];
 
     public function __construct(public bool $failing = false) {}
@@ -37,12 +37,18 @@ final class InMemoryChallengeTicketStore implements ChallengeTicketStore
         return $ticket;
     }
 
-    public function collectGarbage(float $issuedBefore): int
+    public function collectGarbage(float $issuedBefore, int $maxEntries): int
     {
-        $this->gcCalls[] = $issuedBefore;
-        $before = \count($this->tickets);
-        $this->tickets = \array_filter($this->tickets, static fn(ChallengeTicket $t): bool => $t->issuedAt >= $issuedBefore);
+        $this->gcCalls[] = [$issuedBefore, $maxEntries];
+        $removed = 0;
 
-        return $before - \count($this->tickets);
+        foreach ($this->tickets as $id => $ticket) {
+            if ($removed < $maxEntries && $ticket->issuedAt < $issuedBefore) {
+                unset($this->tickets[$id]);
+                $removed++;
+            }
+        }
+
+        return $removed;
     }
 }

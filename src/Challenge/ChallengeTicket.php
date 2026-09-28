@@ -16,7 +16,7 @@ final readonly class ChallengeTicket
     public const ID_PATTERN = '/^[0-9a-f]{32}$/';
 
     /**
-     * @param string      $id           random hex id, see ID_PATTERN
+     * @param string      $id           issue minute plus random hex, see newId()
      * @param string      $subject      fingerprint the ticket was issued to
      * @param int         $level        threat level (1–3) the ticket was issued for; the grant carries it
      * @param float       $issuedAt     Unix time with microseconds
@@ -37,9 +37,22 @@ final readonly class ChallengeTicket
         public ?string     $key = null,
     ) {}
 
-    public static function newId(): string
+    /**
+     * 32 hex digits: the issue minute (Unix time / 60) in the first eight,
+     * so the store can file the ticket by minute, then 96 random bits. The
+     * minute tells the client nothing its challenge's "exp" does not.
+     */
+    public static function newId(float $issuedAt): string
     {
-        return \bin2hex(\random_bytes(16));
+        return \sprintf('%08x', \intdiv((int) \floor($issuedAt), 60)) . \bin2hex(\random_bytes(12));
+    }
+
+    /**
+     * The issue minute encoded in an id that passed isValidId().
+     */
+    public static function issueMinute(string $id): int
+    {
+        return (int) \hexdec(\substr($id, 0, 8));
     }
 
     public static function isValidId(mixed $id): bool

@@ -20,7 +20,8 @@ interface ChallengeTicketStore
     public function consume(string $id): ?ChallengeTicket;
 
     /**
-     * Deletes tickets issued before $issuedBefore; returns how many.
+     * Deletes up to $maxEntries files of tickets issued before
+     * $issuedBefore; returns how many.
      */
-    public function collectGarbage(float $issuedBefore): int;
+    public function collectGarbage(float $issuedBefore, int $maxEntries): int;
 }

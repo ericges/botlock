@@ -297,6 +297,20 @@ final class TicketFlowTest extends TestCase
         $this->assertRejected(400, fn() => $this->challengeAction()->handle($request));
     }
 
+    public function testIssuedIdCarriesTheIssueMinute(): void
+    {
+        $challenge = $this->challenge(level: 1);
+
+        self::assertSame(\intdiv((int) $this->now, 60), ChallengeTicket::issueMinute($challenge['cid']));
+    }
+
+    public function testSweepBudgetOutpacesTheTicketsIssuedBetweenSweeps(): void
+    {
+        $this->challenge(level: 1, gcProbability: 1);
+
+        self::assertSame([[$this->now - ChallengeTicket::TTL - 60, 2]], $this->store->gcCalls);
+    }
+
     public function testUnwritableStoreAnswers503(): void
     {
         $this->store->failing = true;
@@ -304,9 +318,9 @@ final class TicketFlowTest extends TestCase
         $this->assertRejected(503, fn() => $this->challenge(level: 1));
     }
 
-    private function challenge(int $level): array
+    private function challenge(int $level, int $gcProbability = 0): array
     {
-        return self::json($this->challengeAction()->handle($this->request('GET', $level)));
+        return self::json($this->challengeAction($gcProbability)->handle($this->request('GET', $level)));
     }
 
     /**
@@ -330,14 +344,14 @@ final class TicketFlowTest extends TestCase
         return $action->handle($this->request('POST', $level, body: $solution + ['cid' => $cid], fingerprint: $fingerprint))->getStatus();
     }
 
-    private function challengeAction(): ChallengeAction
+    private function challengeAction(int $gcProbability = 0): ChallengeAction
     {
         return new ChallengeAction(
             new BotTestManager(new DetectionConfig()),
             $this->config,
             $this->store,
             new InteractionPolicy($this->config),
-            0,
+            $gcProbability,
             fn(): float => $this->now,
         );
     }
