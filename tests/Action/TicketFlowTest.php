@@ -4,6 +4,7 @@ namespace GES\Botlock\Tests\Action;
 
 use GES\Botlock\Action\ChallengeAction;
 use GES\Botlock\Action\InteractAction;
+use GES\Botlock\Action\TicketService;
 use GES\Botlock\Action\VerifyAction;
 use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\InteractionPolicy;
@@ -176,7 +177,7 @@ final class TicketFlowTest extends TestCase
     {
         $challenge = $this->challenge(level: 3);
         $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
-        $action = new InteractAction($this->config, $this->store, new InteractionPolicy($this->config), fn(): float => $this->now);
+        $action = new InteractAction($this->service(), new InteractionPolicy($this->config));
         $request = $this->request('POST', level: 3, body: ['cid' => $challenge['cid'], 'pos' => $target]);
 
         $this->assertRejected(403, fn() => $action->handle($request));
@@ -329,7 +330,7 @@ final class TicketFlowTest extends TestCase
      */
     private function interact(array $challenge, int $level, array $report = []): array
     {
-        $action = new InteractAction($this->config, $this->store, new InteractionPolicy($this->config), fn(): float => $this->now);
+        $action = new InteractAction($this->service(), new InteractionPolicy($this->config));
         $body = isset($challenge['key'])
             ? Reports::seal(\base64_decode($challenge['key']), $challenge['cid'], $report)
             : ['cid' => $challenge['cid']];
@@ -339,7 +340,7 @@ final class TicketFlowTest extends TestCase
 
     private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP): int
     {
-        $action = new VerifyAction($this->config, $this->store, fn(): float => $this->now);
+        $action = new VerifyAction($this->config, $this->service());
 
         return $action->handle($this->request('POST', $level, body: $solution + ['cid' => $cid], fingerprint: $fingerprint))->getStatus();
     }
@@ -348,12 +349,14 @@ final class TicketFlowTest extends TestCase
     {
         return new ChallengeAction(
             new BotTestManager(new DetectionConfig()),
-            $this->config,
-            $this->store,
             new InteractionPolicy($this->config),
-            $gcProbability,
-            fn(): float => $this->now,
+            $this->service($gcProbability),
         );
+    }
+
+    private function service(int $gcProbability = 0): TicketService
+    {
+        return new TicketService($this->store, $this->config, $gcProbability, fn(): float => $this->now);
     }
 
     private function request(string $method, int $level, ?array $body = null, string $fingerprint = self::FP, ?array $headers = null): Request

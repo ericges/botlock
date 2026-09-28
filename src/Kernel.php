@@ -22,6 +22,7 @@ use GES\Botlock\Middleware\WhoIsMiddleware;
 use GES\Botlock\Middleware\ActionMiddleware;
 use GES\Botlock\Action\ChallengeAction;
 use GES\Botlock\Action\InteractAction;
+use GES\Botlock\Action\TicketService;
 use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\FileChallengeTicketStore;
 use GES\Botlock\Challenge\InteractionPolicy;
@@ -119,6 +120,7 @@ readonly class Kernel
         );
         $middleware = new MiddlewareDispatcher();
         $policy = new InteractionPolicy($this->pow);
+        $ticketService = new TicketService($this->tickets, $this->pow, $this->rate->gcProbability);
 
         $middleware
             ->add(new ErrorMiddleware)
@@ -130,9 +132,9 @@ readonly class Kernel
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))
             ->add(new ActionMiddleware([
-                'GET challenge' => new ChallengeAction($this->detective, $this->pow, $this->tickets, $policy, $this->rate->gcProbability),
-                'POST challenge' => new InteractAction($this->pow, $this->tickets, $policy),
-                'POST verify' => new VerifyAction($this->pow, $this->tickets),
+                'GET challenge' => new ChallengeAction($this->detective, $policy, $ticketService),
+                'POST challenge' => new InteractAction($ticketService, $policy),
+                'POST verify' => new VerifyAction($this->pow, $ticketService),
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),
             ]))

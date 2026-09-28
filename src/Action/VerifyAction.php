@@ -2,7 +2,6 @@
 
 namespace GES\Botlock\Action;
 
-use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
@@ -22,13 +21,9 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  */
 final readonly class VerifyAction implements ActionHandlerInterface
 {
-    /**
-     * @param \Closure|null $clock returns the current Unix time with microseconds; defaults to microtime(true)
-     */
     public function __construct(
         private ProofOfWorkConfig $config,
-        private ChallengeTicketStore $tickets,
-        private ?\Closure $clock = null,
+        private TicketService $tickets,
     ) {}
 
     /**
@@ -42,8 +37,8 @@ final readonly class VerifyAction implements ActionHandlerInterface
             throw new JsonResponseException('Invalid data', 400);
         }
 
-        $now = $this->now();
-        $ticket = InteractAction::redeem($this->tickets, $data['cid'] ?? null, $request, $now);
+        $ticket = $this->tickets->redeem($data['cid'] ?? null, $request);
+        $now = $this->tickets->now();
 
         if (!$ticket->isReadyForProof()) {
             throw new JsonResponseException('Interaction required', 400);
@@ -67,10 +62,5 @@ final readonly class VerifyAction implements ActionHandlerInterface
         }
 
         return new JsonResponse($statusCode, ['ok' => $ok]);
-    }
-
-    private function now(): float
-    {
-        return $this->clock ? ($this->clock)() : \microtime(true);
     }
 }

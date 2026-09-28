@@ -3,14 +3,12 @@
 namespace GES\Botlock\Action;
 
 use GES\Botlock\Challenge\ChallengeTicket;
-use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\Interaction;
 use GES\Botlock\Challenge\InteractionCipher;
 use GES\Botlock\Challenge\InteractionPolicy;
 use GES\Botlock\Challenge\SliderPuzzle;
 use GES\Botlock\Challenge\SliderTrack;
 use GES\Botlock\Challenge\SliderVerdict;
-use GES\Botlock\Config\ProofOfWorkConfig;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
@@ -33,14 +31,9 @@ use GES\Botlock\Http\Response\JsonResponse;
  */
 final readonly class InteractAction implements ActionHandlerInterface
 {
-    /**
-     * @param \Closure|null $clock returns the current Unix time with microseconds; defaults to microtime(true)
-     */
     public function __construct(
-        private ProofOfWorkConfig $config,
-        private ChallengeTicketStore $tickets,
+        private TicketService $tickets,
         private InteractionPolicy $policy,
-        private ?\Closure $clock = null,
     ) {}
 
     /**
@@ -51,8 +44,8 @@ final readonly class InteractAction implements ActionHandlerInterface
         SessionNonce::assertMatches($request);
 
         $data = $request->getJsonBody() ?? [];
-        $now = $this->now();
-        $ticket = self::redeem($this->tickets, $data['cid'] ?? null, $request, $now);
+        $ticket = $this->tickets->redeem($data['cid'] ?? null, $request);
+        $now = $this->tickets->now();
 
         if (!$ticket->interaction->isInteractive() || $ticket->interacted) {
             throw new JsonResponseException('Invalid challenge', 400);
@@ -74,36 +67,11 @@ final readonly class InteractAction implements ActionHandlerInterface
             $verdict === SliderVerdict::Assisted ? $ticket->difficulty * $this->policy->assistedFactor() : null,
         );
 
-        if (!$this->tickets->save($ticket)) {
-            throw new JsonResponseException('Challenge unavailable', 503);
-        }
+        $this->tickets->save($ticket);
 
-        return new JsonResponse(200, ChallengeAction::describe($ticket, $this->config) + [
-            'pow' => ChallengeAction::proofOfWork($ticket, $this->config),
+        return new JsonResponse(200, $this->tickets->describe($ticket) + [
+            'pow' => $this->tickets->proofOfWork($ticket, $ticket->binding(), $ticket->difficulty),
         ]);
-    }
-
-    /**
-     * Consumes the ticket and checks that it belongs to this client, has not
-     * expired and still covers the current threat level.
-     *
-     * @throws JsonResponseException
-     */
-    public static function redeem(ChallengeTicketStore $tickets, mixed $id, Request $request, float $now): ChallengeTicket
-    {
-        if (!ChallengeTicket::isValidId($id)
-            || !($ticket = $tickets->consume($id))
-            || !\hash_equals($ticket->subject, (string) $request->context->fingerprint)
-            || $ticket->isExpired($now))
-        {
-            throw new JsonResponseException('Invalid challenge', 400);
-        }
-
-        if (\max(1, $request->context->threatLevel ?? 1) > $ticket->level) {
-            throw new JsonResponseException('restart', 409);
-        }
-
-        return $ticket;
     }
 
     private static function judgeSlider(ChallengeTicket $ticket, array $report, float $elapsedMs): SliderVerdict
@@ -119,10 +87,5 @@ final readonly class InteractAction implements ActionHandlerInterface
         }
 
         return $track->judge($pos, $elapsedMs);
-    }
-
-    private function now(): float
-    {
-        return $this->clock ? ($this->clock)() : \microtime(true);
     }
 }

@@ -274,7 +274,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | --- | --- |
 | `src/Kernel.php` | Boots the configuration and assembles the middleware pipeline. |
 | `src/Middleware/` | One class per request-processing step, in the order listed in `Kernel::handleRequest()`. |
-| `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge` (`GET` issues a ticket, `POST` reports the interaction), `verify`, `reset` and `status`. |
+| `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge` (`GET` issues a ticket, `POST` reports the interaction), `verify`, `reset` and `status`. They share `TicketService` for saving, redeeming and describing tickets. |
 | `src/Config/` | Typed configuration objects, each with a `fromEnv()` factory reading `BOTLOCK_*` variables. |
 | `src/Manager/`, `src/Threat/` | Bot detection and rate-limit state. |
 | `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, the slider puzzle and the rules that judge how its slider was moved. |

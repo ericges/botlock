@@ -3,18 +3,15 @@
 namespace GES\Botlock\Action;
 
 use GES\Botlock\Challenge\ChallengeTicket;
-use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\InteractionCipher;
 use GES\Botlock\Challenge\InteractionPolicy;
 use GES\Botlock\Challenge\Interaction;
-use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Challenge\SliderPuzzle;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\JsonResponse;
 use GES\Botlock\Manager\BotTestManager;
-use GES\Botlock\Config\ProofOfWorkConfig;
 
 /**
  * GET ?_botlock=challenge — issues a single-use challenge ticket for the
@@ -28,17 +25,10 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  */
 final readonly class ChallengeAction implements ActionHandlerInterface
 {
-    /**
-     * @param int           $gcProbability one request in this many sweeps expired tickets; 0 disables
-     * @param \Closure|null $clock         returns the current Unix time with microseconds; defaults to microtime(true)
-     */
     public function __construct(
         private BotTestManager $detective,
-        private ProofOfWorkConfig $config,
-        private ChallengeTicketStore $tickets,
         private InteractionPolicy $policy,
-        private int $gcProbability = 1000,
-        private ?\Closure $clock = null,
+        private TicketService $tickets,
     ) {}
 
     /**
@@ -55,7 +45,7 @@ final readonly class ChallengeAction implements ActionHandlerInterface
         $level = \min(3, \max(1, $request->context->threatLevel ?? 1));
         $interaction = $this->policy->interaction($level, $isCrawler, $isTrustedGoodBot);
         $puzzle = $interaction === Interaction::Slider ? SliderPuzzle::create() : null;
-        $now = $this->now();
+        $now = $this->tickets->now();
 
         $ticket = new ChallengeTicket(
             id: ChallengeTicket::newId($now),
@@ -68,16 +58,13 @@ final readonly class ChallengeAction implements ActionHandlerInterface
             key: $interaction->isInteractive() ? InteractionCipher::newKey() : null,
         );
 
-        if (!$this->tickets->save($ticket)) {
-            throw new JsonResponseException('Challenge unavailable', 503);
-        }
+        $this->tickets->save($ticket);
+        $this->tickets->maybeCollectGarbage();
 
-        $this->maybeCollectGarbage($now);
-
-        $data = self::describe($ticket, $this->config);
+        $data = $this->tickets->describe($ticket);
 
         if ($ticket->isReadyForProof()) {
-            $data['pow'] = self::proofOfWork($ticket, $this->config);
+            $data['pow'] = $this->tickets->proofOfWork($ticket, $ticket->binding(), $ticket->difficulty);
         }
 
         if ($ticket->key !== null) {
@@ -89,45 +76,5 @@ final readonly class ChallengeAction implements ActionHandlerInterface
         }
 
         return new JsonResponse(200, $data);
-    }
-
-    /**
-     * Public ticket fields: never the slider target, and not the key, which
-     * only the challenge answer hands out.
-     */
-    public static function describe(ChallengeTicket $ticket, ProofOfWorkConfig $config): array
-    {
-        return [
-            'cid' => $ticket->id,
-            'lvl' => $ticket->level,
-            'int' => $ticket->interaction->value,
-            'exp' => $ticket->expiresAt(),
-            'min_ms' => $config->minSolveMs,
-        ];
-    }
-
-    /**
-     * Proof of work bound to the ticket: its signature covers the ticket id,
-     * level and interaction, and it expires with the ticket.
-     */
-    public static function proofOfWork(ChallengeTicket $ticket, ProofOfWorkConfig $config): array
-    {
-        return (new ProofOfWork($config))
-            ->setDifficulty($ticket->difficulty)
-            ->create($ticket->subject, $ticket->binding(), $ticket->expiresAt());
-    }
-
-    private function now(): float
-    {
-        return $this->clock ? ($this->clock)() : \microtime(true);
-    }
-
-    private function maybeCollectGarbage(float $now): void
-    {
-        if ($this->gcProbability > 0 && \random_int(1, $this->gcProbability) === 1) {
-            // A minute of slack past the lifetime. Every request here issues one
-            // ticket, so a budget of twice the sweep interval outpaces them.
-            $this->tickets->collectGarbage($now - ChallengeTicket::TTL - 60, 2 * $this->gcProbability);
-        }
     }
 }
