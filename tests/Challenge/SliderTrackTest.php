@@ -56,6 +56,34 @@ final class SliderTrackTest extends TestCase
         self::assertSame(SliderVerdict::Rejected, self::judge($jumpAfterDrag), 'a drag, then a press on the gap');
     }
 
+    public function testAPauseDoesNotEarnAJump(): void
+    {
+        // Hold the handle half a second, jump most of the way, then wiggle onto the target.
+        $holdThenJump = [['k' => 'p', 'pt' => 'mouse', 't0' => 600.0, 'co' => 20, 'pts' => [
+            [500.0, 140, 0.0], [516.2, 142, 0.4], [533.5, 144, 0.9], [550.1, 145, 1.1], [567.4, 146, 0.8],
+            [583.9, 147, 1.3], [601.0, 148, 1.6], [617.8, 149, 1.2], [634.9, 150, 1.5],
+        ]]];
+        self::assertSame(SliderVerdict::Rejected, self::judge($holdThenJump), 'a hold, then a jump');
+
+        $stopThenJump = Tracks::humanDrag(20);
+        $pts = &$stopThenJump[0]['pts'];
+        [$dt, , $dy] = $pts[\array_key_last($pts)];
+        \array_push($pts, [$dt + 400, 145, $dy + 0.6], [$dt + 417.3, 147, $dy + 1.0], [$dt + 433.9, 149, $dy + 0.7], [$dt + 451.2, 150, $dy + 1.2]);
+        unset($pts);
+        self::assertSame(SliderVerdict::Rejected, self::judge($stopThenJump), 'a stop in mid-drag, then a jump');
+
+        // A busy page delays one event: the drag goes on meanwhile and arrives as one bigger step.
+        foreach ([900, 400] as $duration) {
+            $stalled = Tracks::humanDrag(self::TARGET, durationMs: $duration);
+            $middle = $duration / 2;
+            $stalled[0]['pts'] = \array_values(\array_filter(
+                $stalled[0]['pts'],
+                static fn(array $p): bool => $p[0] <= $middle - 50 || $p[0] >= $middle + 50,
+            ));
+            self::assertSame(SliderVerdict::Drag, self::judge($stalled), "a ~100 ms stall in a $duration ms drag");
+        }
+    }
+
     public function testScriptedDragsAreRejected(): void
     {
         self::assertSame(SliderVerdict::Rejected, self::judge(Tracks::linearDrag(self::TARGET)), 'linear');

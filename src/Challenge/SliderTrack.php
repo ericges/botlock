@@ -49,6 +49,13 @@ final readonly class SliderTrack
     private const MAX_STEP_PER_FRAME = 40;
     private const FRAME_MS = 16;
 
+    /**
+     * Most frames one step is credited with. The page samples on value
+     * changes, so after a hold or a stop the next step is small; a busy
+     * page may still merge a few frames of movement into one.
+     */
+    private const MAX_CREDIT_FRAMES = 3;
+
     /** Largest vertical drift of the pointer while dragging, in puzzle pixels. */
     private const MAX_DRIFT = 80;
 
@@ -155,7 +162,7 @@ final readonly class SliderTrack
      * No value change the input could not have made: a key moves the
      * slider by one, by a page (a tenth of the range) or to either end, and
      * a pointer only drags the handle, never faster than a hand, from
-     * where it was.
+     * where it was; a pause earns no extra distance.
      */
     private function stepsArePlausible(): bool
     {
@@ -185,7 +192,9 @@ final readonly class SliderTrack
         [$time, $value] = [0.0, $drag['from']];
 
         foreach ($drag['pts'] as [$dt, $v]) {
-            if (\abs($v - $value) > self::MAX_STEP_PER_FRAME * \max($dt - $time, self::FRAME_MS) / self::FRAME_MS) {
+            $credit = \min(\max($dt - $time, self::FRAME_MS), self::MAX_CREDIT_FRAMES * self::FRAME_MS);
+
+            if (\abs($v - $value) > self::MAX_STEP_PER_FRAME * $credit / self::FRAME_MS) {
                 return false;
             }
             [$time, $value] = [$dt, $v];
