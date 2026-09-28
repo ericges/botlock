@@ -34,6 +34,47 @@ final class SliderTrackTest extends TestCase
         self::assertSame(SliderVerdict::Drag, self::judge($track));
     }
 
+    public function testACorrectiveSecondDragStillCountsAsDrag(): void
+    {
+        $track = Tracks::humanDrag(self::TARGET - 7);
+        $track[] = self::nudge(self::TARGET - 7, self::TARGET, Tracks::end($track) + 500);
+
+        self::assertSame(SliderVerdict::Drag, self::judge($track));
+    }
+
+    public function testTheLongestDragIsJudgedNotTheLast(): void
+    {
+        $track = Tracks::linearDrag(self::TARGET - 4);
+        $track[] = self::nudge(self::TARGET - 4, self::TARGET, Tracks::end($track) + 500);
+
+        self::assertSame(SliderVerdict::Rejected, self::judge($track), 'a scripted drag is not excused by a small last one');
+    }
+
+    public function testTwoHalfDragsAreAssisted(): void
+    {
+        $track = Tracks::humanDrag(75);
+        $second = Tracks::humanDrag(75, seed: 2)[0];
+        $second['t0'] = Tracks::end($track) + 500;
+        $second['pts'] = \array_map(fn(array $p): array => [$p[0], $p[1] + 75, $p[2]], $second['pts']);
+        $track[] = $second;
+
+        self::assertSame(SliderVerdict::Assisted, self::judge($track), 'neither drag covers most of the way');
+    }
+
+    public function testAScriptedLongDragIsNotExcusedByAnEarlierHumanOne(): void
+    {
+        // Human drag 0→140 (140 pixels, passes isHumanDrag; long drag ≥ 0.7×150 = 105)
+        $track = Tracks::humanDrag(140);
+
+        // Correction backward 140→40 (100 pixels, not a long drag; just a correction)
+        $track[] = self::linearDragFrom(140, 40, Tracks::end($track) + 500);
+
+        // Scripted linear drag 40→150 (110 pixels, is a long drag, but constant speed and zero drift fail isHumanDrag)
+        $track[] = self::linearDragFrom(40, 150, Tracks::end($track) + 500);
+
+        self::assertSame(SliderVerdict::Rejected, self::judge($track), 'every long drag must be human; the final linear one fails');
+    }
+
     public function testKeyboardSolvesAreAssisted(): void
     {
         self::assertSame(SliderVerdict::Assisted, self::judge(Tracks::keyboard(self::TARGET)));
@@ -213,5 +254,36 @@ final class SliderTrackTest extends TestCase
         self::assertNotNull($parsed, 'the track parses');
 
         return $parsed->judge($pos, $elapsedMs ?? Tracks::end($track) + 1500);
+    }
+
+    /**
+     * A short, slightly uneven drag from $from to $to, one sample per pixel.
+     */
+    private static function nudge(int $from, int $to, float $t0): array
+    {
+        $pts = [];
+        for ($v = $from + 1, $t = 0.0, $i = 0; $v <= $to; $v++, $i++) {
+            $t += 17.3 + ($i % 3) * 2.1;
+            $pts[] = [\round($t, 1), $v, \round(0.3 * $i, 1)];
+        }
+
+        return ['k' => 'p', 'pt' => 'mouse', 't0' => $t0, 'pts' => $pts, 'co' => \count($pts)];
+    }
+
+    /**
+     * A constant-speed, zero-drift linear drag from $from to $to.
+     */
+    private static function linearDragFrom(int $from, int $to, float $t0): array
+    {
+        $pts = [];
+        $distance = \abs($to - $from);
+        $direction = $to > $from ? 1 : -1;
+
+        for ($v = $from + $direction * 5, $t = 0; ($direction > 0 && $v < $to) || ($direction < 0 && $v > $to); $v += $direction * 5, $t += 10) {
+            $pts[] = [(float) $t, $v, 0];
+        }
+        $pts[] = [(float) $t, $to, 0];
+
+        return ['k' => 'p', 'pt' => 'mouse', 't0' => $t0, 'pts' => $pts, 'co' => \count($pts)];
     }
 }

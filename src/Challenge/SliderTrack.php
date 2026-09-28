@@ -150,9 +150,14 @@ final readonly class SliderTrack
             return SliderVerdict::Rejected;
         }
 
-        $drag = $this->finalDrag($pos);
-        if ($drag !== null) {
-            return $this->isHumanDrag($drag) ? SliderVerdict::Drag : SliderVerdict::Rejected;
+        $drags = $this->longDrags($pos);
+        if ($drags !== []) {
+            foreach ($drags as $drag) {
+                if (!$this->isHumanDrag($drag)) {
+                    return SliderVerdict::Rejected;
+                }
+            }
+            return SliderVerdict::Drag;
         }
 
         return $this->actionsArePlausible() ? SliderVerdict::Assisted : SliderVerdict::Rejected;
@@ -204,22 +209,25 @@ final readonly class SliderTrack
     }
 
     /**
-     * The last drag, when it moved the piece over most of the way on its own.
+     * All pointer strokes that covered most of the way on their own. A short
+     * correction after a real drag does not demote it, but a long stroke is
+     * never excused by another one: if any long drag fails isHumanDrag(), the
+     * entire track is rejected.
      *
-     * @return array{k: string, t: float, end: float, from: int, v: int, pt: string, pts: list<array{float, int, float}>}|null
+     * @return list<array{k: string, t: float, end: float, from: int, v: int, pt: string, pts: list<array{float, int, float}>}>
      */
-    private function finalDrag(int $pos): ?array
+    private function longDrags(int $pos): array
     {
-        for ($i = \count($this->entries) - 1; $i >= 0; $i--) {
-            $entry = $this->entries[$i];
-            if ($entry['k'] !== 'p') {
-                continue;
-            }
+        $drags = [];
+        $threshold = self::DRAG_SHARE * $pos;
 
-            return \abs($entry['v'] - $entry['from']) >= self::DRAG_SHARE * $pos ? $entry : null;
+        foreach ($this->entries as $entry) {
+            if ($entry['k'] === 'p' && \abs($entry['v'] - $entry['from']) >= $threshold) {
+                $drags[] = $entry;
+            }
         }
 
-        return null;
+        return $drags;
     }
 
     /**
