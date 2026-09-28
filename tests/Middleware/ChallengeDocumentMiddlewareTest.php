@@ -114,11 +114,13 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
     {
         $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
 
-        self::assertStringContainsString('--body-bg: #f0f0f0;', $body);
-        self::assertStringContainsString('#security {', $body);
-        self::assertStringContainsString('#footer-note {', $body);
+        self::assertSame(2, \preg_match_all('#<style>(.*?)</style>#s', $body, $styles));
+        [$shared, $own] = $styles[1];
+
+        self::assertStringEqualsFile(self::ROOT . '/templates/partials/style.css', $shared, 'shared styles come first, verbatim');
+        self::assertStringContainsString('.puzzle-slider {', $own);
+        self::assertStringNotContainsString('#security {', $own);
         self::assertStringContainsString('<p id="footer-note">', $body);
-        self::assertStringContainsString('.puzzle-slider {', $body);
     }
 
     public function testChallengeScriptGuardsCryptoBeforeUse(): void

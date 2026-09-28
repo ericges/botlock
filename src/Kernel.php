@@ -115,7 +115,7 @@ readonly class Kernel
             $this->pageCache,
             $name,
             "{$templates}/{$name}.php",
-            ["{$templates}/partials/style.php"],
+            ["{$templates}/partials/style.css"],
         );
         $middleware = new MiddlewareDispatcher();
         $policy = new InteractionPolicy($this->pow);

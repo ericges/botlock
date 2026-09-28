@@ -2,7 +2,7 @@
 /**
  * Browser challenge page. Rendered by Template\LocalizedPage for
  * Middleware\ChallengeDocumentMiddleware, once per language, then cached.
- * The shared styles come from partials/style.php.
+ * The shared styles come from partials/style.css.
  *
  * @var string                $lang      Language code, always one of I18n\TranslationLoader::LANGUAGES
  * @var array<string,string>  $trans     Strings for that language (keys: I18n\TranslationLoader::KEYS)
@@ -20,9 +20,8 @@ if (!isset($lang, $trans, $transJson, $e)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $e($trans['pageTitle']) ?></title>
+    <style><?php \readfile(__DIR__ . '/partials/style.css'); ?></style>
     <style>
-        <?php include __DIR__ . '/partials/style.php'; ?>
-
         #info-paragraph {
             text-wrap: balance;
         }

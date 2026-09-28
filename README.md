@@ -109,7 +109,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 
 ### Language
 
-The challenge page and the level-4 page are served in the language negotiated from the browser's `Accept-Language` header: language ranges are ranked by their `q` value, matched on the primary subtag (`de-AT` selects `de`), and `nb`/`nn` map to `no`. When none of the shipped languages in `translations/` are acceptable, English is used. There is no setting for this. The response carries `Content-Language` and `Vary: Accept-Language`. Each language is rendered once and then served from a cached file in `BOTLOCK_STATE_DIR`; the cache refreshes itself when a template, the shared style partial or a translation file changes.
+The challenge page and the level-4 page are served in the language negotiated from the browser's `Accept-Language` header: language ranges are ranked by their `q` value, matched on the primary subtag (`de-AT` selects `de`), and `nb`/`nn` map to `no`. When none of the shipped languages in `translations/` are acceptable, English is used. There is no setting for this. The response carries `Content-Language` and `Vary: Accept-Language`. Each language is rendered once and then served from a cached file in `BOTLOCK_STATE_DIR`; the cache refreshes itself when a template, the shared stylesheet or a translation file changes.
 
 ### Bot detection, proxies, and exclusions
 
@@ -282,7 +282,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
 | `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
 | `templates/blocked.php` | The level-4 page answered with `429`, rendered and cached the same way; its script reads `Retry-After` with a `HEAD` request and shows the wait time. |
-| `templates/partials/style.php` | Styles shared by both pages (colour tokens, card layout, text). |
+| `templates/partials/style.css` | Styles shared by both pages (colour tokens, card layout, text), printed in its own `<style>` element before the page-specific one. |
 | `translations/` | One `<code>.php` file per language returning the strings of both pages. |
 | `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering, `LocalizedPage` (negotiate, render once, serve from cache) and the rendered-page cache. |
 | `bootstrap.php` | The prepend entry point, also used as the PHAR stub. |

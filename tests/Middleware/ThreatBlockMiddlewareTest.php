@@ -176,7 +176,7 @@ final class ThreatBlockMiddlewareTest extends TestCase
                 new RenderedPageCache($this->cacheDir, 'inst'),
                 'blocked',
                 self::ROOT . '/templates/blocked.php',
-                [self::ROOT . '/templates/partials/style.php'],
+                [self::ROOT . '/templates/partials/style.css'],
             ),
         );
     }

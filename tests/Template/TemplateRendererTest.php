@@ -75,7 +75,6 @@ final class TemplateRendererTest extends TestCase
     {
         yield 'challenge' => [self::TEMPLATE];
         yield 'blocked' => [self::BLOCKED_TEMPLATE];
-        yield 'style partial' => [__DIR__ . '/../../templates/partials/style.php'];
     }
 
     #[DataProvider('templates')]
