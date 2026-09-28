@@ -6,6 +6,7 @@ use GES\Botlock\Challenge\PuzzleBudget;
 use GES\Botlock\Challenge\PuzzleBudgetResult;
 use GES\Botlock\Config\RateLimitConfig;
 use GES\Botlock\Tests\Support\InMemoryThreatStateStore;
+use GES\Botlock\Threat\ThreatStateStore;
 use PHPUnit\Framework\TestCase;
 
 final class PuzzleBudgetTest extends TestCase
@@ -161,6 +162,71 @@ final class PuzzleBudgetTest extends TestCase
             self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve("203.0.113.$i", 'fp'));
         }
         self::assertSame([], $this->store->global, 'nothing is counted');
+    }
+
+    public function testConcurrentRendersFromOneClientStayWithinTheLimit(): void
+    {
+        // A minimal store double, delegating to a real InMemoryThreatStateStore,
+        // that turns its first countIndividual() call into an interleaving
+        // point: before returning that (soon-to-be stale) count, it lets a
+        // second, full reserve() call for the same client run to completion,
+        // recording a render in between this request's first count and its
+        // own record — the race the fix closes.
+        $store = new class(new InMemoryThreatStateStore()) implements ThreatStateStore {
+            public ?\Closure $onFirstCount = null;
+            private bool $fired = false;
+
+            public function __construct(private InMemoryThreatStateStore $inner) {}
+
+            public function updateGlobal(callable $reducer): ?array
+            {
+                return $this->inner->updateGlobal($reducer);
+            }
+
+            public function readGlobal(): ?array
+            {
+                return $this->inner->readGlobal();
+            }
+
+            public function recordIndividual(string $fingerprint, int $now, int $windowStart): bool
+            {
+                return $this->inner->recordIndividual($fingerprint, $now, $windowStart);
+            }
+
+            public function collectGarbage(int $windowStart, int $maxEntries = 500): int
+            {
+                return $this->inner->collectGarbage($windowStart, $maxEntries);
+            }
+
+            public function countIndividual(string $fingerprint, int $windowStart): ?int
+            {
+                $count = $this->inner->countIndividual($fingerprint, $windowStart);
+
+                if (!$this->fired && $this->onFirstCount !== null) {
+                    $this->fired = true;
+                    ($this->onFirstCount)();
+                }
+
+                return $count;
+            }
+        };
+
+        $budget = new PuzzleBudget(
+            new RateLimitConfig(sliderIpLimit: 1, sliderIpWindowSec: 600),
+            $store,
+            'inst',
+            fn(): int => $this->now,
+        );
+
+        $second = null;
+        $store->onFirstCount = function () use ($budget, &$second): void {
+            $second = $budget->reserve(self::IP, 'fp');
+        };
+
+        $first = $budget->reserve(self::IP, 'fp');
+
+        $granted = \array_filter([$first, $second], static fn(PuzzleBudgetResult $result): bool => $result === PuzzleBudgetResult::Granted);
+        self::assertCount(1, $granted, 'only one of the two racing reservations may be Granted');
     }
 
     public function testAFailedGlobalUpdateRefuses(): void

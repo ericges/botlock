@@ -40,6 +40,17 @@ final readonly class PuzzleBudget
      * Takes one render from the client's budget and one from the current
      * minute's, or says why not. A client over its budget takes no global
      * slot, and a client refused a global slot keeps its render.
+     *
+     * Counts the client twice: once before recording, to refuse an
+     * already-exhausted client cheaply, and once after recording, because a
+     * concurrent request from the same client can record its own render
+     * between the two and would otherwise also read the stale first count
+     * and also be Granted. The second count is the one that must hold: it
+     * sees every render recorded up to and including this one, so the k-th
+     * request to record in a window is the first that can be refused by it,
+     * and at most $limit requests are ever Granted. A refusal there keeps
+     * the render already recorded and the global slot already taken, so it
+     * may refuse at the edge of the limit but never grants past it.
      */
     public function reserve(?string $clientIp, string $fingerprint): PuzzleBudgetResult
     {
@@ -62,8 +73,16 @@ final readonly class PuzzleBudget
             return PuzzleBudgetResult::GlobalExhausted;
         }
 
-        if ($limit > 0 && !$this->store->recordIndividual($client, $now, $windowStart)) {
-            return PuzzleBudgetResult::ClientExhausted;
+        if ($limit > 0) {
+            if (!$this->store->recordIndividual($client, $now, $windowStart)) {
+                return PuzzleBudgetResult::ClientExhausted;
+            }
+
+            $recount = $this->store->countIndividual($client, $windowStart);
+
+            if ($recount === null || $recount > $limit) {
+                return PuzzleBudgetResult::ClientExhausted;
+            }
         }
 
         return PuzzleBudgetResult::Granted;
