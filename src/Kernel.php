@@ -35,6 +35,7 @@ use GES\Botlock\Middleware\ThreatPassMiddleware;
 use GES\Botlock\Middleware\IgnoreListMiddleware;
 use GES\Botlock\I18n\LanguageNegotiator;
 use GES\Botlock\I18n\TranslationLoader;
+use GES\Botlock\Template\LocalizedPage;
 use GES\Botlock\Template\RenderedPageCache;
 use GES\Botlock\Template\TemplateRenderer;
 
@@ -104,6 +105,9 @@ readonly class Kernel
         }
 
         $translations = new TranslationLoader($this->botlockRoot . '/translations');
+        $negotiator = new LanguageNegotiator($translations->supported());
+        $renderer = new TemplateRenderer();
+        $templates = $this->botlockRoot . '/templates';
         $middleware = new MiddlewareDispatcher();
         $policy = new InteractionPolicy($this->pow);
 
@@ -123,13 +127,14 @@ readonly class Kernel
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),
             ]))
-            ->add(new ChallengeDocumentMiddleware(
-                new LanguageNegotiator($translations->supported()),
+            ->add(new ChallengeDocumentMiddleware(new LocalizedPage(
+                $negotiator,
                 $translations,
-                new TemplateRenderer(),
+                $renderer,
                 $this->pageCache,
-                $this->botlockRoot . '/templates/challenge.php',
-            ))
+                'challenge',
+                $templates . '/challenge.php',
+            )))
         ;
 
         $response = $middleware->dispatch($request);

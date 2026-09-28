@@ -10,6 +10,7 @@ use GES\Botlock\Http\Session;
 use GES\Botlock\I18n\LanguageNegotiator;
 use GES\Botlock\I18n\TranslationLoader;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
+use GES\Botlock\Template\LocalizedPage;
 use GES\Botlock\Template\RenderedPageCache;
 use GES\Botlock\Template\TemplateRenderer;
 use GES\Botlock\Tests\Support\Requests;
@@ -182,13 +183,14 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
 
     private function middleware(?string $template = null, ?RenderedPageCache $cache = null): ChallengeDocumentMiddleware
     {
-        return new ChallengeDocumentMiddleware(
+        return new ChallengeDocumentMiddleware(new LocalizedPage(
             new LanguageNegotiator($this->translations->supported()),
             $this->translations,
             new TemplateRenderer(),
             $cache ?? new RenderedPageCache($this->cacheDir, 'inst'),
+            'challenge',
             $template ?? self::ROOT . '/templates/challenge.php',
-        );
+        ));
     }
 
     private function request(?string $acceptLanguage): Request

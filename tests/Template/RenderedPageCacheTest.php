@@ -26,31 +26,49 @@ final class RenderedPageCacheTest extends TestCase
 
     public function testFindReturnsNullBeforeStore(): void
     {
-        self::assertNull($this->cache->find('de', 'v1'));
+        self::assertNull($this->cache->find('challenge', 'de', 'v1'));
     }
 
     public function testStoreThenFind(): void
     {
-        $path = $this->cache->store('de', 'v1', '<html>de</html>');
+        $path = $this->cache->store('challenge', 'de', 'v1', '<html>de</html>');
 
         self::assertNotNull($path);
         self::assertSame($this->dir . '/botlock_challenge_inst_de_v1.html', $path);
         self::assertStringEqualsFile($path, '<html>de</html>');
-        self::assertSame($path, $this->cache->find('de', 'v1'));
+        self::assertSame($path, $this->cache->find('challenge', 'de', 'v1'));
         self::assertSame([$path], \glob($this->dir . '/*'), 'no temp file left behind');
     }
 
     public function testNewVersionEvictsOldVersionOfSameLanguageOnly(): void
     {
-        $oldDe = $this->cache->store('de', 'v1', 'de1');
-        $en = $this->cache->store('en', 'v1', 'en1');
-        $newDe = $this->cache->store('de', 'v2', 'de2');
+        $oldDe = $this->cache->store('challenge', 'de', 'v1', 'de1');
+        $en = $this->cache->store('challenge', 'en', 'v1', 'en1');
+        $newDe = $this->cache->store('challenge', 'de', 'v2', 'de2');
 
         self::assertFileDoesNotExist((string) $oldDe);
         self::assertFileExists((string) $en);
         self::assertFileExists((string) $newDe);
-        self::assertNull($this->cache->find('de', 'v1'));
-        self::assertSame($newDe, $this->cache->find('de', 'v2'));
+        self::assertNull($this->cache->find('challenge', 'de', 'v1'));
+        self::assertSame($newDe, $this->cache->find('challenge', 'de', 'v2'));
+    }
+
+    public function testPagesDoNotEvictEachOther(): void
+    {
+        $challenge = $this->cache->store('challenge', 'de', 'v1', 'challenge');
+        $blocked = $this->cache->store('blocked', 'de', 'v2', 'blocked');
+
+        self::assertSame($this->dir . '/botlock_blocked_inst_de_v2.html', $blocked);
+        self::assertFileExists((string) $challenge);
+        self::assertSame($challenge, $this->cache->find('challenge', 'de', 'v1'));
+        self::assertNull($this->cache->find('blocked', 'de', 'v1'));
+    }
+
+    public function testRejectsPageNamesOutsideLowercaseLetters(): void
+    {
+        $this->expectException(\InvalidArgumentException::class);
+
+        $this->cache->find('../x', 'de', 'v1');
     }
 
     public function testVersionTracksFileChanges(): void
@@ -79,7 +97,7 @@ final class RenderedPageCacheTest extends TestCase
 
     public function testCacheDirectoryAndFilesAreOwnerOnly(): void
     {
-        $path = (string) $this->cache->store('de', 'v1', '<html>de</html>');
+        $path = (string) $this->cache->store('challenge', 'de', 'v1', '<html>de</html>');
 
         \clearstatcache();
 
@@ -94,7 +112,7 @@ final class RenderedPageCacheTest extends TestCase
 
         try
         {
-            self::assertNull($cache->store('de', 'v1', 'html'));
+            self::assertNull($cache->store('challenge', 'de', 'v1', 'html'));
         }
         finally
         {
