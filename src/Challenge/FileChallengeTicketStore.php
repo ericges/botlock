@@ -15,6 +15,10 @@ use GES\Botlock\Filesystem\PrivateDirectory;
  * so concurrent redemptions of one ticket cannot both win, and none of them
  * can remove a ticket that another one has saved again under the same name
  * meanwhile.
+ *
+ * The file name hashes the subject together with the id, so a client that
+ * presents another client's ticket id looks for a file that does not exist
+ * and cannot consume, and thereby destroy, that ticket.
  */
 final readonly class FileChallengeTicketStore implements ChallengeTicketStore
 {
@@ -35,7 +39,7 @@ final readonly class FileChallengeTicketStore implements ChallengeTicketStore
             return false;
         }
 
-        $path = $this->file($ticket->id);
+        $path = $this->file($ticket->subject, $ticket->id);
         $tmp = $path . '.' . \bin2hex(\random_bytes(4)) . '.tmp';
         $json = \json_encode($ticket->toArray(), \JSON_THROW_ON_ERROR);
 
@@ -55,13 +59,13 @@ final readonly class FileChallengeTicketStore implements ChallengeTicketStore
         return true;
     }
 
-    public function consume(string $id): ?ChallengeTicket
+    public function consume(string $subject, string $id): ?ChallengeTicket
     {
         if (!ChallengeTicket::isValidId($id)) {
             return null;
         }
 
-        $path = $this->file($id);
+        $path = $this->file($subject, $id);
         $claimed = $path . '.' . \bin2hex(\random_bytes(4)) . '.claimed';
 
         if (!@\rename($path, $claimed)) {
@@ -77,7 +81,7 @@ final readonly class FileChallengeTicketStore implements ChallengeTicketStore
 
         $ticket = ChallengeTicket::fromArray(\json_decode($json, true));
 
-        return $ticket?->id === $id ? $ticket : null;
+        return $ticket?->id === $id && $ticket->subject === $subject ? $ticket : null;
     }
 
     /**
@@ -135,8 +139,8 @@ final readonly class FileChallengeTicketStore implements ChallengeTicketStore
         return $this->dir . \DIRECTORY_SEPARATOR . $this->instanceId . '_' . \sprintf('%08x', ChallengeTicket::issueMinute($id));
     }
 
-    private function file(string $id): string
+    private function file(string $subject, string $id): string
     {
-        return $this->bucket($id) . \DIRECTORY_SEPARATOR . \hash('sha256', $id) . '.json';
+        return $this->bucket($id) . \DIRECTORY_SEPARATOR . \hash('sha256', $subject . "\0" . $id) . '.json';
     }
 }

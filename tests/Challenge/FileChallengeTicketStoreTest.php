@@ -36,8 +36,8 @@ final class FileChallengeTicketStoreTest extends TestCase
         $ticket = self::ticket(sliderTarget: 120);
 
         self::assertTrue($this->store->save($ticket));
-        self::assertEquals($ticket, $this->store->consume($ticket->id));
-        self::assertNull($this->store->consume($ticket->id), 'a ticket is single-use');
+        self::assertEquals($ticket, $this->store->consume('fp', $ticket->id));
+        self::assertNull($this->store->consume('fp', $ticket->id), 'a ticket is single-use');
         self::assertSame([], \glob($this->dir . '/tickets/*/*'));
     }
 
@@ -48,7 +48,7 @@ final class FileChallengeTicketStoreTest extends TestCase
         $this->store->save($ticket->withInteracted());
 
         self::assertCount(1, \glob($this->dir . '/tickets/*/*'));
-        self::assertTrue($this->store->consume($ticket->id)?->interacted);
+        self::assertTrue($this->store->consume('fp', $ticket->id)?->interacted);
     }
 
     public function testTicketIsFiledUnderItsIssueMinuteWithoutRevealingTheId(): void
@@ -58,10 +58,29 @@ final class FileChallengeTicketStoreTest extends TestCase
 
         [$file] = \glob($this->dir . '/tickets/*/*');
 
-        self::assertSame(\sprintf('%s/tickets/inst_%08x/%s.json', $this->dir, 30_000_000, \hash('sha256', $ticket->id)), $file);
+        self::assertSame(\sprintf('%s/tickets/inst_%08x/%s.json', $this->dir, 30_000_000, \hash('sha256', "fp\0" . $ticket->id)), $file);
         self::assertStringNotContainsString($ticket->id, $file);
         self::assertSame(0600, \fileperms($file) & 0777);
         self::assertSame(0700, \fileperms(\dirname($file)) & 0777);
+    }
+
+    public function testAnotherSubjectFindsNothingAndLeavesTheTicket(): void
+    {
+        $ticket = self::ticket();
+        $this->store->save($ticket);
+
+        self::assertNull($this->store->consume('other-fp', $ticket->id));
+        self::assertCount(1, \glob($this->dir . '/tickets/*/*'), 'the owner\'s ticket is untouched');
+        self::assertEquals($ticket, $this->store->consume('fp', $ticket->id));
+    }
+
+    public function testRequestWithoutFingerprintFindsNothing(): void
+    {
+        $ticket = self::ticket();
+        $this->store->save($ticket);
+
+        self::assertNull($this->store->consume('', $ticket->id));
+        self::assertNotNull($this->store->consume('fp', $ticket->id));
     }
 
     public function testATamperedIssueMinuteFindsNothing(): void
@@ -70,15 +89,15 @@ final class FileChallengeTicketStoreTest extends TestCase
         $this->store->save($ticket);
         $tampered = \sprintf('%08x', ChallengeTicket::issueMinute($ticket->id) - 1) . \substr($ticket->id, 8);
 
-        self::assertNull($this->store->consume($tampered));
+        self::assertNull($this->store->consume('fp', $tampered));
         self::assertCount(1, \glob($this->dir . '/tickets/*'), 'no directory is created for the forged minute');
-        self::assertNotNull($this->store->consume($ticket->id));
+        self::assertNotNull($this->store->consume('fp', $ticket->id));
     }
 
     public function testUnknownOrMalformedIdsYieldNull(): void
     {
-        self::assertNull($this->store->consume(ChallengeTicket::newId(\microtime(true))));
-        self::assertNull($this->store->consume('../../etc/passwd'));
+        self::assertNull($this->store->consume('fp', ChallengeTicket::newId(\microtime(true))));
+        self::assertNull($this->store->consume('fp', '../../etc/passwd'));
     }
 
     public function testCorruptFileIsConsumedButRejected(): void
@@ -88,7 +107,7 @@ final class FileChallengeTicketStoreTest extends TestCase
         [$file] = \glob($this->dir . '/tickets/*/*');
         \file_put_contents($file, '{nope');
 
-        self::assertNull($this->store->consume($ticket->id));
+        self::assertNull($this->store->consume('fp', $ticket->id));
         self::assertFileDoesNotExist($file);
     }
 
@@ -109,7 +128,7 @@ final class FileChallengeTicketStoreTest extends TestCase
 
         self::assertSame(2, $this->store->collectGarbage($now - 360, 100));
         self::assertDirectoryDoesNotExist($oldBucket);
-        self::assertNotNull($this->store->consume($fresh->id));
+        self::assertNotNull($this->store->consume('fp', $fresh->id));
         self::assertFileExists($this->dir . '/tickets/inst_other_00000001/x.json');
     }
 

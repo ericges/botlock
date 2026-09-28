@@ -14,10 +14,11 @@ interface ChallengeTicketStore
     public function save(ChallengeTicket $ticket): bool;
 
     /**
-     * Removes and returns the ticket. Of several concurrent callers at most
-     * one receives it, which makes every ticket single-use.
+     * Removes and returns the ticket issued to $subject under $id. Of
+     * several concurrent callers at most one receives it, which makes every
+     * ticket single-use. Another subject finds nothing and removes nothing.
      */
-    public function consume(string $id): ?ChallengeTicket;
+    public function consume(string $subject, string $id): ?ChallengeTicket;
 
     /**
      * Deletes up to $maxEntries files of tickets issued before

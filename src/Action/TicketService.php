@@ -43,16 +43,19 @@ final readonly class TicketService
     }
 
     /**
-     * Consumes the ticket and checks that it belongs to this client, has not
-     * expired and still covers the current threat level.
+     * Consumes the client's ticket and checks that it has not expired and
+     * still covers the current threat level. A ticket issued to another
+     * fingerprint is not found and stays untouched.
      *
      * @throws JsonResponseException
      */
     public function redeem(mixed $id, Request $request): ChallengeTicket
     {
+        $subject = (string) $request->context->fingerprint;
+
         if (!ChallengeTicket::isValidId($id)
-            || !($ticket = $this->tickets->consume($id))
-            || !\hash_equals($ticket->subject, (string) $request->context->fingerprint)
+            || !($ticket = $this->tickets->consume($subject, $id))
+            || !\hash_equals($ticket->subject, $subject)
             || $ticket->isExpired($this->now()))
         {
             throw new JsonResponseException('Invalid challenge', 400);

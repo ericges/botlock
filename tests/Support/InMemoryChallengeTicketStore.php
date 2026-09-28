@@ -6,11 +6,12 @@ use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\ChallengeTicketStore;
 
 /**
- * Test double: keeps tickets in an array and can refuse writes.
+ * Test double: keeps tickets in an array keyed like the file store, by
+ * subject and id, and can refuse writes.
  */
 final class InMemoryChallengeTicketStore implements ChallengeTicketStore
 {
-    /** @var array<string, ChallengeTicket> */
+    /** @var array<string, ChallengeTicket> keyed by subject . "\0" . id */
     public array $tickets = [];
 
     /** @var list<array{float, int}> issuedBefore and maxEntries of each sweep */
@@ -24,17 +25,33 @@ final class InMemoryChallengeTicketStore implements ChallengeTicketStore
             return false;
         }
 
-        $this->tickets[$ticket->id] = $ticket;
+        $this->tickets[$ticket->subject . "\0" . $ticket->id] = $ticket;
 
         return true;
     }
 
-    public function consume(string $id): ?ChallengeTicket
+    public function consume(string $subject, string $id): ?ChallengeTicket
     {
-        $ticket = $this->tickets[$id] ?? null;
-        unset($this->tickets[$id]);
+        $key = $subject . "\0" . $id;
+        $ticket = $this->tickets[$key] ?? null;
+        unset($this->tickets[$key]);
 
         return $ticket;
+    }
+
+    /**
+     * The stored ticket with this id, whoever it was issued to; for
+     * assertions only, it does not consume.
+     */
+    public function find(string $id): ?ChallengeTicket
+    {
+        foreach ($this->tickets as $ticket) {
+            if ($ticket->id === $id) {
+                return $ticket;
+            }
+        }
+
+        return null;
     }
 
     public function collectGarbage(float $issuedBefore, int $maxEntries): int

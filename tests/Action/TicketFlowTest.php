@@ -94,7 +94,7 @@ final class TicketFlowTest extends TestCase
         self::assertSame('slider', $challenge['int']);
         self::assertArrayNotHasKey('pow', $challenge);
         self::assertArrayHasKey('puzzle', $challenge);
-        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $target = $this->store->find($challenge['cid'])->sliderTarget;
         self::assertIsInt($target);
         self::assertStringNotContainsString('"' . $target . '"', \json_encode($challenge), 'the target is not in the answer');
 
@@ -109,7 +109,7 @@ final class TicketFlowTest extends TestCase
     public function testSliderSolvedByKeysGetsAHarderProof(): void
     {
         $challenge = $this->challenge(level: 3);
-        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $target = $this->store->find($challenge['cid'])->sliderTarget;
         $track = Tracks::keyboard($target);
 
         $this->now += Tracks::end($track) / 1000 + 1;
@@ -122,7 +122,7 @@ final class TicketFlowTest extends TestCase
     public function testMissedSliderSpendsTheTicket(): void
     {
         $challenge = $this->challenge(level: 3);
-        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $target = $this->store->find($challenge['cid'])->sliderTarget;
 
         $this->now += 3;
         $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: self::slide($target + 20)));
@@ -133,7 +133,7 @@ final class TicketFlowTest extends TestCase
     {
         foreach ([[], ['pos' => 0], 'no track' => ['pos' => null], 'string pos' => null] as $case => $report) {
             $challenge = $this->challenge(level: 3);
-            $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+            $target = $this->store->find($challenge['cid'])->sliderTarget;
             $report = match ($case) {
                 'no track' => ['pos' => $target],
                 'string pos' => ['pos' => (string) $target, 'track' => Tracks::humanDrag($target)],
@@ -148,7 +148,7 @@ final class TicketFlowTest extends TestCase
     public function testScriptedSlideIsRejectedLikeAMiss(): void
     {
         $challenge = $this->challenge(level: 3);
-        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $target = $this->store->find($challenge['cid'])->sliderTarget;
 
         $this->now += 3;
         $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: ['pos' => $target, 'track' => Tracks::linearDrag($target)]));
@@ -158,7 +158,7 @@ final class TicketFlowTest extends TestCase
     public function testSlideAnsweredTooSoonIsRejected(): void
     {
         $challenge = $this->challenge(level: 3);
-        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $target = $this->store->find($challenge['cid'])->sliderTarget;
 
         $this->now += 0.5;
         $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: self::slide($target)));
@@ -176,7 +176,7 @@ final class TicketFlowTest extends TestCase
     public function testUnsealedReportIsRejected(): void
     {
         $challenge = $this->challenge(level: 3);
-        $target = $this->store->tickets[$challenge['cid']]->sliderTarget;
+        $target = $this->store->find($challenge['cid'])->sliderTarget;
         $action = new InteractAction($this->service(), new InteractionPolicy($this->config));
         $request = $this->request('POST', level: 3, body: ['cid' => $challenge['cid'], 'pos' => $target]);
 
@@ -286,9 +286,12 @@ final class TicketFlowTest extends TestCase
     public function testTicketOfAnotherClientIsRejected(): void
     {
         $challenge = $this->challenge(level: 1);
+        $solution = self::solve($challenge['pow']);
 
         $this->now += 1.5;
-        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1, fingerprint: 'fingerprint-b'));
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], $solution, level: 1, fingerprint: 'fingerprint-b'));
+        self::assertNotNull($this->store->find($challenge['cid']), 'the foreign attempt leaves the ticket');
+        self::assertSame(200, $this->verify($challenge['cid'], $solution, level: 1), 'the owner can still redeem it');
     }
 
     public function testMissingNonceIsRejected(): void
