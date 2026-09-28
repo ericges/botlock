@@ -31,6 +31,13 @@ final class TranslationLoaderTest extends TestCase
         }
     }
 
+    public function testRetryStringHoldsOneTimePlaceholder(): void
+    {
+        foreach ($this->loader->supported() as $code) {
+            self::assertSame(1, \substr_count($this->loader->load($code)['blockedRetry'], '{time}'), "{$code}.blockedRetry");
+        }
+    }
+
     public function testLanguageFilesMatchAllowList(): void
     {
         $files = \array_map(

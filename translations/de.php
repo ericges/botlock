@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// German challenge page strings. Keys must match TranslationLoader::KEYS.
+// German page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sicherheitsüberprüfung',
     'mainHeading' => 'Überprüfe, ob Sie ein Mensch sind …',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Sie werden in Kürze weitergeleitet …',
     'noscriptHeading' => 'JavaScript wird für die Sicherheitsüberprüfung benötigt.',
     'noscriptText' => 'Bitte aktivieren Sie JavaScript in Ihren Browsereinstellungen und aktualisieren Sie die Seite.',
+    'blockedHeading' => 'Zu viele Anfragen',
+    'blockedMessage' => 'Wir haben in kurzer Zeit zu viele Anfragen von Ihrer Verbindung erhalten, daher ist der Zugriff vorübergehend pausiert.',
+    'blockedWait' => 'Bitte warten Sie einen Moment und laden Sie die Seite dann neu.',
+    'blockedRetry' => 'Sie können es {time} erneut versuchen.',
+    'blockedFooter' => 'Diese Begrenzung schützt den Dienst vor automatisiertem Datenverkehr.',
 ];

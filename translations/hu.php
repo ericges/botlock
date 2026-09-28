@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Hungarian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Hungarian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Biztonsági ellenőrzés',
     'mainHeading' => 'Ellenőrizzük, hogy Ön valóban ember…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Hamarosan átirányítjuk…',
     'noscriptHeading' => 'A biztonsági ellenőrzéshez JavaScript szükséges.',
     'noscriptText' => 'Engedélyezze a JavaScriptet a böngésző beállításaiban, majd frissítse az oldalt.',
+    'blockedHeading' => 'Túl sok kérés',
+    'blockedMessage' => 'Rövid idő alatt túl sok kérés érkezett az Ön kapcsolatáról, ezért a hozzáférés átmenetileg szünetel.',
+    'blockedWait' => 'Kérjük, várjon egy kicsit, majd töltse újra az oldalt.',
+    'blockedRetry' => '{time} újra próbálkozhat.',
+    'blockedFooter' => 'Ez a korlátozás megvédi a szolgáltatást az automatizált forgalomtól.',
 ];

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Ukrainian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Ukrainian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Перевірка безпеки',
     'mainHeading' => 'Перевіряємо, що ви людина…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Незабаром вас буде перенаправлено…',
     'noscriptHeading' => 'Для перевірки безпеки потрібен JavaScript.',
     'noscriptText' => 'Увімкніть JavaScript у налаштуваннях браузера й оновіть сторінку.',
+    'blockedHeading' => 'Забагато запитів',
+    'blockedMessage' => 'За короткий час з вашого з’єднання надійшло забагато запитів, тому доступ тимчасово призупинено.',
+    'blockedWait' => 'Зачекайте трохи, а потім перезавантажте сторінку.',
+    'blockedRetry' => 'Спробувати знову можна {time}.',
+    'blockedFooter' => 'Це обмеження захищає сервіс від автоматизованого трафіку.',
 ];

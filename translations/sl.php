@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Slovenian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Slovenian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Varnostno preverjanje',
     'mainHeading' => 'Preverjamo, ali ste človek…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Kmalu boste preusmerjeni…',
     'noscriptHeading' => 'Za varnostno preverjanje je potreben JavaScript.',
     'noscriptText' => 'Omogočite JavaScript v nastavitvah brskalnika in osvežite stran.',
+    'blockedHeading' => 'Preveč zahtev',
+    'blockedMessage' => 'V kratkem času smo z vaše povezave prejeli preveč zahtev, zato je dostop začasno ustavljen.',
+    'blockedWait' => 'Počakajte trenutek in nato znova naložite stran.',
+    'blockedRetry' => 'Znova lahko poskusite {time}.',
+    'blockedFooter' => 'Ta omejitev ščiti storitev pred samodejnim prometom.',
 ];

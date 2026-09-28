@@ -108,6 +108,15 @@ readonly class Kernel
         $negotiator = new LanguageNegotiator($translations->supported());
         $renderer = new TemplateRenderer();
         $templates = $this->botlockRoot . '/templates';
+        $page = fn (string $name): LocalizedPage => new LocalizedPage(
+            $negotiator,
+            $translations,
+            $renderer,
+            $this->pageCache,
+            $name,
+            "{$templates}/{$name}.php",
+            ["{$templates}/partials/style.php"],
+        );
         $middleware = new MiddlewareDispatcher();
         $policy = new InteractionPolicy($this->pow);
 
@@ -117,7 +126,7 @@ readonly class Kernel
             ->add(new IgnoreListMiddleware($this->whitelist))
             ->add(new ThreatEvaluationMiddleware($this->rate, $this->rateLimiter))
             ->add(new VerifyCrawlerMiddleware($this->detective, $this->detection))
-            ->add(new ThreatBlockMiddleware($this->rate))
+            ->add(new ThreatBlockMiddleware($this->rate, $page('blocked')))
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))
             ->add(new ActionMiddleware([
@@ -127,15 +136,7 @@ readonly class Kernel
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),
             ]))
-            ->add(new ChallengeDocumentMiddleware(new LocalizedPage(
-                $negotiator,
-                $translations,
-                $renderer,
-                $this->pageCache,
-                'challenge',
-                $templates . '/challenge.php',
-                [$templates . '/partials/style.php'],
-            )))
+            ->add(new ChallengeDocumentMiddleware($page('challenge')))
         ;
 
         $response = $middleware->dispatch($request);

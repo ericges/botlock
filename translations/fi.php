@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Finnish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Finnish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Turvatarkistus',
     'mainHeading' => 'Tarkistamme, että olet ihminen…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Sinut ohjataan pian uudelleen…',
     'noscriptHeading' => 'JavaScript tarvitaan turvatarkistusta varten.',
     'noscriptText' => 'Ota JavaScript käyttöön selaimen asetuksissa ja päivitä sivu.',
+    'blockedHeading' => 'Liian monta pyyntöä',
+    'blockedMessage' => 'Olemme vastaanottaneet yhteydestäsi liian monta pyyntöä lyhyessä ajassa, joten pääsy on tilapäisesti keskeytetty.',
+    'blockedWait' => 'Odota hetki ja lataa sivu sitten uudelleen.',
+    'blockedRetry' => 'Voit yrittää uudelleen {time}.',
+    'blockedFooter' => 'Tämä rajoitus suojaa palvelua automaattiselta liikenteeltä.',
 ];

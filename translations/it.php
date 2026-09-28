@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Italian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Italian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Verifica di sicurezza',
     'mainHeading' => 'Stiamo verificando che tu sia una persona…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Sarai reindirizzato a breve…',
     'noscriptHeading' => 'JavaScript è necessario per eseguire la verifica di sicurezza.',
     'noscriptText' => 'Abilita JavaScript nelle impostazioni del browser e ricarica la pagina.',
+    'blockedHeading' => 'Troppe richieste',
+    'blockedMessage' => 'Abbiamo ricevuto troppe richieste dalla tua connessione in poco tempo, quindi l’accesso è momentaneamente sospeso.',
+    'blockedWait' => 'Attendi un momento, poi ricarica la pagina.',
+    'blockedRetry' => 'Potrai riprovare {time}.',
+    'blockedFooter' => 'Questo limite protegge il servizio dal traffico automatizzato.',
 ];

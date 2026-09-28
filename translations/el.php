@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Greek challenge page strings. Keys must match TranslationLoader::KEYS.
+// Greek page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Έλεγχος ασφαλείας',
     'mainHeading' => 'Επαληθεύουμε ότι είστε άνθρωπος…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Θα ανακατευθυνθείτε σύντομα…',
     'noscriptHeading' => 'Απαιτείται JavaScript για τον έλεγχο ασφαλείας.',
     'noscriptText' => 'Ενεργοποιήστε τη JavaScript στις ρυθμίσεις του προγράμματος περιήγησης και ανανεώστε τη σελίδα.',
+    'blockedHeading' => 'Πάρα πολλά αιτήματα',
+    'blockedMessage' => 'Λάβαμε πάρα πολλά αιτήματα από τη σύνδεσή σας σε σύντομο χρονικό διάστημα, γι’ αυτό η πρόσβαση έχει ανασταλεί προσωρινά.',
+    'blockedWait' => 'Περιμένετε λίγο και, στη συνέχεια, φορτώστε ξανά τη σελίδα.',
+    'blockedRetry' => 'Μπορείτε να δοκιμάσετε ξανά {time}.',
+    'blockedFooter' => 'Αυτό το όριο προστατεύει την υπηρεσία από την αυτοματοποιημένη κίνηση.',
 ];

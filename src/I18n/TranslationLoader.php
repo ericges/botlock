@@ -3,7 +3,7 @@
 namespace GES\Botlock\I18n;
 
 /**
- * Loads the challenge page strings for one language from
+ * Loads the page strings for one language from
  * translations/<code>.php. Codes are checked against a literal allow-list
  * so the file path can never be influenced by request input.
  */
@@ -23,6 +23,7 @@ final readonly class TranslationLoader
         'errorHeading', 'errorMessage', 'errorWidget', 'errorFooter',
         'successHeading', 'successMessage', 'successFooter',
         'noscriptHeading', 'noscriptText',
+        'blockedHeading', 'blockedMessage', 'blockedWait', 'blockedRetry', 'blockedFooter',
     ];
 
     /**

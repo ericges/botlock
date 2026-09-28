@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Russian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Russian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Проверка безопасности',
     'mainHeading' => 'Проверяем, что вы человек…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Скоро вы будете перенаправлены…',
     'noscriptHeading' => 'Для проверки безопасности требуется JavaScript.',
     'noscriptText' => 'Включите JavaScript в настройках браузера и обновите страницу.',
+    'blockedHeading' => 'Слишком много запросов',
+    'blockedMessage' => 'За короткое время с вашего подключения поступило слишком много запросов, поэтому доступ временно приостановлен.',
+    'blockedWait' => 'Подождите немного, а затем перезагрузите страницу.',
+    'blockedRetry' => 'Повторить попытку можно {time}.',
+    'blockedFooter' => 'Это ограничение защищает сервис от автоматизированного трафика.',
 ];

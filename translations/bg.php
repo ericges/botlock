@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Bulgarian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Bulgarian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Проверка за сигурност',
     'mainHeading' => 'Проверяваме дали сте човек…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Скоро ще бъдете пренасочени…',
     'noscriptHeading' => 'За проверката за сигурност е необходим JavaScript.',
     'noscriptText' => 'Активирайте JavaScript в настройките на браузъра и обновете страницата.',
+    'blockedHeading' => 'Твърде много заявки',
+    'blockedMessage' => 'Получихме твърде много заявки от вашата връзка за кратко време, затова достъпът е временно спрян.',
+    'blockedWait' => 'Моля, изчакайте малко и след това презаредете страницата.',
+    'blockedRetry' => 'Можете да опитате отново {time}.',
+    'blockedFooter' => 'Това ограничение защитава услугата от автоматизиран трафик.',
 ];

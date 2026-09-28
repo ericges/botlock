@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Serbian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Serbian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Bezbednosna provera',
     'mainHeading' => 'Proveravamo da li ste čovek…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Uskoro ćete biti preusmereni…',
     'noscriptHeading' => 'JavaScript je potreban za bezbednosnu proveru.',
     'noscriptText' => 'Omogućite JavaScript u podešavanjima pregledača i osvežite stranicu.',
+    'blockedHeading' => 'Previše zahteva',
+    'blockedMessage' => 'U kratkom vremenu primili smo previše zahteva sa vaše veze, pa je pristup privremeno zaustavljen.',
+    'blockedWait' => 'Sačekajte trenutak, a zatim ponovo učitajte stranicu.',
+    'blockedRetry' => 'Ponovo možete da pokušate {time}.',
+    'blockedFooter' => 'Ovo ograničenje štiti uslugu od automatizovanog saobraćaja.',
 ];

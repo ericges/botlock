@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Dutch challenge page strings. Keys must match TranslationLoader::KEYS.
+// Dutch page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Beveiligingscontrole',
     'mainHeading' => 'We controleren of u een mens bent…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'U wordt binnenkort doorgestuurd…',
     'noscriptHeading' => 'JavaScript is vereist voor de beveiligingscontrole.',
     'noscriptText' => 'Schakel JavaScript in via de browserinstellingen en vernieuw de pagina.',
+    'blockedHeading' => 'Te veel verzoeken',
+    'blockedMessage' => 'We hebben in korte tijd te veel verzoeken van uw verbinding ontvangen, daarom is de toegang tijdelijk onderbroken.',
+    'blockedWait' => 'Wacht even en laad de pagina daarna opnieuw.',
+    'blockedRetry' => 'U kunt het {time} opnieuw proberen.',
+    'blockedFooter' => 'Deze limiet beschermt de dienst tegen geautomatiseerd verkeer.',
 ];

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Czech challenge page strings. Keys must match TranslationLoader::KEYS.
+// Czech page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Bezpečnostní kontrola',
     'mainHeading' => 'Ověřujeme, že jste člověk…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Za okamžik budete přesměrováni…',
     'noscriptHeading' => 'Pro bezpečnostní kontrolu je vyžadován JavaScript.',
     'noscriptText' => 'Povolte prosím JavaScript v nastavení prohlížeče a obnovte stránku.',
+    'blockedHeading' => 'Příliš mnoho požadavků',
+    'blockedMessage' => 'Během krátké doby jsme z vašeho připojení obdrželi příliš mnoho požadavků, proto je přístup dočasně pozastaven.',
+    'blockedWait' => 'Chvíli prosím počkejte a poté stránku znovu načtěte.',
+    'blockedRetry' => 'Znovu to můžete zkusit {time}.',
+    'blockedFooter' => 'Tento limit chrání službu před automatizovaným provozem.',
 ];

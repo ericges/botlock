@@ -6,18 +6,26 @@ use GES\Botlock\Config\RateLimitConfig;
 use GES\Botlock\Http\Middleware\MiddlewareInterface;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
+use GES\Botlock\Template\LocalizedPage;
 
 /**
  * Answers threat level 4 with 429 Too Many Requests instead of a challenge.
  * Nobody who is not whitelisted is exempt, trusted good bots included: a
  * client this fast is refused until its individual rate drops again.
+ * Browsers get the blocked page in their language, JSON clients and
+ * everything else the plain error answer; Retry-After is always set.
  *
  * GET ?_botlock=status stays reachable so a blocked client can still see
  * why.
  */
 final readonly class ThreatBlockMiddleware implements MiddlewareInterface
 {
-    public function __construct(private RateLimitConfig $config) {}
+    private const MESSAGE = 'Too Many Requests';
+
+    public function __construct(
+        private RateLimitConfig $config,
+        private LocalizedPage   $page,
+    ) {}
 
     public function process(Request $request, callable $next): Response
     {
@@ -27,7 +35,19 @@ final readonly class ThreatBlockMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        return ErrorMiddleware::createErrorResponse($request, 429, 'Too Many Requests')
-            ->withHeader('Retry-After', (string) \max(1, $this->config->individualRateWindowSec));
+        $retryAfter = (string) \max(1, $this->config->individualRateWindowSec);
+
+        // Same precedence as ErrorMiddleware::createErrorResponse(): JSON wins over HTML.
+        $accept = \strtolower($request->getHeader('Accept', ''));
+
+        if (\str_contains($accept, 'text/html') && !\str_contains($accept, 'application/json')) {
+            return $this->page->respond($request, 429, [
+                'Retry-After' => $retryAfter,
+                'Botlock-Error' => self::MESSAGE,
+            ]);
+        }
+
+        return ErrorMiddleware::createErrorResponse($request, 429, self::MESSAGE)
+            ->withHeader('Retry-After', $retryAfter);
     }
 }

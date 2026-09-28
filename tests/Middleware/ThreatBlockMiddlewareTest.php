@@ -6,12 +6,36 @@ use GES\Botlock\Config\RateLimitConfig;
 use GES\Botlock\Crawler\CrawlerVerification;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
+use GES\Botlock\Http\Response\HtmlFileResponse;
+use GES\Botlock\Http\Response\JsonResponse;
+use GES\Botlock\I18n\LanguageNegotiator;
+use GES\Botlock\I18n\TranslationLoader;
 use GES\Botlock\Middleware\ThreatBlockMiddleware;
+use GES\Botlock\Template\LocalizedPage;
+use GES\Botlock\Template\RenderedPageCache;
+use GES\Botlock\Template\TemplateRenderer;
 use GES\Botlock\Tests\Support\Requests;
 use PHPUnit\Framework\TestCase;
 
 final class ThreatBlockMiddlewareTest extends TestCase
 {
+    private const ROOT = __DIR__ . '/../..';
+
+    private string $cacheDir;
+
+    protected function setUp(): void
+    {
+        $this->cacheDir = \sys_get_temp_dir() . '/botlock-block-' . \bin2hex(\random_bytes(4));
+    }
+
+    protected function tearDown(): void
+    {
+        foreach (\glob($this->cacheDir . '/*') ?: [] as $file) {
+            @\unlink($file);
+        }
+        @\rmdir($this->cacheDir);
+    }
+
     public function testLevelsBelowFourContinue(): void
     {
         foreach ([null, 0, 1, 2, 3] as $level) {
@@ -32,6 +56,78 @@ final class ThreatBlockMiddlewareTest extends TestCase
         self::assertSame(429, $response->getStatus());
         self::assertSame('90', $response->getHeader('Retry-After'));
         self::assertSame('Too Many Requests', $response->getHeader('Botlock-Error'));
+    }
+
+    public function testBrowsersGetTheBlockedPageInTheirLanguage(): void
+    {
+        $request = Requests::make(headers: [
+            'Accept' => 'text/html,application/xhtml+xml,*/*;q=0.8',
+            'Accept-Language' => 'de-DE,de;q=0.9',
+        ]);
+        $request->context->threatLevel = 4;
+
+        $response = $this->middleware(window: 90)->process($request, self::failingNext());
+        $body = (string) $response->getBody();
+
+        self::assertInstanceOf(HtmlFileResponse::class, $response);
+        self::assertSame(429, $response->getStatus());
+        self::assertSame('text/html; charset=utf-8', $response->getHeader('Content-Type'));
+        self::assertSame('de', $response->getHeader('Content-Language'));
+        self::assertSame('Accept-Language', $response->getHeader('Vary'));
+        self::assertSame('no-store', $response->getHeader('Cache-Control'));
+        self::assertSame('90', $response->getHeader('Retry-After'));
+        self::assertSame('Too Many Requests', $response->getHeader('Botlock-Error'));
+        self::assertStringContainsString('<html lang="de">', $body);
+        self::assertStringContainsString('<h1 id="main-heading">Zu viele Anfragen</h1>', $body);
+        self::assertStringContainsString('<body data-botlock-blocked>', $body);
+        self::assertStringContainsString('data-retry-template="Sie können es {time} erneut versuchen."', $body);
+    }
+
+    public function testSecondBrowserRequestIsServedFromCache(): void
+    {
+        $middleware = $this->middleware();
+        $request = static function (): Request {
+            $request = Requests::make(headers: ['Accept' => 'text/html', 'Accept-Language' => 'en']);
+            $request->context->threatLevel = 4;
+
+            return $request;
+        };
+
+        $middleware->process($request(), self::failingNext());
+        $files = \glob($this->cacheDir . '/botlock_blocked_*') ?: [];
+        self::assertCount(1, $files);
+
+        \file_put_contents($files[0], '<!-- cached -->', \FILE_APPEND);
+
+        self::assertStringEndsWith('<!-- cached -->', (string) $middleware->process($request(), self::failingNext())->getBody());
+    }
+
+    public function testJsonClientsKeepTheJsonAnswer(): void
+    {
+        $request = Requests::make(headers: ['Accept' => 'application/json, text/html']);
+        $request->context->threatLevel = 4;
+
+        $response = $this->middleware()->process($request, self::failingNext());
+
+        self::assertInstanceOf(JsonResponse::class, $response);
+        self::assertSame(429, $response->getStatus());
+        self::assertSame('60', $response->getHeader('Retry-After'));
+        self::assertSame(['ok' => false, 'error' => 'Too Many Requests'], \json_decode((string) $response->getBody(), true));
+    }
+
+    public function testOtherClientsKeepThePlainAnswer(): void
+    {
+        foreach ([[], ['Accept' => '*/*']] as $headers) {
+            $request = Requests::make(headers: $headers);
+            $request->context->threatLevel = 4;
+
+            $response = $this->middleware()->process($request, self::failingNext());
+
+            self::assertSame(429, $response->getStatus());
+            self::assertSame('text/plain; charset=utf-8', $response->getHeader('Content-Type'));
+            self::assertSame('60', $response->getHeader('Retry-After'));
+            self::assertSame('Too Many Requests', $response->getBody());
+        }
     }
 
     public function testTrustedGoodBotsAreRefusedToo(): void
@@ -56,7 +152,20 @@ final class ThreatBlockMiddlewareTest extends TestCase
 
     private function middleware(int $window = 60): ThreatBlockMiddleware
     {
-        return new ThreatBlockMiddleware(new RateLimitConfig(individualRateWindowSec: $window));
+        $translations = new TranslationLoader(self::ROOT . '/translations');
+
+        return new ThreatBlockMiddleware(
+            new RateLimitConfig(individualRateWindowSec: $window),
+            new LocalizedPage(
+                new LanguageNegotiator($translations->supported()),
+                $translations,
+                new TemplateRenderer(),
+                new RenderedPageCache($this->cacheDir, 'inst'),
+                'blocked',
+                self::ROOT . '/templates/blocked.php',
+                [self::ROOT . '/templates/partials/style.php'],
+            ),
+        );
     }
 
     private static function next(): callable

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Swedish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Swedish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Säkerhetskontroll',
     'mainHeading' => 'Vi kontrollerar att du är en människa…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Du omdirigeras inom kort…',
     'noscriptHeading' => 'JavaScript krävs för säkerhetskontrollen.',
     'noscriptText' => 'Aktivera JavaScript i webbläsarens inställningar och uppdatera sidan.',
+    'blockedHeading' => 'För många förfrågningar',
+    'blockedMessage' => 'Vi har tagit emot för många förfrågningar från din anslutning på kort tid, så åtkomsten är tillfälligt pausad.',
+    'blockedWait' => 'Vänta en stund och läs sedan in sidan igen.',
+    'blockedRetry' => 'Du kan försöka igen {time}.',
+    'blockedFooter' => 'Den här gränsen skyddar tjänsten mot automatiserad trafik.',
 ];

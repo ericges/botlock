@@ -98,7 +98,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_ENABLED` | Disabled | Enables BOTLOCK. This must be enabled when using `bootstrap.php` or the PHAR as an `auto_prepend_file`. |
 | `BOTLOCK_FAIL_OPEN` | Disabled | When enabled, boot errors (for example an unwritable state directory) let the request through to your application with a `Botlock-Error` header instead of answering `500`. Disabled means BOTLOCK fails closed and blocks the request. |
 | `BOTLOCK_INSTANCE_ID` | MD5 hash of the source directory | Identifies this BOTLOCK instance and separates its secret and global rate-limit state from other instances using the same state directory. |
-| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files, pending challenge tickets (`tickets/`, one subdirectory per issue minute) and the cached challenge pages (`botlock_challenge_<instance-id>_<lang>_<version>.html`). BOTLOCK creates it with mode `0700` and keeps the files inside owner-only (`0600`); an existing directory or file with wider permissions is tightened where the PHP user is allowed to do so, but its ownership is not verified. On a host shared with other local accounts, point this at a directory only the PHP user can reach (inside the application's private storage, not under the system temporary directory), because another account could pre-create the default path. See [Shared hosting](#shared-hosting). |
+| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files, pending challenge tickets (`tickets/`, one subdirectory per issue minute) and the cached pages (`botlock_challenge_<instance-id>_<lang>_<version>.html` and `botlock_blocked_…` for the level-4 page). BOTLOCK creates it with mode `0700` and keeps the files inside owner-only (`0600`); an existing directory or file with wider permissions is tightened where the PHP user is allowed to do so, but its ownership is not verified. On a host shared with other local accounts, point this at a directory only the PHP user can reach (inside the application's private storage, not under the system temporary directory), because another account could pre-create the default path. See [Shared hosting](#shared-hosting). |
 | `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated once, atomically, and stored owner-only as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. Set it explicitly when several hosts share sessions, or on shared hosts, so the signing secret never depends on the state directory. |
 | `BOTLOCK_POW_ALGORITHM` | `sha256` | Hash algorithm used for proof-of-work challenges. Allowed values are `sha256`, `sha384`, and `sha512`. |
 | `BOTLOCK_EXPIRE` | `3600` | Session lifetime in seconds. A challenge ticket always expires after five minutes. |
@@ -109,7 +109,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 
 ### Language
 
-The challenge page is served in the language negotiated from the browser's `Accept-Language` header: language ranges are ranked by their `q` value, matched on the primary subtag (`de-AT` selects `de`), and `nb`/`nn` map to `no`. When none of the shipped languages in `translations/` are acceptable, English is used. There is no setting for this. The response carries `Content-Language` and `Vary: Accept-Language`. Each language is rendered once and then served from a cached file in `BOTLOCK_STATE_DIR`; the cache refreshes itself when the template or a translation file changes.
+The challenge page and the level-4 page are served in the language negotiated from the browser's `Accept-Language` header: language ranges are ranked by their `q` value, matched on the primary subtag (`de-AT` selects `de`), and `nb`/`nn` map to `no`. When none of the shipped languages in `translations/` are acceptable, English is used. There is no setting for this. The response carries `Content-Language` and `Vary: Accept-Language`. Each language is rendered once and then served from a cached file in `BOTLOCK_STATE_DIR`; the cache refreshes itself when a template, the shared style partial or a translation file changes.
 
 ### Bot detection, proxies, and exclusions
 
@@ -178,7 +178,7 @@ spike. The elevated threat levels behave as follows:
 | `1` | Proof of work, starts on its own | Click, then proof of work (× `BOTLOCK_CRAWLER_FACTOR`) | Pass without a challenge |
 | `2` | Click, then proof of work | Click, then proof of work (× factor) | Easy proof of work, starts on its own |
 | `3` | Slider captcha, then proof of work (× `BOTLOCK_SLIDER_ASSISTED_FACTOR` without a drag) | Slider captcha, then proof of work (× factors) | Easy proof of work, starts on its own |
-| `4` | `429 Too Many Requests` with `Retry-After`, no challenge | same | same |
+| `4` | `429 Too Many Requests` with `Retry-After`, no challenge: browsers get a page in their language that explains the block and shows when to retry | same | same |
 
 A good bot is trusted when it is listed in `BOTLOCK_GOOD_BOTS` and, for providers
 listed in `BOTLOCK_VERIFY_BOTS`, passed the DNS check; a failed check raises the
@@ -281,8 +281,10 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
 | `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
 | `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
-| `translations/` | One `<code>.php` file per language returning the challenge page strings. |
-| `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering and the rendered-page cache. |
+| `templates/blocked.php` | The level-4 page answered with `429`, rendered and cached the same way; its script reads `Retry-After` with a `HEAD` request and shows the wait time. |
+| `templates/partials/style.php` | Styles shared by both pages (colour tokens, card layout, text). |
+| `translations/` | One `<code>.php` file per language returning the strings of both pages. |
+| `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering, `LocalizedPage` (negotiate, render once, serve from cache) and the rendered-page cache. |
 | `bootstrap.php` | The prepend entry point, also used as the PHAR stub. |
 | `build-phar.php` | Builds the release archive. |
 | `demo/` | The DDEV docroot: open dashboard (`index.php`), settings endpoint (`_demo.php`), request forging relay (`_forge.php`), the protected area (`protected/`), and the prepend shim, settings schema, presets, identities and relay log in `_lib/`. Not part of the library or the PHAR. |

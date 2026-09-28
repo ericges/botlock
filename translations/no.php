@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Norwegian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Norwegian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sikkerhetskontroll',
     'mainHeading' => 'Vi kontrollerer at du er et menneske…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Du blir videresendt om kort tid…',
     'noscriptHeading' => 'JavaScript kreves for sikkerhetskontrollen.',
     'noscriptText' => 'Aktiver JavaScript i nettleserinnstillingene, og last inn siden på nytt.',
+    'blockedHeading' => 'For mange forespørsler',
+    'blockedMessage' => 'Vi har mottatt for mange forespørsler fra tilkoblingen din på kort tid, så tilgangen er midlertidig satt på pause.',
+    'blockedWait' => 'Vent et øyeblikk, og last deretter inn siden på nytt.',
+    'blockedRetry' => 'Du kan prøve igjen {time}.',
+    'blockedFooter' => 'Denne grensen beskytter tjenesten mot automatisert trafikk.',
 ];

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Polish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Polish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Kontrola bezpieczeństwa',
     'mainHeading' => 'Sprawdzamy, czy jesteś człowiekiem…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Za chwilę nastąpi przekierowanie…',
     'noscriptHeading' => 'JavaScript jest wymagany do przeprowadzenia kontroli bezpieczeństwa.',
     'noscriptText' => 'Włącz JavaScript w ustawieniach przeglądarki i odśwież stronę.',
+    'blockedHeading' => 'Zbyt wiele żądań',
+    'blockedMessage' => 'W krótkim czasie otrzymaliśmy zbyt wiele żądań z Twojego połączenia, dlatego dostęp został tymczasowo wstrzymany.',
+    'blockedWait' => 'Poczekaj chwilę, a następnie odśwież stronę.',
+    'blockedRetry' => 'Możesz spróbować ponownie {time}.',
+    'blockedFooter' => 'Ten limit chroni usługę przed ruchem automatycznym.',
 ];

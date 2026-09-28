@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Turkish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Turkish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Güvenlik kontrolü',
     'mainHeading' => 'İnsan olduğunuzu doğruluyoruz…',
@@ -23,4 +23,9 @@ return [
     'successFooter' => 'Kısa süre içinde yönlendirileceksiniz…',
     'noscriptHeading' => 'Güvenlik kontrolü için JavaScript gereklidir.',
     'noscriptText' => 'Tarayıcı ayarlarınızdan JavaScript’i etkinleştirin ve sayfayı yenileyin.',
+    'blockedHeading' => 'Çok fazla istek',
+    'blockedMessage' => 'Kısa sürede bağlantınızdan çok fazla istek aldık, bu nedenle erişim geçici olarak duraklatıldı.',
+    'blockedWait' => 'Lütfen biraz bekleyin, ardından sayfayı yeniden yükleyin.',
+    'blockedRetry' => '{time} tekrar deneyebilirsiniz.',
+    'blockedFooter' => 'Bu sınır, hizmeti otomatik trafiğe karşı korur.',
 ];
