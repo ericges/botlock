@@ -22,10 +22,12 @@ use GES\Botlock\Middleware\WhoIsMiddleware;
 use GES\Botlock\Middleware\ActionMiddleware;
 use GES\Botlock\Action\ChallengeAction;
 use GES\Botlock\Action\InteractAction;
+use GES\Botlock\Action\PuzzleAction;
 use GES\Botlock\Action\TicketService;
 use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\FileChallengeTicketStore;
 use GES\Botlock\Challenge\InteractionPolicy;
+use GES\Botlock\Challenge\PuzzleBudget;
 use GES\Botlock\Action\ResetAction;
 use GES\Botlock\Action\StatusAction;
 use GES\Botlock\Action\VerifyAction;
@@ -60,8 +62,14 @@ readonly class Kernel
             $rateLimiter = new ThreatAwarenessManager($rate, $store);
             $pageCache = new RenderedPageCache($kernelConfig->stateDir, $kernelConfig->instanceId);
             $tickets = new FileChallengeTicketStore($kernelConfig->stateDir, $kernelConfig->instanceId);
+            // A store of its own: its window and sweeps must not mix with the rate limiter's.
+            $puzzleBudget = new PuzzleBudget(
+                $rate,
+                new FileThreatStateStore($kernelConfig->stateDir . \DIRECTORY_SEPARATOR . 'puzzles', $kernelConfig->instanceId),
+                $kernelConfig->instanceId,
+            );
 
-            return new static($botlockRoot, $botDetect, $pow, $detection, $rate, $rateLimiter, $whitelist, $pageCache, $tickets);
+            return new static($botlockRoot, $botDetect, $pow, $detection, $rate, $rateLimiter, $whitelist, $pageCache, $tickets, $puzzleBudget);
         }
         catch (\Throwable $th)
         {
@@ -82,7 +90,7 @@ readonly class Kernel
      */
     public static function passThrough(string $botlockRoot, string $reason): static
     {
-        return new static($botlockRoot, null, null, null, null, null, null, null, null, $reason);
+        return new static($botlockRoot, null, null, null, null, null, null, null, null, null, $reason);
     }
 
     public function __construct(
@@ -95,12 +103,13 @@ readonly class Kernel
         private ?WhitelistManager       $whitelist,
         private ?RenderedPageCache      $pageCache,
         private ?ChallengeTicketStore   $tickets,
+        private ?PuzzleBudget           $puzzleBudget,
         private ?string                 $bootError = null,
     ) {}
 
     public function handleRequest(Request $request): void
     {
-        if ($this->bootError !== null || !$this->pow || !$this->detection || !$this->rate || !$this->pageCache || !$this->tickets) {
+        if ($this->bootError !== null || !$this->pow || !$this->detection || !$this->rate || !$this->pageCache || !$this->tickets || !$this->puzzleBudget) {
             \header('Botlock-Error: ' . \strtr($this->bootError ?? 'Kernel not booted', ["\r" => ' ', "\n" => ' ']));
             return;
         }
@@ -134,6 +143,7 @@ readonly class Kernel
             ->add(new ActionMiddleware([
                 'GET challenge' => new ChallengeAction($this->detective, $policy, $ticketService),
                 'POST challenge' => new InteractAction($ticketService, $policy),
+                'POST puzzle' => new PuzzleAction($this->pow, $ticketService, $this->puzzleBudget),
                 'POST verify' => new VerifyAction($this->pow, $ticketService),
                 'POST reset' => new ResetAction(),
                 'GET status' => new StatusAction(),

@@ -6,7 +6,6 @@ use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\InteractionCipher;
 use GES\Botlock\Challenge\InteractionPolicy;
 use GES\Botlock\Challenge\Interaction;
-use GES\Botlock\Challenge\SliderPuzzle;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
@@ -19,9 +18,11 @@ use GES\Botlock\Manager\BotTestManager;
  *
  * The answer names the required interaction. Only when none is required
  * does it carry the proof of work right away; otherwise the client gets it
- * from InteractAction once the interaction is done, and the answer carries
- * the key the client seals its interaction report with. For the slider it
- * also carries the puzzle images, whose target stays in the ticket.
+ * from InteractAction once the interaction is done. A click ticket carries
+ * the key the client seals its report with. A slider ticket starts at the
+ * gate: the answer carries a proof of work at base difficulty, which
+ * PuzzleAction takes in exchange for the puzzle and its key, so a bare
+ * request never costs the server a picture.
  */
 final readonly class ChallengeAction implements ActionHandlerInterface
 {
@@ -44,7 +45,6 @@ final readonly class ChallengeAction implements ActionHandlerInterface
         // Level 4 is refused before any action runs; a challenge is always for 1–3.
         $level = \min(3, \max(1, $request->context->threatLevel ?? 1));
         $interaction = $this->policy->interaction($level, $isCrawler, $isTrustedGoodBot);
-        $puzzle = $interaction === Interaction::Slider ? SliderPuzzle::create() : null;
         $now = $this->tickets->now();
 
         $ticket = new ChallengeTicket(
@@ -55,8 +55,8 @@ final readonly class ChallengeAction implements ActionHandlerInterface
             issuedAt: $now,
             expiresAt: (int) \floor($now) + ChallengeTicket::TTL,
             difficulty: $this->policy->difficulty($isCrawler, $isTrustedGoodBot),
-            sliderTarget: $puzzle?->target,
-            key: $interaction->isInteractive() ? InteractionCipher::newKey() : null,
+            // The slider's key comes with its puzzle, see PuzzleAction.
+            key: $interaction === Interaction::Click ? InteractionCipher::newKey() : null,
         );
 
         $this->tickets->save($ticket);
@@ -68,12 +68,13 @@ final readonly class ChallengeAction implements ActionHandlerInterface
             $data['pow'] = $this->tickets->proofOfWork($ticket, $ticket->binding(), $ticket->difficulty);
         }
 
-        if ($ticket->key !== null) {
-            $data['key'] = \base64_encode($ticket->key);
+        if ($ticket->awaitsPuzzle()) {
+            // Base difficulty for everyone: the gate pays for the picture, the final proof for the grant.
+            $data['gate'] = $this->tickets->proofOfWork($ticket, $ticket->gateBinding(), 1.0);
         }
 
-        if ($puzzle) {
-            $data['puzzle'] = $puzzle->toArray();
+        if ($ticket->key !== null) {
+            $data['key'] = \base64_encode($ticket->key);
         }
 
         return new JsonResponse(200, $data);

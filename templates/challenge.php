@@ -311,6 +311,26 @@ if (!isset($lang, $trans, $transJson, $e)) {
         footerElement.textContent = trans.errorFooter;
     }
 
+    function relativeTime(seconds) {
+        const lang = document.documentElement.lang;
+        // Plain "sr" formats in Cyrillic; the Serbian strings are Latin.
+        const format = new Intl.RelativeTimeFormat(lang === 'sr' ? 'sr-Latn' : lang);
+        return seconds % 60 === 0 ? format.format(seconds / 60, 'minute') : format.format(seconds, 'second');
+    }
+
+    // Too many requests or slider puzzles: the same words as the 429 page, no retry.
+    function showBlocked(seconds) {
+        security.classList.add('status-fail');
+        headingElement.textContent = trans.blockedHeading;
+        infoElement.textContent = trans.blockedMessage;
+
+        const note = document.createElement('p');
+        note.textContent = seconds === null ? trans.blockedWait : trans.blockedRetry.replace('{time}', relativeTime(seconds));
+        widgetElement.replaceChildren(note);
+
+        footerElement.textContent = trans.blockedFooter;
+    }
+
     function showSuccess() {
         security.classList.add('status-success');
         headingElement.textContent = trans.successHeading;
@@ -330,6 +350,20 @@ if (!isset($lang, $trans, $transJson, $e)) {
 
     // The slider missed the gap; the ticket is spent, a new puzzle follows.
     class RetryError extends Error {}
+
+    // The client used up its slider puzzles for now; Retry-After says for how long.
+    class BlockedError extends Error {
+        constructor(seconds) {
+            super('blocked');
+            this.seconds = seconds;
+        }
+    }
+
+    // Retry-After in whole seconds, or null when it is missing or not a number of seconds.
+    function retryAfter(response) {
+        const seconds = Number(response.headers.get('Retry-After'));
+        return Number.isInteger(seconds) && seconds >= 1 ? seconds : null;
+    }
 
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -355,6 +389,10 @@ if (!isset($lang, $trans, $transJson, $e)) {
             throw new RetryError();
         }
 
+        if (response.status === 429) {
+            throw new BlockedError(retryAfter(response));
+        }
+
         return response;
     }
 
@@ -366,6 +404,18 @@ if (!isset($lang, $trans, $transJson, $e)) {
     // Reports the completed interaction; the answer carries the proof of work.
     async function completeInteraction(challenge, nonce, report = {}) {
         const response = await call('challenge', 'POST', nonce, await seal(challenge, report));
+        return response.ok ? await response.json() : null;
+    }
+
+    // Pays for the slider picture with the gate proof of work; the answer
+    // carries the puzzle, the key and the slider's own deadline.
+    async function openPuzzle(challenge, nonce) {
+        const solution = await solveChallenge(challenge.gate);
+        if (solution === null) {
+            return null;
+        }
+
+        const response = await call('puzzle', 'POST', nonce, { ...solution, cid: challenge.cid });
         return response.ok ? await response.json() : null;
     }
 
@@ -419,6 +469,11 @@ if (!isset($lang, $trans, $transJson, $e)) {
     }
 
     function handleFailure(error, attempt) {
+        if (error instanceof BlockedError) {
+            showBlocked(error.seconds);
+            return;
+        }
+
         if ((error instanceof RestartError || error instanceof RetryError) && attempt < MAX_ATTEMPTS) {
             showWorking();
             botlock(attempt + 1, error instanceof RetryError).catch((error) => {
@@ -461,9 +516,15 @@ if (!isset($lang, $trans, $transJson, $e)) {
                 case 'click':
                     showConfirm(challenge, nonce, attempt);
                     return;
-                case 'slider':
-                    showSlider(challenge, nonce, attempt, retried);
+                case 'slider': {
+                    const puzzle = await openPuzzle(challenge, nonce);
+                    if (!puzzle) {
+                        showError();
+                        return;
+                    }
+                    showSlider({ ...challenge, ...puzzle }, nonce, attempt, retried);
                     return;
+                }
                 default:
                     showError();
             }

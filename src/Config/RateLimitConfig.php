@@ -4,7 +4,8 @@ namespace GES\Botlock\Config;
 
 /**
  * Thresholds and switches for the rate-based threat evaluation. fromEnv()
- * multiplies every level threshold by BOTLOCK_THRESHOLD_FACTOR.
+ * multiplies every level threshold by BOTLOCK_THRESHOLD_FACTOR. The slider
+ * puzzle budget is not scaled.
  */
 final readonly class RateLimitConfig
 {
@@ -37,6 +38,10 @@ final readonly class RateLimitConfig
         public int  $level4ThresholdIndividual = 180,
         /** One request in this many sweeps stale per-client state; 0 disables. */
         public int  $gcProbability = 1000,
+        /** Slider puzzles rendered per client IP within sliderIpWindowSec; 0 disables the per-client budget. */
+        public int  $sliderIpLimit = 10,
+        /** Window of the per-client puzzle budget in seconds; also its Retry-After. */
+        public int  $sliderIpWindowSec = 600,
     ) {}
 
     public static function fromEnv(): self
@@ -62,6 +67,8 @@ final readonly class RateLimitConfig
             level3ThresholdIndividual: $scale(Env::int('LEVEL_3_THRESHOLD_INDIVIDUAL', 120)),
             level4ThresholdIndividual: $scale(Env::int('LEVEL_4_THRESHOLD_INDIVIDUAL', 180)),
             gcProbability: \max(0, Env::int('GC_PROBABILITY', 1000)),
+            sliderIpLimit: \max(0, Env::int('SLIDER_IP_LIMIT', 10)),
+            sliderIpWindowSec: \max(1, Env::int('SLIDER_IP_WINDOW_SEC', 600)),
         );
     }
 

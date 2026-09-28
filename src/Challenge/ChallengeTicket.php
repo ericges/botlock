@@ -4,7 +4,8 @@ namespace GES\Botlock\Challenge;
 
 /**
  * Server-side record of one issued challenge. The client only ever sees the
- * id and, for an interaction, the key to seal its report with; the level,
+ * id and, for an interaction, the key to seal its report with (for the
+ * slider only once it paid the gate and got its puzzle); the level,
  * required interaction and slider target stay on the server, and redeeming
  * the ticket consumes it.
  *
@@ -31,6 +32,7 @@ final readonly class ChallengeTicket
      * @param int|null    $sliderTarget x offset the slider piece has to reach; null unless the interaction is Slider
      * @param bool        $interacted   whether the required interaction has been completed
      * @param string|null $key          raw InteractionCipher key the interaction report is sealed with; null without an interaction
+     * @param float|null  $puzzleAt     Unix time the slider puzzle was rendered; null before and without one
      */
     public function __construct(
         public string      $id,
@@ -43,6 +45,7 @@ final readonly class ChallengeTicket
         public ?int        $sliderTarget = null,
         public bool        $interacted = false,
         public ?string     $key = null,
+        public ?float      $puzzleAt = null,
     ) {}
 
     /**
@@ -91,6 +94,22 @@ final readonly class ChallengeTicket
     }
 
     /**
+     * A slider ticket at the gate: its puzzle has not been rendered yet.
+     */
+    public function awaitsPuzzle(): bool
+    {
+        return $this->interaction === Interaction::Slider && $this->sliderTarget === null;
+    }
+
+    /**
+     * @param float $now render time; the slider is timed from it, not from issuing
+     */
+    public function withPuzzle(int $target, string $key, float $now): self
+    {
+        return $this->with(sliderTarget: $target, key: $key, puzzleAt: $now);
+    }
+
+    /**
      * @param float|null $difficulty proof-of-work difficulty from now on; null keeps it
      */
     public function withInteracted(?float $difficulty = null): self
@@ -106,6 +125,15 @@ final readonly class ChallengeTicket
         return $this->id . '|' . $this->interaction->value . '|' . $this->level;
     }
 
+    /**
+     * Ticket fields the gate proof of work in front of the slider puzzle is
+     * bound to; never valid for the final proof, and vice versa.
+     */
+    public function gateBinding(): string
+    {
+        return $this->id . '|gate|' . $this->level;
+    }
+
     public function toArray(): array
     {
         return [
@@ -119,6 +147,7 @@ final readonly class ChallengeTicket
             'tgt' => $this->sliderTarget,
             'done' => $this->interacted,
             'key' => $this->key === null ? null : \base64_encode($this->key),
+            'pat' => $this->puzzleAt,
         ];
     }
 
@@ -147,11 +176,18 @@ final readonly class ChallengeTicket
             sliderTarget: \is_int($data['tgt'] ?? null) ? $data['tgt'] : null,
             interacted: ($data['done'] ?? false) === true,
             key: \is_string($data['key'] ?? null) && \is_string($key = \base64_decode($data['key'], true)) ? $key : null,
+            puzzleAt: \is_numeric($data['pat'] ?? null) ? (float) $data['pat'] : null,
         );
     }
 
-    private function with(?int $expiresAt = null, ?float $difficulty = null, ?bool $interacted = null): self
-    {
+    private function with(
+        ?int $expiresAt = null,
+        ?float $difficulty = null,
+        ?bool $interacted = null,
+        ?int $sliderTarget = null,
+        ?string $key = null,
+        ?float $puzzleAt = null,
+    ): self {
         return new self(
             id: $this->id,
             subject: $this->subject,
@@ -160,9 +196,10 @@ final readonly class ChallengeTicket
             issuedAt: $this->issuedAt,
             expiresAt: $expiresAt ?? $this->expiresAt,
             difficulty: $difficulty ?? $this->difficulty,
-            sliderTarget: $this->sliderTarget,
+            sliderTarget: $sliderTarget ?? $this->sliderTarget,
             interacted: $interacted ?? $this->interacted,
-            key: $this->key,
+            key: $key ?? $this->key,
+            puzzleAt: $puzzleAt ?? $this->puzzleAt,
         );
     }
 }

@@ -66,6 +66,8 @@ final class Settings
             'LEVEL_4_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 4', 'default' => '180', 'help' => 'Answered with 429, no challenge. 0 or not above level 3: off.'],
             'INDIVIDUAL_RATE_WINDOW_SEC' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual window (s)', 'default' => '60'],
             'GC_PROBABILITY' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'GC probability (1 in N)', 'default' => '1000', 'help' => '0 disables the sweep.'],
+            'SLIDER_IP_LIMIT' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Slider puzzles per IP', 'default' => '10', 'help' => 'Per window; 429 beyond. 0 disables.'],
+            'SLIDER_IP_WINDOW_SEC' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Slider budget window (s)', 'default' => '600'],
 
             'POW_ALGORITHM' => ['group' => 'Proof of work', 'type' => self::TYPE_ENUM, 'options' => ['sha256', 'sha384', 'sha512'], 'label' => 'Algorithm', 'default' => 'sha256'],
             'MAX_NUMBER' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Max number', 'default' => '50000', 'help' => 'Base difficulty.'],

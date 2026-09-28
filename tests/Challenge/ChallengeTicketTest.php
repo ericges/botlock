@@ -4,6 +4,7 @@ namespace GES\Botlock\Tests\Challenge;
 
 use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\Interaction;
+use GES\Botlock\Challenge\InteractionCipher;
 use PHPUnit\Framework\TestCase;
 
 final class ChallengeTicketTest extends TestCase
@@ -46,6 +47,43 @@ final class ChallengeTicketTest extends TestCase
         $data = $ticket->toArray();
         unset($data['exp']);
         self::assertNull(ChallengeTicket::fromArray($data), 'a ticket without a deadline is refused');
+    }
+
+    public function testASliderTicketAwaitsItsPuzzleUntilItHasOne(): void
+    {
+        $ticket = self::slider(issuedAt: 1_800_000_000.0);
+        self::assertTrue($ticket->awaitsPuzzle());
+        self::assertFalse($ticket->isReadyForProof());
+
+        $key = InteractionCipher::newKey();
+        $opened = $ticket->withPuzzle(123, $key, 1_800_000_004.25);
+        self::assertFalse($opened->awaitsPuzzle());
+        self::assertSame(123, $opened->sliderTarget);
+        self::assertSame($key, $opened->key);
+        self::assertSame(1_800_000_004.25, $opened->puzzleAt);
+        self::assertEquals($opened, ChallengeTicket::fromArray($opened->toArray()), 'the render time is stored');
+
+        self::assertFalse(self::ticket(issuedAt: 1_800_000_000.0)->awaitsPuzzle(), 'a click ticket has no puzzle');
+    }
+
+    public function testTheGateBindingDiffersFromTheProofBinding(): void
+    {
+        $ticket = self::slider(issuedAt: 1_800_000_000.0);
+
+        self::assertSame($ticket->id . '|gate|3', $ticket->gateBinding());
+        self::assertNotSame($ticket->binding(), $ticket->gateBinding());
+    }
+
+    private static function slider(float $issuedAt): ChallengeTicket
+    {
+        return new ChallengeTicket(
+            id: ChallengeTicket::newId($issuedAt),
+            subject: 'fp',
+            level: 3,
+            interaction: Interaction::Slider,
+            issuedAt: $issuedAt,
+            expiresAt: (int) \floor($issuedAt) + ChallengeTicket::TTL,
+        );
     }
 
     private static function ticket(float $issuedAt): ChallengeTicket

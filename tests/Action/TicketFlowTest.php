@@ -4,17 +4,23 @@ namespace GES\Botlock\Tests\Action;
 
 use GES\Botlock\Action\ChallengeAction;
 use GES\Botlock\Action\InteractAction;
+use GES\Botlock\Action\PuzzleAction;
 use GES\Botlock\Action\TicketService;
 use GES\Botlock\Action\VerifyAction;
 use GES\Botlock\Challenge\ChallengeTicket;
 use GES\Botlock\Challenge\InteractionPolicy;
+use GES\Botlock\Challenge\ProofOfWork;
+use GES\Botlock\Challenge\PuzzleBudget;
 use GES\Botlock\Config\DetectionConfig;
 use GES\Botlock\Config\ProofOfWorkConfig;
+use GES\Botlock\Config\RateLimitConfig;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
+use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Session;
 use GES\Botlock\Manager\BotTestManager;
 use GES\Botlock\Tests\Support\InMemoryChallengeTicketStore;
+use GES\Botlock\Tests\Support\InMemoryThreatStateStore;
 use GES\Botlock\Tests\Support\Reports;
 use GES\Botlock\Tests\Support\Tracks;
 use GES\Botlock\Tests\Support\Requests;
@@ -31,6 +37,8 @@ final class TicketFlowTest extends TestCase
 
     private ProofOfWorkConfig $config;
     private InMemoryChallengeTicketStore $store;
+    private RateLimitConfig $rate;
+    private InMemoryThreatStateStore $budgetStore;
     private Session $session;
     private float $now;
     private ?string $originalUserAgent;
@@ -42,6 +50,8 @@ final class TicketFlowTest extends TestCase
 
         $this->config = new ProofOfWorkConfig(secret: 'test-secret', maxNumber: 200, minSolveMs: 1000);
         $this->store = new InMemoryChallengeTicketStore();
+        $this->rate = new RateLimitConfig(gcProbability: 0);
+        $this->budgetStore = new InMemoryThreatStateStore();
         $this->session = self::session();
         $this->now = \microtime(true);
     }
@@ -89,14 +99,8 @@ final class TicketFlowTest extends TestCase
 
     public function testLevelThreeSliderMustHitTheGap(): void
     {
-        $challenge = $this->challenge(level: 3);
-
-        self::assertSame('slider', $challenge['int']);
-        self::assertArrayNotHasKey('pow', $challenge);
-        self::assertArrayHasKey('puzzle', $challenge);
+        $challenge = $this->sliderChallenge();
         $target = $this->store->find($challenge['cid'])->sliderTarget;
-        self::assertIsInt($target);
-        self::assertStringNotContainsString('"' . $target . '"', \json_encode($challenge), 'the target is not in the answer');
 
         $this->now += 3;
         $ready = $this->interact($challenge, level: 3, report: self::slide($target + 3));
@@ -106,9 +110,19 @@ final class TicketFlowTest extends TestCase
         self::assertSame(3, $this->session->get('grant'));
     }
 
+    public function testOnlyInteractiveChallengesCarryAKey(): void
+    {
+        self::assertArrayNotHasKey('key', $this->challenge(level: 1));
+        self::assertArrayNotHasKey('key', $this->challenge(level: 3), 'the slider key comes with its puzzle');
+        self::assertSame(32, \strlen(\base64_decode($this->sliderChallenge()['key'], true)));
+
+        $ready = $this->interact($this->challenge(level: 2), level: 2);
+        self::assertArrayNotHasKey('key', $ready, 'the proof answer does not echo the key');
+    }
+
     public function testSliderSolvedByKeysGetsAHarderProof(): void
     {
-        $challenge = $this->challenge(level: 3);
+        $challenge = $this->sliderChallenge();
         $target = $this->store->find($challenge['cid'])->sliderTarget;
         $track = Tracks::keyboard($target);
 
@@ -121,7 +135,7 @@ final class TicketFlowTest extends TestCase
 
     public function testMissedSliderSpendsTheTicket(): void
     {
-        $challenge = $this->challenge(level: 3);
+        $challenge = $this->sliderChallenge();
         $target = $this->store->find($challenge['cid'])->sliderTarget;
 
         $this->now += 3;
@@ -132,7 +146,7 @@ final class TicketFlowTest extends TestCase
     public function testSliderWithoutPositionOrTrackIsRejected(): void
     {
         foreach ([[], ['pos' => 0], 'no track' => ['pos' => null], 'string pos' => null] as $case => $report) {
-            $challenge = $this->challenge(level: 3);
+            $challenge = $this->sliderChallenge();
             $target = $this->store->find($challenge['cid'])->sliderTarget;
             $report = match ($case) {
                 'no track' => ['pos' => $target],
@@ -147,7 +161,7 @@ final class TicketFlowTest extends TestCase
 
     public function testScriptedSlideIsRejectedLikeAMiss(): void
     {
-        $challenge = $this->challenge(level: 3);
+        $challenge = $this->sliderChallenge();
         $target = $this->store->find($challenge['cid'])->sliderTarget;
 
         $this->now += 3;
@@ -157,31 +171,122 @@ final class TicketFlowTest extends TestCase
 
     public function testSlideAnsweredTooSoonIsRejected(): void
     {
-        $challenge = $this->challenge(level: 3);
+        $challenge = $this->sliderChallenge();
         $target = $this->store->find($challenge['cid'])->sliderTarget;
 
         $this->now += 0.5;
         $this->assertRejected(403, fn() => $this->interact($challenge, level: 3, report: self::slide($target)));
     }
 
-    public function testOnlyInteractiveChallengesCarryAKey(): void
-    {
-        self::assertArrayNotHasKey('key', $this->challenge(level: 1));
-        self::assertSame(32, \strlen(\base64_decode($this->challenge(level: 3)['key'], true)));
-
-        $ready = $this->interact($this->challenge(level: 2), level: 2);
-        self::assertArrayNotHasKey('key', $ready, 'the proof answer does not echo the key');
-    }
-
     public function testUnsealedReportIsRejected(): void
     {
-        $challenge = $this->challenge(level: 3);
+        $challenge = $this->sliderChallenge();
         $target = $this->store->find($challenge['cid'])->sliderTarget;
         $action = new InteractAction($this->service(), new InteractionPolicy($this->config));
         $request = $this->request('POST', level: 3, body: ['cid' => $challenge['cid'], 'pos' => $target]);
 
         $this->assertRejected(403, fn() => $action->handle($request));
         self::assertSame([], $this->store->tickets, 'the ticket is spent');
+    }
+
+    public function testLevelThreeStartsAtTheGate(): void
+    {
+        $challenge = $this->challenge(level: 3);
+
+        self::assertSame('slider', $challenge['int']);
+        self::assertSame(200, $challenge['gate']['max'], 'the gate is at base difficulty');
+        self::assertSame($challenge['exp'], $challenge['gate']['exp']);
+        self::assertArrayNotHasKey('puzzle', $challenge);
+        self::assertArrayNotHasKey('pow', $challenge);
+        self::assertNull($this->store->find($challenge['cid'])->sliderTarget, 'nothing is rendered yet');
+    }
+
+    public function testCrawlersPayTheGateAtBaseDifficulty(): void
+    {
+        $_SERVER['HTTP_USER_AGENT'] = 'Mozilla/5.0 (compatible; AhrefsBot/7.0; +http://ahrefs.com/robot/)';
+
+        $challenge = $this->challenge(level: 3);
+
+        self::assertSame('slider', $challenge['int']);
+        self::assertSame(200, $challenge['gate']['max'], 'the crawler factor applies to the final proof only');
+        self::assertSame(15.0, $this->store->find($challenge['cid'])->difficulty);
+    }
+
+    public function testTheGateOpensThePuzzle(): void
+    {
+        $challenge = $this->challenge(level: 3);
+        $this->now += 2;
+        $opened = $this->openPuzzle($challenge);
+        $ticket = $this->store->find($opened['cid']);
+
+        self::assertArrayHasKey('puzzle', $opened);
+        self::assertSame(32, \strlen(\base64_decode($opened['key'], true)));
+        self::assertIsInt($ticket->sliderTarget);
+        self::assertSame($this->now, $ticket->puzzleAt);
+        self::assertSame((int) \floor($this->now) + ChallengeTicket::TTL, $opened['exp'], 'the slider gets a phase of its own');
+        self::assertStringNotContainsString('"' . $ticket->sliderTarget . '"', \json_encode($opened), 'the target is not in the answer');
+    }
+
+    public function testAProofForAnotherBindingDoesNotOpenThePuzzle(): void
+    {
+        $challenge = $this->challenge(level: 3);
+        $foreign = (new ProofOfWork($this->config))->create(self::FP, $challenge['cid'] . '|slider|3', $challenge['exp']);
+
+        $response = $this->puzzle($challenge['cid'], self::solve($foreign));
+
+        self::assertSame(401, $response->getStatus());
+        self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
+        self::assertSame([], $this->budgetStore->individual, 'nothing was rendered or counted');
+    }
+
+    public function testTheGateSolutionDoesNotVerify(): void
+    {
+        $challenge = $this->challenge(level: 3);
+
+        $this->now += 1.5;
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($challenge['gate']), level: 3));
+    }
+
+    public function testOnlyAGateTicketOpensAPuzzle(): void
+    {
+        $click = $this->challenge(level: 2);
+        $pow = (new ProofOfWork($this->config))->create(self::FP, $click['cid'] . '|gate|2', $click['exp']);
+        $this->assertRejected(400, fn() => $this->puzzle($click['cid'], self::solve($pow), level: 2));
+
+        $opened = $this->sliderChallenge();
+        $pow = (new ProofOfWork($this->config))->create(self::FP, $opened['cid'] . '|gate|3', $opened['exp']);
+        $this->assertRejected(400, fn() => $this->puzzle($opened['cid'], self::solve($pow)), 'no second puzzle for one ticket');
+    }
+
+    public function testSlidingBeforeThePuzzleIsRejected(): void
+    {
+        $this->assertRejected(400, fn() => $this->interact($this->challenge(level: 3), level: 3));
+    }
+
+    public function testTimeAtTheGateDoesNotCountAsLookingAtThePicture(): void
+    {
+        $challenge = $this->challenge(level: 3);
+        $this->now += 5;
+        $opened = $this->openPuzzle($challenge);
+        $target = $this->store->find($opened['cid'])->sliderTarget;
+
+        $this->now += 0.5;
+        $this->assertRejected(403, fn() => $this->interact($opened, level: 3, report: self::slide($target)));
+    }
+
+    public function testTheClientBudgetRefusesFurtherPuzzles(): void
+    {
+        $this->rate = new RateLimitConfig(gcProbability: 0, sliderIpLimit: 2, sliderIpWindowSec: 600);
+        $this->sliderChallenge();
+        $this->sliderChallenge();
+
+        $challenge = $this->challenge(level: 3);
+        $response = $this->puzzle($challenge['cid'], self::solve($challenge['gate']));
+
+        self::assertSame(429, $response->getStatus());
+        self::assertSame('600', $response->getHeader('Retry-After'));
+        self::assertSame(['ok' => false, 'error' => 'Too Many Requests', 'code' => 429], \json_decode((string) $response->getBody(), true));
+        self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
     }
 
     public function testReportSealedWithAnotherKeyIsRejected(): void
@@ -367,6 +472,33 @@ final class TicketFlowTest extends TestCase
         return self::json($action->handle($this->request('POST', $level, body: $body)));
     }
 
+    /**
+     * Posts a gate solution; the answer carries the puzzle and the key.
+     */
+    private function puzzle(string $cid, array $solution, int $level = 3): Response
+    {
+        $action = new PuzzleAction(
+            $this->config,
+            $this->service(),
+            new PuzzleBudget($this->rate, $this->budgetStore, 'inst', fn(): int => (int) $this->now),
+        );
+
+        return $action->handle($this->request('POST', $level, body: $solution + ['cid' => $cid]));
+    }
+
+    /**
+     * Pays the gate and merges the puzzle answer into the challenge, like the page does.
+     */
+    private function openPuzzle(array $challenge): array
+    {
+        return self::json($this->puzzle($challenge['cid'], self::solve($challenge['gate']))) + $challenge;
+    }
+
+    private function sliderChallenge(): array
+    {
+        return $this->openPuzzle($this->challenge(level: 3));
+    }
+
     private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP): int
     {
         $action = new VerifyAction($this->config, $this->service());
@@ -396,6 +528,7 @@ final class TicketFlowTest extends TestCase
             body: $body === null ? '' : \json_encode($body),
         );
         $request->context->fingerprint = $fingerprint;
+        $request->context->clientIp = '203.0.113.10';
         $request->context->threatLevel = $level;
         $request->context->session = $this->session;
 

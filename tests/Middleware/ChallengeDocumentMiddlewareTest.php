@@ -194,6 +194,17 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('<html lang="de">', (string) $response->getBody());
     }
 
+    public function testSliderPuzzleIsPaidForWithTheGate(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertStringContainsString('await solveChallenge(challenge.gate)', $body);
+        self::assertStringContainsString("call('puzzle', 'POST', nonce", $body);
+        self::assertStringContainsString('response.status === 429', $body);
+        self::assertStringContainsString('throw new BlockedError(retryAfter(response))', $body);
+        self::assertStringContainsString('trans.blockedRetry.replace(', $body);
+    }
+
     private function middleware(?string $template = null, ?RenderedPageCache $cache = null): ChallengeDocumentMiddleware
     {
         return new ChallengeDocumentMiddleware(new LocalizedPage(

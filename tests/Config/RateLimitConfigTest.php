@@ -17,6 +17,8 @@ final class RateLimitConfigTest extends TestCase
         'LEVEL_2_THRESHOLD_INDIVIDUAL',
         'LEVEL_3_THRESHOLD_INDIVIDUAL',
         'LEVEL_4_THRESHOLD_INDIVIDUAL',
+        'SLIDER_IP_LIMIT',
+        'SLIDER_IP_WINDOW_SEC',
     ];
 
     protected function tearDown(): void
@@ -67,6 +69,21 @@ final class RateLimitConfigTest extends TestCase
 
         self::assertSame(0, $config->level4ThresholdIndividual);
         self::assertFalse($config->isLevel4Enabled());
+    }
+
+    public function testSliderBudgetDefaultsAndClamping(): void
+    {
+        $config = RateLimitConfig::fromEnv();
+        self::assertSame([10, 600], [$config->sliderIpLimit, $config->sliderIpWindowSec]);
+
+        \putenv('BOTLOCK_THRESHOLD_FACTOR=3');
+        \putenv('BOTLOCK_SLIDER_IP_LIMIT=-5');
+        \putenv('BOTLOCK_SLIDER_IP_WINDOW_SEC=0');
+        $config = RateLimitConfig::fromEnv();
+        self::assertSame([0, 1], [$config->sliderIpLimit, $config->sliderIpWindowSec], 'clamped, and not scaled by the factor');
+
+        \putenv('BOTLOCK_SLIDER_IP_LIMIT=25');
+        self::assertSame(25, RateLimitConfig::fromEnv()->sliderIpLimit);
     }
 
     #[DataProvider('invalidFactors')]

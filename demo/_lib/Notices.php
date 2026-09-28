@@ -12,7 +12,7 @@ final class Notices
         'saved' => 'Settings saved. They apply from the next request on.',
         'preset' => 'Preset applied. It takes effect from the next request on.',
         'reset' => 'Settings reset to the demo defaults.',
-        'cleared' => 'Rate-limit state and cached challenge pages deleted.',
+        'cleared' => 'Rate-limit state, slider puzzle budgets and cached challenge pages deleted.',
         'rotated' => 'Secret rotated. Every issued grant is invalid now.',
         'log-cleared' => 'Request log cleared.',
     ];

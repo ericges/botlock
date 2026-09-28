@@ -16,8 +16,9 @@ use GES\Botlock\Http\Response\JsonResponse;
 
 /**
  * POST ?_botlock=challenge — reports the completed interaction of a ticket
- * (body {"cid": …, "iv": …, "ct": …}: the report sealed with the ticket's
- * key, see InteractionCipher; for the slider it holds "pos" and "track")
+ * (for the slider once PuzzleAction rendered its puzzle; body {"cid": …,
+ * "iv": …, "ct": …}: the report sealed with the ticket's key, see
+ * InteractionCipher; for the slider it holds "pos" and "track")
  * and answers with its proof of work. A report that does not open, a
  * slider offset outside the tolerance or a track SliderTrack rejects all
  * answer the same 403 "retry"; the ticket is gone either way, so every
@@ -48,7 +49,7 @@ final readonly class InteractAction implements ActionHandlerInterface
         $ticket = $this->tickets->redeem($data['cid'] ?? null, $request);
         $now = $this->tickets->now();
 
-        if (!$ticket->interaction->isInteractive() || $ticket->interacted) {
+        if (!$ticket->interaction->isInteractive() || $ticket->interacted || $ticket->awaitsPuzzle()) {
             throw new JsonResponseException('Invalid challenge', 400);
         }
 
@@ -56,7 +57,8 @@ final readonly class InteractAction implements ActionHandlerInterface
 
         $verdict = match (true) {
             $report === null => SliderVerdict::Rejected,
-            $ticket->interaction === Interaction::Slider => self::judgeSlider($ticket, $report, ($now - $ticket->issuedAt) * 1000),
+            // From the render: time at the gate was spent before there was a picture.
+            $ticket->interaction === Interaction::Slider => self::judgeSlider($ticket, $report, ($now - ($ticket->puzzleAt ?? $ticket->issuedAt)) * 1000),
             default => null,
         };
 
