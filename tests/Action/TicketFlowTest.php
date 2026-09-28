@@ -227,6 +227,17 @@ final class TicketFlowTest extends TestCase
         self::assertStringNotContainsString('"' . $ticket->sliderTarget . '"', \json_encode($opened), 'the target is not in the answer');
     }
 
+    public function testPuzzleRequiresTheSessionNonce(): void
+    {
+        $challenge = $this->challenge(level: 3);
+
+        $wrongNonce = ['Botlock-Nonce' => '00000000-0000-4000-8000-000000000000'];
+        $this->assertRejected(400, fn() => $this->puzzle($challenge['cid'], self::solve($challenge['gate']), headers: $wrongNonce));
+
+        self::assertNotNull($this->store->find($challenge['cid']), 'the ticket is not spent');
+        self::assertSame([], $this->budgetStore->individual, 'nothing was rendered or counted');
+    }
+
     public function testAProofForAnotherBindingDoesNotOpenThePuzzle(): void
     {
         $challenge = $this->challenge(level: 3);
@@ -489,7 +500,7 @@ final class TicketFlowTest extends TestCase
     /**
      * Posts a gate solution; the answer carries the puzzle and the key.
      */
-    private function puzzle(string $cid, array $solution, int $level = 3): Response
+    private function puzzle(string $cid, array $solution, int $level = 3, ?array $headers = null): Response
     {
         $action = new PuzzleAction(
             $this->config,
@@ -497,7 +508,7 @@ final class TicketFlowTest extends TestCase
             new PuzzleBudget($this->rate, $this->budgetStore, 'inst', fn(): int => (int) $this->now),
         );
 
-        return $action->handle($this->request('POST', $level, body: $solution + ['cid' => $cid]));
+        return $action->handle($this->request('POST', $level, body: $solution + ['cid' => $cid], headers: $headers));
     }
 
     /**

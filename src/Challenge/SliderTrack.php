@@ -29,7 +29,7 @@ final readonly class SliderTrack
     /** Most samples the page records; more is not a person dragging. */
     public const MAX_SAMPLES = 2000;
 
-    /** Server time from issuing to reporting below which nobody saw the picture. */
+    /** Server time from the puzzle's render to reporting below which nobody saw the picture. */
     private const MIN_ELAPSED_MS = 800;
 
     /** Clock slack when comparing the track's duration with the server's. */
@@ -135,7 +135,7 @@ final readonly class SliderTrack
 
     /**
      * @param int   $pos       the reported final position, already checked against the target
-     * @param float $elapsedMs server time between issuing the ticket and this report
+     * @param float $elapsedMs server time between rendering the puzzle and this report
      */
     public function judge(int $pos, float $elapsedMs): SliderVerdict
     {

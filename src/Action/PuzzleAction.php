@@ -22,10 +22,10 @@ use GES\Botlock\Http\Response\JsonResponse;
  * The ticket is consumed first and only stored again with its puzzle, so a
  * wrong gate solution (401), a used-up client budget (429) or a full minute
  * for all clients (503, both with Retry-After) spends it. Each render
- * counts against PuzzleBudget whatever the slider
- * later does, so every guess costs a gate proof of work and a render of
- * the client's budget. The ticket gets a fresh deadline for the slider, and
- * the slider is timed from the render.
+ * counts against PuzzleBudget whatever the slider later does, so every
+ * guess costs a gate proof of work and a render of the client's budget.
+ * The ticket gets a fresh deadline for the slider, and the slider is timed
+ * from the render.
  */
 final readonly class PuzzleAction implements ActionHandlerInterface
 {

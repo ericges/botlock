@@ -101,7 +101,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files, pending challenge tickets (`tickets/`, one subdirectory per issue minute) and the cached pages (`botlock_challenge_<instance-id>_<lang>_<version>.html` and `botlock_blocked_…` for the level-4 page). BOTLOCK creates it with mode `0700` and keeps the files inside owner-only (`0600`); an existing directory or file with wider permissions is tightened where the PHP user is allowed to do so, but its ownership is not verified. On a host shared with other local accounts, point this at a directory only the PHP user can reach (inside the application's private storage, not under the system temporary directory), because another account could pre-create the default path. See [Shared hosting](#shared-hosting). |
 | `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated once, atomically, and stored owner-only as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. Set it explicitly when several hosts share sessions, or on shared hosts, so the signing secret never depends on the state directory. |
 | `BOTLOCK_POW_ALGORITHM` | `sha256` | Hash algorithm used for proof-of-work challenges. Allowed values are `sha256`, `sha384`, and `sha512`. |
-| `BOTLOCK_EXPIRE` | `3600` | Session lifetime in seconds. A challenge ticket always expires after five minutes. |
+| `BOTLOCK_EXPIRE` | `3600` | Session lifetime in seconds. Each phase of a challenge ticket gets its own five minutes, fifteen at most. |
 | `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
 | `BOTLOCK_CRAWLER_FACTOR` | `15` | Multiplies proof-of-work difficulty for crawlers that are not listed as good bots. The effective minimum is `1`. |
 | `BOTLOCK_SLIDER_ASSISTED_FACTOR` | `4` | Multiplies proof-of-work difficulty when the slider captcha was solved with the keyboard instead of dragging, on top of any crawler factor. The effective minimum is `1`. |
@@ -210,8 +210,8 @@ and are not counted toward any threshold, so monitoring checks or your own
 addresses never raise the threat level.
 
 Each challenge is a single-use ticket kept in `BOTLOCK_STATE_DIR`; each of its
-steps (the interaction, the proof of work) has five minutes, so a slow
-interaction does not shorten the time left for the proof.
+steps (the interaction, the level-3 gate, the proof of work) has five
+minutes, so a slow interaction does not shorten the time left for the proof.
 `GET ?_botlock=challenge` issues it and names the required interaction
 (`int`: `none`, `click` or `slider`) together with the ticket's threat level; the
 proof of work is included only when no interaction is required, otherwise
@@ -230,8 +230,9 @@ solution cannot be moved to another ticket. `POST ?_botlock=verify` spends the
 ticket whatever the outcome. A missed slider spends it as well, so every guess
 costs a new challenge, a gate proof of work and a puzzle from the client's budget.
 When the threat level has risen above the ticket's
-before it is redeemed, both endpoints answer `409` and the page starts over with
-a challenge for the new level.
+before it is redeemed, all three endpoints — the interaction, the gate and
+`verify` — answer `409` and the page starts over with a challenge for the new
+level.
 
 When the rate-limit state in `BOTLOCK_STATE_DIR` cannot be read or written (for
 example a full disk or lock contention), the affected level is reported as `1`
@@ -255,7 +256,7 @@ shows `individual_rate` as `null`.
 | `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL` | `120` | Requests per individual window that activate threat level 3. |
 | `BOTLOCK_LEVEL_4_THRESHOLD_INDIVIDUAL` | `180` | Requests per individual window that activate threat level 4: every request of that client is answered with `429` and no challenge until its rate drops. `GET ?_botlock=status` stays reachable. `0`, or a value not above `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL`, turns level 4 off, so thresholds raised above the default cannot block clients before they are challenged at level 3. |
 | `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. Each sweep inspects up to 500 files, starting at a random shard so that every shard is reached over time. Roughly one challenge request in this many also deletes expired challenge tickets, whole issue minutes at a time and up to twice this many files per sweep. `0` disables both sweeps. |
-| `BOTLOCK_SLIDER_IP_LIMIT` | `10` | Slider puzzles rendered per client IP within `BOTLOCK_SLIDER_IP_WINDOW_SEC`. Further puzzle requests from that IP are answered with `429` and the page shows how long to wait. Every render counts, solved or not, so blind guessing gets this many tries per window. Clients without a known IP are counted by fingerprint. IPv6 clients are counted per /64 network. Not scaled by `BOTLOCK_THRESHOLD_FACTOR`. `0` disables the budget. |
+| `BOTLOCK_SLIDER_IP_LIMIT` | `10` | Slider puzzles rendered per client IP within `BOTLOCK_SLIDER_IP_WINDOW_SEC`. Further puzzle requests from that IP are answered with `429` and the page shows how long to wait. Every render counts, solved or not, so blind guessing gets this many tries per window. Clients without a known IP are counted by fingerprint. IPv6 clients are counted per /64 network. Behind a reverse proxy that is missing from `BOTLOCK_TRUSTED_PROXIES`, every visitor resolves to the proxy's own address and shares one budget; see [Reverse proxies](#reverse-proxies). Not scaled by `BOTLOCK_THRESHOLD_FACTOR`. `0` disables the budget. |
 | `BOTLOCK_SLIDER_IP_WINDOW_SEC` | `600` | Window of the per-IP slider puzzle budget in seconds, also sent as its `Retry-After`. The effective minimum is `1`. |
 | `BOTLOCK_SLIDER_GLOBAL_LIMIT` | `300` | Slider puzzles rendered per minute across all clients. Beyond it, puzzle requests are answered with `503` and `Retry-After` until the next minute, and the page waits and starts over. Each render costs roughly 90 ms of CPU, so the default keeps a flood from many IPs to about half a core. Not scaled by `BOTLOCK_THRESHOLD_FACTOR`. `0` disables the cap. |
 
