@@ -1,7 +1,8 @@
 <?php declare(strict_types=1);
 /**
- * Browser challenge page. Rendered by Template\TemplateRenderer from
+ * Browser challenge page. Rendered by Template\LocalizedPage for
  * Middleware\ChallengeDocumentMiddleware, once per language, then cached.
+ * The shared styles come from partials/style.php.
  *
  * @var string                $lang      Language code, always one of I18n\TranslationLoader::LANGUAGES
  * @var array<string,string>  $trans     Strings for that language (keys: I18n\TranslationLoader::KEYS)
@@ -20,71 +21,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $e($trans['pageTitle']) ?></title>
     <style>
-        :root {
-            --body-bg: #f0f0f0;
-            --card-bg: #fff;
-            --title-color: #4e4848;
-            --text-color: #686868;
-            --icon-color: #d9dbdd;
-            --spinner-color: var(--title-color);
-            --spinner-bg: rgba(0, 0, 0, 0.1);
-            --noscript-bg: rgba(216, 0, 12, .06);
-            --noscript-color: #d8000c;
-            --error-color: #d8000c;
-            --success-color: #28a745;
-            --slider-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E");
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --body-bg: #141517;
-                --card-bg: #202124;
-                --title-color: #f8faff;
-                --text-color: #b0b2ba;
-                --icon-color: #757580;
-                --spinner-color: var(--title-color);
-                --spinner-bg: rgba(255, 255, 255, 0.1);
-                --noscript-color: #ff7076;
-                --error-color: #ff7076;
-                --success-color: #5cb85c;
-                --slider-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23202124' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14M13 6l6 6-6 6'/%3E%3C/svg%3E");
-            }
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: var(--body-bg);
-            margin: 0;
-            color: var(--title-color);
-            hanging-punctuation: none;
-            text-wrap: pretty;
-        }
-
-        #security {
-            background-color: var(--card-bg);
-            padding: 2.5rem;
-            border-radius: .125rem;
-            box-shadow: 0 1rem 1.5rem -.5rem rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 60ch;
-            width: 90%;
-        }
-
-        h1 {
-            color: var(--title-color);
-            margin-bottom: 1rem;
-            font-size: 1.8em;
-        }
-
-        p {
-            color: var(--text-color);
-            margin-bottom: 2rem;
-            line-height: 1.7;
-        }
+        <?php include __DIR__ . '/partials/style.php'; ?>
 
         #info-paragraph {
             text-wrap: balance;
@@ -127,16 +64,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
         .noscript-warning > * {
             display: block;
             margin-bottom: 5px;
-        }
-
-        .status-icon {
-            width: 6rem;
-            height: 6rem;
-            color: var(--icon-color);
-        }
-
-        .icon-wrapper {
-            display: none;
         }
 
         .status-message {
@@ -298,7 +225,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         </div>
     </noscript>
 
-    <p id="footer-note" style="font-size: 0.8em; color: #8a919c;"><?= $e($trans['footerNote']) ?></p>
+    <p id="footer-note"><?= $e($trans['footerNote']) ?></p>
 </div>
 
 <svg class="icon-wrapper" style="display: none;">

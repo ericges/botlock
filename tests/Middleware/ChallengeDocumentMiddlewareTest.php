@@ -110,6 +110,17 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('<h1 id="main-heading">Vérification en cours…</h1>', $body);
     }
 
+    public function testSharedStylesAreInlined(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertStringContainsString('--body-bg: #f0f0f0;', $body);
+        self::assertStringContainsString('#security {', $body);
+        self::assertStringContainsString('#footer-note {', $body);
+        self::assertStringContainsString('<p id="footer-note">', $body);
+        self::assertStringContainsString('.puzzle-slider {', $body);
+    }
+
     public function testChallengeScriptGuardsCryptoBeforeUse(): void
     {
         $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();

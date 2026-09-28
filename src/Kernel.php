@@ -134,6 +134,7 @@ readonly class Kernel
                 $this->pageCache,
                 'challenge',
                 $templates . '/challenge.php',
+                [$templates . '/partials/style.php'],
             )))
         ;
 
