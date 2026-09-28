@@ -7,8 +7,9 @@ use GES\Botlock\Filesystem\PrivateDirectory;
 /**
  * One JSON file per ticket in the state directory, in a directory per issue
  * minute (tickets/<instance>_<minute>/, the minute taken from the id). A
- * ticket lives five minutes, so cleanup deletes whole minutes that ended
- * before the cutoff and never lists one that is still in use.
+ * ticket lives fifteen minutes at most (ChallengeTicket::MAX_LIFETIME), so
+ * cleanup deletes whole minutes that ended before the cutoff and never lists
+ * one that is still in use.
  *
  * Consuming first renames the file to a name of its own and only then reads
  * and unlinks it; only the caller whose rename() succeeds gets the ticket,

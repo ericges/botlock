@@ -24,10 +24,11 @@ use GES\Botlock\Http\Response\JsonResponse;
  * guess costs a new challenge. A slider moved by keys instead of a drag
  * gets a harder proof of work.
  *
- * The ticket is consumed and stored again as interacted, so a concurrent
- * verify of the same ticket cannot slip in between. A threat level that
- * rose above the ticket's since it was issued answers 409 "restart": the
- * client has to fetch a new challenge for the higher level.
+ * The ticket is consumed and stored again as interacted with a fresh
+ * deadline for the proof, so a concurrent verify of the same ticket cannot
+ * slip in between. A threat level that rose above the ticket's since it was
+ * issued answers 409 "restart": the client has to fetch a new challenge for
+ * the higher level.
  */
 final readonly class InteractAction implements ActionHandlerInterface
 {
@@ -63,9 +64,10 @@ final readonly class InteractAction implements ActionHandlerInterface
             throw new JsonResponseException('retry', 403);
         }
 
+        // The proof gets a phase of its own, however long the interaction took.
         $ticket = $ticket->withInteracted(
             $verdict === SliderVerdict::Assisted ? $ticket->difficulty * $this->policy->assistedFactor() : null,
-        );
+        )->renewed($now);
 
         $this->tickets->save($ticket);
 

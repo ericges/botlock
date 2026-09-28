@@ -158,6 +158,7 @@ final class FileChallengeTicketStoreTest extends TestCase
             level: 2,
             interaction: $sliderTarget === null ? Interaction::Click : Interaction::Slider,
             issuedAt: $issuedAt,
+            expiresAt: (int) \floor($issuedAt) + ChallengeTicket::TTL,
             difficulty: 0.5,
             sliderTarget: $sliderTarget,
             key: InteractionCipher::newKey(),

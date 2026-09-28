@@ -78,20 +78,20 @@ final readonly class TicketService
             'cid' => $ticket->id,
             'lvl' => $ticket->level,
             'int' => $ticket->interaction->value,
-            'exp' => $ticket->expiresAt(),
+            'exp' => $ticket->expiresAt,
             'min_ms' => $this->config->minSolveMs,
         ];
     }
 
     /**
      * Proof of work bound to the ticket: its signature covers the subject
-     * and $binding, and it expires with the ticket.
+     * and $binding, and it expires with the ticket's current phase.
      */
     public function proofOfWork(ChallengeTicket $ticket, string $binding, float $difficulty): array
     {
         return (new ProofOfWork($this->config))
             ->setDifficulty($difficulty)
-            ->create($ticket->subject, $binding, $ticket->expiresAt());
+            ->create($ticket->subject, $binding, $ticket->expiresAt);
     }
 
     /**
@@ -100,9 +100,10 @@ final readonly class TicketService
     public function maybeCollectGarbage(): void
     {
         if ($this->gcProbability > 0 && \random_int(1, $this->gcProbability) === 1) {
-            // A minute of slack past the lifetime. Every call issues one
-            // ticket, so a budget of twice the sweep interval outpaces them.
-            $this->tickets->collectGarbage($this->now() - ChallengeTicket::TTL - 60, 2 * $this->gcProbability);
+            // A minute of slack past the longest lifetime; renewed tickets
+            // stay in their issue minute. Every call issues one ticket, so a
+            // budget of twice the sweep interval outpaces them.
+            $this->tickets->collectGarbage($this->now() - ChallengeTicket::MAX_LIFETIME - 60, 2 * $this->gcProbability);
         }
     }
 }

@@ -312,7 +312,33 @@ final class TicketFlowTest extends TestCase
     {
         $this->challenge(level: 1, gcProbability: 1);
 
-        self::assertSame([[$this->now - ChallengeTicket::TTL - 60, 2]], $this->store->gcCalls);
+        self::assertSame([[$this->now - ChallengeTicket::MAX_LIFETIME - 60, 2]], $this->store->gcCalls);
+    }
+
+    public function testASlowInteractionStillGetsAFullProofWindow(): void
+    {
+        $challenge = $this->challenge(level: 2);
+
+        $this->now += ChallengeTicket::TTL - 10;
+        $ready = $this->interact($challenge, level: 2);
+        self::assertSame((int) \floor($this->now) + ChallengeTicket::TTL, $ready['exp']);
+        self::assertSame($ready['exp'], $ready['pow']['exp'], 'the proof signs the renewed deadline');
+
+        $this->now += 200;
+        self::assertGreaterThan($challenge['exp'], $this->now, 'past the first deadline');
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 2));
+    }
+
+    public function testSweepKeepsARenewedTicket(): void
+    {
+        $challenge = $this->challenge(level: 2);
+        $this->now += 250;
+        $ready = $this->interact($challenge, level: 2);
+
+        $this->now += 200;
+        $this->challenge(level: 1, gcProbability: 1);
+
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 2));
     }
 
     public function testUnwritableStoreAnswers503(): void

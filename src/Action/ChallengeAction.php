@@ -53,6 +53,7 @@ final readonly class ChallengeAction implements ActionHandlerInterface
             level: $level,
             interaction: $interaction,
             issuedAt: $now,
+            expiresAt: (int) \floor($now) + ChallengeTicket::TTL,
             difficulty: $this->policy->difficulty($isCrawler, $isTrustedGoodBot),
             sliderTarget: $puzzle?->target,
             key: $interaction->isInteractive() ? InteractionCipher::newKey() : null,

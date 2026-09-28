@@ -7,11 +7,17 @@ namespace GES\Botlock\Challenge;
  * id and, for an interaction, the key to seal its report with; the level,
  * required interaction and slider target stay on the server, and redeeming
  * the ticket consumes it.
+ *
+ * Each phase (the gate, the interaction, the proof) has TTL seconds; the
+ * ticket lives MAX_LIFETIME at most.
  */
 final readonly class ChallengeTicket
 {
-    /** Lifetime of a ticket in seconds, from issuing to verifying. */
+    /** Lifetime of one phase in seconds: the gate, the interaction or the proof. */
     public const TTL = 300;
+
+    /** Longest a ticket lives across all of its phases. */
+    public const MAX_LIFETIME = 3 * self::TTL;
 
     public const ID_PATTERN = '/^[0-9a-f]{32}$/';
 
@@ -20,6 +26,7 @@ final readonly class ChallengeTicket
      * @param string      $subject      fingerprint the ticket was issued to
      * @param int         $level        threat level (1–3) the ticket was issued for; the grant carries it
      * @param float       $issuedAt     Unix time with microseconds
+     * @param int         $expiresAt    Unix time the current phase ends at, see renewed()
      * @param float       $difficulty   proof-of-work difficulty factor
      * @param int|null    $sliderTarget x offset the slider piece has to reach; null unless the interaction is Slider
      * @param bool        $interacted   whether the required interaction has been completed
@@ -31,6 +38,7 @@ final readonly class ChallengeTicket
         public int         $level,
         public Interaction $interaction,
         public float       $issuedAt,
+        public int         $expiresAt,
         public float       $difficulty = 1.0,
         public ?int        $sliderTarget = null,
         public bool        $interacted = false,
@@ -60,14 +68,18 @@ final readonly class ChallengeTicket
         return \is_string($id) && \preg_match(self::ID_PATTERN, $id) === 1;
     }
 
-    public function expiresAt(): int
-    {
-        return (int) \floor($this->issuedAt) + self::TTL;
-    }
-
     public function isExpired(float $now): bool
     {
-        return $now > $this->expiresAt();
+        return $now > $this->expiresAt;
+    }
+
+    /**
+     * The ticket with a fresh phase: its deadline moves to TTL from $now,
+     * but never past MAX_LIFETIME after issuing.
+     */
+    public function renewed(float $now): self
+    {
+        return $this->with(expiresAt: \min((int) \floor($now) + self::TTL, (int) \floor($this->issuedAt) + self::MAX_LIFETIME));
     }
 
     /**
@@ -83,17 +95,7 @@ final readonly class ChallengeTicket
      */
     public function withInteracted(?float $difficulty = null): self
     {
-        return new self(
-            $this->id,
-            $this->subject,
-            $this->level,
-            $this->interaction,
-            $this->issuedAt,
-            $difficulty ?? $this->difficulty,
-            $this->sliderTarget,
-            true,
-            $this->key,
-        );
+        return $this->with(difficulty: $difficulty, interacted: true);
     }
 
     /**
@@ -112,6 +114,7 @@ final readonly class ChallengeTicket
             'lvl' => $this->level,
             'int' => $this->interaction->value,
             'iat' => $this->issuedAt,
+            'exp' => $this->expiresAt,
             'dif' => $this->difficulty,
             'tgt' => $this->sliderTarget,
             'done' => $this->interacted,
@@ -127,21 +130,39 @@ final readonly class ChallengeTicket
             || !\is_int($data['lvl'] ?? null)
             || !($interaction = Interaction::tryFrom((string) ($data['int'] ?? '')))
             || !\is_numeric($data['iat'] ?? null)
+            || !\is_int($data['exp'] ?? null)
             || !\is_numeric($data['dif'] ?? null))
         {
             return null;
         }
 
         return new self(
-            $data['id'],
-            $data['sub'],
-            $data['lvl'],
-            $interaction,
-            (float) $data['iat'],
-            (float) $data['dif'],
-            \is_int($data['tgt'] ?? null) ? $data['tgt'] : null,
-            ($data['done'] ?? false) === true,
-            \is_string($data['key'] ?? null) && \is_string($key = \base64_decode($data['key'], true)) ? $key : null,
+            id: $data['id'],
+            subject: $data['sub'],
+            level: $data['lvl'],
+            interaction: $interaction,
+            issuedAt: (float) $data['iat'],
+            expiresAt: $data['exp'],
+            difficulty: (float) $data['dif'],
+            sliderTarget: \is_int($data['tgt'] ?? null) ? $data['tgt'] : null,
+            interacted: ($data['done'] ?? false) === true,
+            key: \is_string($data['key'] ?? null) && \is_string($key = \base64_decode($data['key'], true)) ? $key : null,
+        );
+    }
+
+    private function with(?int $expiresAt = null, ?float $difficulty = null, ?bool $interacted = null): self
+    {
+        return new self(
+            id: $this->id,
+            subject: $this->subject,
+            level: $this->level,
+            interaction: $this->interaction,
+            issuedAt: $this->issuedAt,
+            expiresAt: $expiresAt ?? $this->expiresAt,
+            difficulty: $difficulty ?? $this->difficulty,
+            sliderTarget: $this->sliderTarget,
+            interacted: $interacted ?? $this->interacted,
+            key: $this->key,
         );
     }
 }

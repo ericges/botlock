@@ -209,8 +209,10 @@ User-Agent, and URL exclusions bypass all elevated levels, including the `429`,
 and are not counted toward any threshold, so monitoring checks or your own
 addresses never raise the threat level.
 
-Each challenge is a single-use ticket kept in `BOTLOCK_STATE_DIR` for five
-minutes. `GET ?_botlock=challenge` issues it and names the required interaction
+Each challenge is a single-use ticket kept in `BOTLOCK_STATE_DIR`; each of its
+steps (the interaction, the proof of work) has five minutes, so a slow
+interaction does not shorten the time left for the proof.
+`GET ?_botlock=challenge` issues it and names the required interaction
 (`int`: `none`, `click` or `slider`) together with the ticket's threat level; the
 proof of work is included only when no interaction is required, otherwise
 `POST ?_botlock=challenge` hands it out once the interaction is reported. An
