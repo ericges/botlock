@@ -36,7 +36,7 @@ Measured baseline (DDEV container, PHP 8.3): `SliderPuzzle::create()` costs abou
    2. redeem the ticket (section B); it must be in the gate phase (`awaitsPuzzle()`), otherwise 400 `Invalid challenge`;
    3. verify the gate solution against `ticket->gateBinding()`; failure answers 401 `{"ok": false}` like `verify`;
    4. reserve a render slot from `PuzzleBudget`; refusal answers 429 or 503 (below);
-   5. render the puzzle, store target and a new `InteractionCipher` key in the ticket, renew its deadline (B3), save it;
+   5. render the puzzle, store target, a new `InteractionCipher` key and the render time (`puzzleAt`) in the ticket, renew its deadline (B3), save it;
    6. answer `describe(ticket) + {"key": …, "puzzle": …}` — the same fields `GET challenge` carries for a slider today.
    The ticket is spent on every failure path (it was consumed in step 2 and only saved in step 5).
 3. `POST ?_botlock=challenge` (sealed slider report) and `POST ?_botlock=verify` are unchanged.
@@ -117,7 +117,8 @@ A `final readonly` class next to `SessionNonce`, in `src/Action/` because it thr
 ### B4. Phases and bindings
 
 - `awaitsPuzzle()`: interaction `Slider` and `sliderTarget === null`.
-- `withPuzzle(int $target, string $key): self` sets both.
+- `withPuzzle(int $target, string $key, float $now): self` sets target, key and `puzzleAt` (array key `pat`).
+- `InteractAction` judges the slider track against the time since `puzzleAt` instead of `issuedAt`: time spent at the gate happens before the picture exists, so it must not count toward `SliderTrack`'s minimum viewing time or its clock check.
 - `gateBinding()`: `id|gate|level`; `binding()` stays `id|interaction|level`. A gate solution can therefore never pass `verify`, and a final solution never `puzzle`.
 - `InteractAction` additionally rejects a ticket that still `awaitsPuzzle()` (400).
 
@@ -148,7 +149,7 @@ The string branch goes; `InteractAction::judgeSlider()` already checks `is_int`.
 
 ## Testing
 
-- `TicketFlowTest`: full gate → puzzle → slider → verify flow; gate solution rejected by `verify` and final solution by `puzzle`; `puzzle` on a non-gate ticket; a foreign fingerprint leaves the ticket redeemable by its owner; a slow slider (> TTL after issuing) still gets a full proof window; 429 and 503 from the budget with `Retry-After`.
+- `TicketFlowTest`: full gate → puzzle → slider → verify flow; time at the gate does not count as looking at the picture; gate solution rejected by `verify` and final solution by `puzzle`; `puzzle` on a non-gate ticket; a foreign fingerprint leaves the ticket redeemable by its owner; a slow slider (> TTL after issuing) still gets a full proof window; 429 and 503 from the budget with `Retry-After`.
 - `PuzzleBudgetTest` (new): per-client limit and window rollover, IP-less fallback to the fingerprint, global limit and minute rollover, `0` disables each, failed global update fails closed, a refused global slot records no per-client render.
 - `ChallengeTicketTest`: `exp` round trip, `renewed()` and its cap, `awaitsPuzzle()`/`withPuzzle()`, `gateBinding()`.
 - `FileChallengeTicketStoreTest`: consume with the wrong subject returns null and leaves the file; garbage collection keeps a renewed ticket.
