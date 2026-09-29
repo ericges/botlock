@@ -98,6 +98,17 @@ final readonly class TicketService
     }
 
     /**
+     * Checks a solution to a proof of work from proofOfWork() with the same
+     * $binding; the request's ticket id and nonce are not part of it.
+     */
+    public function verifyProof(ChallengeTicket $ticket, array $data, string $binding): bool
+    {
+        unset($data['cid'], $data['nonce']);
+
+        return (new ProofOfWork($this->config))->verify($data, $ticket->subject, $binding);
+    }
+
+    /**
      * Sweeps expired tickets on roughly one call in gcProbability.
      */
     public function maybeCollectGarbage(): void

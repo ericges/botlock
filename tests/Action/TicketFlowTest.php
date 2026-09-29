@@ -518,7 +518,6 @@ final class TicketFlowTest extends TestCase
     private function puzzle(string $cid, array $solution, int $level = 3, ?array $headers = null): Response
     {
         $action = new PuzzleAction(
-            $this->config,
             $this->service(),
             new PuzzleBudget($this->rate, $this->budgetStore, 'inst', fn(): int => (int) $this->now),
         );

@@ -3,11 +3,9 @@
 namespace GES\Botlock\Action;
 
 use GES\Botlock\Challenge\InteractionCipher;
-use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Challenge\PuzzleBudget;
 use GES\Botlock\Challenge\PuzzleBudgetResult;
 use GES\Botlock\Challenge\SliderPuzzle;
-use GES\Botlock\Config\ProofOfWorkConfig;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
@@ -30,7 +28,6 @@ use GES\Botlock\Http\Response\JsonResponse;
 final readonly class PuzzleAction implements ActionHandlerInterface
 {
     public function __construct(
-        private ProofOfWorkConfig $config,
         private TicketService $tickets,
         private PuzzleBudget $budget,
     ) {}
@@ -52,9 +49,7 @@ final readonly class PuzzleAction implements ActionHandlerInterface
             throw new JsonResponseException('Invalid challenge', 400);
         }
 
-        unset($data['cid'], $data['nonce']);
-
-        if (!(new ProofOfWork($this->config))->verify($data, $ticket->subject, $ticket->gateBinding())) {
+        if (!$this->tickets->verifyProof($ticket, $data, $ticket->gateBinding())) {
             return new JsonResponse(401, ['ok' => false]);
         }
 
