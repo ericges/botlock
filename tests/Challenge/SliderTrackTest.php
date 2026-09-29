@@ -275,10 +275,21 @@ final class SliderTrackTest extends TestCase
             'time running back' => [['k' => 'k', 't' => 900.0, 'v' => 1, 'r' => false], ['k' => 'k', 't' => 800.0, 'v' => 2, 'r' => false]],
             'overlapping entries' => [...$drag, ['k' => 'k', 't' => 700.0, 'v' => 1, 'r' => false]],
             'short sample' => [['pts' => [[1.0, 2]]] + $drag[0]],
+            'no movement count' => [\array_diff_key($drag[0], ['co' => true])],
+            'string movement count' => [['co' => '40'] + $drag[0]],
+            'fewer movements than value changes' => [['co' => \count($drag[0]['pts']) - 2] + $drag[0]],
             'too many samples' => \array_fill(0, SliderTrack::MAX_SAMPLES + 1, ['k' => 'k', 't' => 700.0, 'v' => 1, 'r' => false]),
         ] as $case => $data) {
             self::assertNull(SliderTrack::fromArray($data), $case);
         }
+    }
+
+    public function testAPressBesideTheHandleMayMoveItOnce(): void
+    {
+        $track = Tracks::humanDrag(self::TARGET);
+        $track[0]['co'] = \count($track[0]['pts']) - 1;
+
+        self::assertSame(SliderVerdict::Drag, self::judge($track));
     }
 
     private static function judge(array $track, int $pos = self::TARGET, ?float $elapsedMs = null): SliderVerdict

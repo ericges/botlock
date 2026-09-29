@@ -10,9 +10,10 @@ namespace GES\Botlock\Challenge;
  *
  * The track is a list of entries in time order, times in milliseconds
  * since the puzzle was shown:
- * - {k: "p", pt, t0, pts: [[dt, v, dy], …]}: a drag, with pointer type,
- *   start time and one sample per value change (time since t0, slider
- *   value, vertical drift in puzzle pixels);
+ * - {k: "p", pt, t0, pts: [[dt, v, dy], …], co}: a drag, with pointer type,
+ *   start time, one sample per value change (time since t0, slider value,
+ *   vertical drift in puzzle pixels) and the number of pointer movements
+ *   the browser reported, coalesced ones included;
  * - {k: "k", t, v, r}: a key press that moved the slider, r for auto-repeat;
  * - {k: "c", t, d, v}: a press on the handle that barely dragged, d long.
  *
@@ -354,9 +355,13 @@ final readonly class SliderTrack
      */
     private static function stroke(array $item, int $max): ?array
     {
+        // The value only changes on a movement, which the page counts
+        // first; only the press may move the handle once without one, when
+        // it lands just beside it.
         if (!\in_array($item['pt'] ?? null, self::POINTER_TYPES, true)
             || ($t0 = self::time($item['t0'] ?? null)) === null
-            || !\is_array($item['pts'] ?? null) || !\array_is_list($item['pts']) || $item['pts'] === [])
+            || !\is_array($item['pts'] ?? null) || !\array_is_list($item['pts']) || $item['pts'] === []
+            || !\is_int($item['co'] ?? null) || $item['co'] < \count($item['pts']) - 1)
         {
             return null;
         }
