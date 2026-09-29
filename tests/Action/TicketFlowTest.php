@@ -35,6 +35,7 @@ final class TicketFlowTest extends TestCase
 {
     private const FP = 'fingerprint-a';
     private const NONCE = '123e4567-e89b-42d3-a456-426614174000';
+    private const OTHER_NONCE = '00000000-0000-4000-8000-000000000000';
 
     private ProofOfWorkConfig $config;
     private InMemoryChallengeTicketStore $store;
@@ -79,7 +80,6 @@ final class TicketFlowTest extends TestCase
         $this->now += 1.5;
         self::assertSame(200, $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1));
         self::assertSame(1, $this->session->get('grant'));
-        self::assertNull($this->session->get('nh'));
     }
 
     public function testLevelTwoBrowserGetsTheProofOnlyAfterTheClick(): void
@@ -228,15 +228,43 @@ final class TicketFlowTest extends TestCase
         self::assertStringNotContainsString('"' . $ticket->sliderTarget . '"', \json_encode($opened), 'the target is not in the answer');
     }
 
-    public function testPuzzleRequiresTheSessionNonce(): void
+    public function testPuzzleRequiresTheTicketsNonce(): void
     {
         $challenge = $this->challenge(level: 3);
 
-        $wrongNonce = ['Botlock-Nonce' => '00000000-0000-4000-8000-000000000000'];
+        $wrongNonce = ['Botlock-Nonce' => self::OTHER_NONCE];
         $this->assertRejected(400, fn() => $this->puzzle($challenge['cid'], self::solve($challenge['gate']), headers: $wrongNonce));
 
-        self::assertNotNull($this->store->find($challenge['cid']), 'the ticket is not spent');
+        self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
         self::assertSame([], $this->budgetStore->individual, 'nothing was rendered or counted');
+    }
+
+    /**
+     * Two tabs of one session each run their own challenge: the nonce is
+     * kept with each ticket, so the second does not replace the first.
+     */
+    public function testEachTabRedeemsItsOwnTicket(): void
+    {
+        $first = $this->challenge(level: 2);
+        $second = $this->challenge(level: 2, nonce: self::OTHER_NONCE);
+
+        $firstReady = $this->interact($first, level: 2);
+        $secondReady = $this->interact($second, level: 2, nonce: self::OTHER_NONCE);
+
+        $this->now += 1.5;
+        self::assertSame(200, $this->verify($first['cid'], self::solve($firstReady['pow']), level: 2));
+        self::assertSame(200, $this->verify($second['cid'], self::solve($secondReady['pow']), level: 2, nonce: self::OTHER_NONCE));
+    }
+
+    public function testAnotherNonceSpendsTheTicket(): void
+    {
+        $challenge = $this->challenge(level: 1);
+        self::assertStringNotContainsString(\hash('sha256', self::NONCE), \json_encode($challenge), 'the nonce hash stays on the server');
+
+        $this->now += 1.5;
+        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1, nonce: self::OTHER_NONCE));
+        self::assertNull($this->store->find($challenge['cid']));
+        self::assertNull($this->session->get('grant'));
     }
 
     public function testAProofForAnotherBindingDoesNotOpenThePuzzle(): void
@@ -381,7 +409,6 @@ final class TicketFlowTest extends TestCase
         $this->now += 1.5;
         self::assertSame(200, $this->verify($challenge['cid'], $solution, level: 1));
 
-        $this->session->set('nh', \password_hash(self::NONCE, \PASSWORD_DEFAULT));
         $this->assertRejected(400, fn() => $this->verify($challenge['cid'], $solution, level: 1));
     }
 
@@ -493,23 +520,23 @@ final class TicketFlowTest extends TestCase
         $this->assertRejected(503, fn() => $this->challenge(level: 1));
     }
 
-    private function challenge(int $level, int $gcProbability = 0): array
+    private function challenge(int $level, int $gcProbability = 0, string $nonce = self::NONCE): array
     {
-        return self::json($this->challengeAction($gcProbability)->handle($this->request('GET', $level)));
+        return self::json($this->challengeAction($gcProbability)->handle($this->request('GET', $level, headers: ['Botlock-Nonce' => $nonce])));
     }
 
     /**
      * Reports the interaction sealed with the challenge's key, the way the
      * challenge page does; a challenge without a key sends only its id.
      */
-    private function interact(array $challenge, int $level, array $report = []): array
+    private function interact(array $challenge, int $level, array $report = [], string $nonce = self::NONCE): array
     {
         $action = new InteractAction($this->service(), new InteractionPolicy($this->config));
         $body = isset($challenge['key'])
             ? Reports::seal(\base64_decode($challenge['key']), $challenge['cid'], $report)
             : ['cid' => $challenge['cid']];
 
-        return self::json($action->handle($this->request('POST', $level, body: $body)));
+        return self::json($action->handle($this->request('POST', $level, body: $body, headers: ['Botlock-Nonce' => $nonce])));
     }
 
     /**
@@ -538,11 +565,12 @@ final class TicketFlowTest extends TestCase
         return $this->openPuzzle($this->challenge(level: 3));
     }
 
-    private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP): int
+    private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP, string $nonce = self::NONCE): int
     {
         $action = new VerifyAction($this->config, $this->service());
+        $request = $this->request('POST', $level, body: $solution + ['cid' => $cid], fingerprint: $fingerprint, headers: ['Botlock-Nonce' => $nonce]);
 
-        return $action->handle($this->request('POST', $level, body: $solution + ['cid' => $cid], fingerprint: $fingerprint))->getStatus();
+        return $action->handle($request)->getStatus();
     }
 
     private function challengeAction(int $gcProbability = 0): ChallengeAction

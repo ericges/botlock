@@ -37,8 +37,6 @@ final readonly class PuzzleAction implements ChallengeStepInterface
      */
     public function handle(Request $request): Response
     {
-        SessionNonce::assertMatches($request);
-
         if (!$data = $request->getJsonBody()) {
             throw new JsonResponseException('Invalid data', 400);
         }

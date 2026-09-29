@@ -14,7 +14,7 @@ use GES\Botlock\Manager\BotTestManager;
 
 /**
  * GET ?_botlock=challenge — issues a single-use challenge ticket for the
- * current threat level and remembers the client's nonce in the session.
+ * current threat level, stored with the hash of the client's nonce.
  *
  * The answer names the required interaction. Only when none is required
  * does it carry the proof of work right away; otherwise the client gets it
@@ -37,8 +37,6 @@ final readonly class ChallengeAction implements ActionHandlerInterface
      */
     public function handle(Request $request): Response
     {
-        SessionNonce::remember($request);
-
         $isCrawler = $this->detective->isCrawler();
         $isTrustedGoodBot = $isCrawler && $this->detective->isTrustedGoodBot($request->context);
 
@@ -50,6 +48,7 @@ final readonly class ChallengeAction implements ActionHandlerInterface
         $ticket = new ChallengeTicket(
             id: ChallengeTicket::newId($now),
             subject: $request->context->fingerprint,
+            nonceHash: ChallengeNonce::hash($request),
             level: $level,
             interaction: $interaction,
             issuedAt: $now,

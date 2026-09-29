@@ -49,6 +49,15 @@ final class ChallengeTicketTest extends TestCase
         self::assertNull(ChallengeTicket::fromArray($data), 'a ticket without a deadline is refused');
     }
 
+    public function testNonceHashSurvivesTheRoundTrip(): void
+    {
+        $data = self::ticket(issuedAt: 1_800_000_000.0)->toArray();
+        self::assertSame(\hash('sha256', 'nonce'), ChallengeTicket::fromArray($data)?->nonceHash);
+
+        unset($data['nh']);
+        self::assertNull(ChallengeTicket::fromArray($data), 'a ticket without a nonce is refused');
+    }
+
     public function testASliderTicketAwaitsItsPuzzleUntilItHasOne(): void
     {
         $ticket = self::slider(issuedAt: 1_800_000_000.0);
@@ -79,6 +88,7 @@ final class ChallengeTicketTest extends TestCase
         return new ChallengeTicket(
             id: ChallengeTicket::newId($issuedAt),
             subject: 'fp',
+            nonceHash: \hash('sha256', 'nonce'),
             level: 3,
             interaction: Interaction::Slider,
             issuedAt: $issuedAt,
@@ -91,6 +101,7 @@ final class ChallengeTicketTest extends TestCase
         return new ChallengeTicket(
             id: ChallengeTicket::newId($issuedAt),
             subject: 'fp',
+            nonceHash: \hash('sha256', 'nonce'),
             level: 2,
             interaction: Interaction::Click,
             issuedAt: $issuedAt,

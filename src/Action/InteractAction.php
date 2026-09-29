@@ -43,8 +43,6 @@ final readonly class InteractAction implements ChallengeStepInterface
      */
     public function handle(Request $request): Response
     {
-        SessionNonce::assertMatches($request);
-
         $data = $request->getJsonBody() ?? [];
         $ticket = $this->tickets->redeem($data['cid'] ?? null, $request);
         $now = $this->tickets->now();

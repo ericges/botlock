@@ -64,6 +64,7 @@ abstract class ChallengeTicketStoreContract extends TestCase
         return new ChallengeTicket(
             id: ChallengeTicket::newId($issuedAt),
             subject: 'fp',
+            nonceHash: \hash('sha256', 'nonce'),
             level: 2,
             interaction: $sliderTarget === null ? Interaction::Click : Interaction::Slider,
             issuedAt: $issuedAt,

@@ -30,8 +30,6 @@ final readonly class VerifyAction implements ChallengeStepInterface
      */
     public function handle(Request $request): Response
     {
-        SessionNonce::assertMatches($request);
-
         if (!$data = $request->getJsonBody()) {
             throw new JsonResponseException('Invalid data', 400);
         }
@@ -53,7 +51,6 @@ final readonly class VerifyAction implements ChallengeStepInterface
         if ($ok = $this->tickets->verifyProof($ticket, $data, $ticket->binding()))
         {
             $session->set('grant', $ticket->level);
-            SessionNonce::forget($request);
             $session->commit();
             $statusCode = 200;
         }

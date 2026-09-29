@@ -25,6 +25,7 @@ final readonly class ChallengeTicket
     /**
      * @param string      $id           issue minute plus random hex, see newId()
      * @param string      $subject      fingerprint the ticket was issued to
+     * @param string      $nonceHash    SHA-256 of the Botlock-Nonce the ticket was issued with, see ChallengeNonce
      * @param int         $level        threat level (1–3) the ticket was issued for; the grant carries it
      * @param float       $issuedAt     Unix time with microseconds
      * @param int         $expiresAt    Unix time the current phase ends at, see renewed()
@@ -37,6 +38,7 @@ final readonly class ChallengeTicket
     public function __construct(
         public string      $id,
         public string      $subject,
+        public string      $nonceHash,
         public int         $level,
         public Interaction $interaction,
         public float       $issuedAt,
@@ -139,6 +141,7 @@ final readonly class ChallengeTicket
         return [
             'id' => $this->id,
             'sub' => $this->subject,
+            'nh' => $this->nonceHash,
             'lvl' => $this->level,
             'int' => $this->interaction->value,
             'iat' => $this->issuedAt,
@@ -156,6 +159,7 @@ final readonly class ChallengeTicket
         if (!\is_array($data)
             || !self::isValidId($data['id'] ?? null)
             || !\is_string($data['sub'] ?? null)
+            || !\is_string($data['nh'] ?? null)
             || !\is_int($data['lvl'] ?? null)
             || !($interaction = Interaction::tryFrom((string) ($data['int'] ?? '')))
             || !\is_numeric($data['iat'] ?? null)
@@ -168,6 +172,7 @@ final readonly class ChallengeTicket
         return new self(
             id: $data['id'],
             subject: $data['sub'],
+            nonceHash: $data['nh'],
             level: $data['lvl'],
             interaction: $interaction,
             issuedAt: (float) $data['iat'],
@@ -191,6 +196,7 @@ final readonly class ChallengeTicket
         return new self(
             id: $this->id,
             subject: $this->subject,
+            nonceHash: $this->nonceHash,
             level: $this->level,
             interaction: $this->interaction,
             issuedAt: $this->issuedAt,
