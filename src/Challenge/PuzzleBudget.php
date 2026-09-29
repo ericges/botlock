@@ -19,10 +19,10 @@ use GES\Botlock\Threat\ThreatStateStore;
  * each within its budget, still cannot render more than that.
  *
  * The store is a ThreatStateStore of its own (Kernel roots it at
- * <stateDir>/puzzles), so its window and sweeps do not mix with the rate
- * limiter's. When it cannot be read or written the budget counts as used
- * up (per client or globally, whichever failed): a storage fault must not
- * hand out uncounted guesses.
+ * <stateDir>/puzzles and opens it on the first puzzle), so its window and
+ * sweeps do not mix with the rate limiter's. When it cannot be opened, read
+ * or written the budget counts as used up (per client or globally,
+ * whichever failed): a storage fault must not hand out uncounted guesses.
  */
 final readonly class PuzzleBudget
 {

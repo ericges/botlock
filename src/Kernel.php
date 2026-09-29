@@ -15,6 +15,7 @@ use GES\Botlock\Config\SecretProvider;
 use GES\Botlock\Manager\ThreatAwarenessManager;
 use GES\Botlock\Manager\WhitelistManager;
 use GES\Botlock\Threat\FileThreatStateStore;
+use GES\Botlock\Threat\LazyThreatStateStore;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
 use GES\Botlock\Middleware\ErrorMiddleware;
 use GES\Botlock\Middleware\VerifyCrawlerMiddleware;
@@ -63,9 +64,13 @@ readonly class Kernel
             $pageCache = new RenderedPageCache($kernelConfig->stateDir, $kernelConfig->instanceId);
             $tickets = new FileChallengeTicketStore($kernelConfig->stateDir, $kernelConfig->instanceId);
             // A store of its own: its window and sweeps must not mix with the rate limiter's.
+            // Opened on the first puzzle, so other requests never touch its directory.
             $puzzleBudget = new PuzzleBudget(
                 $rate,
-                new FileThreatStateStore($kernelConfig->stateDir . \DIRECTORY_SEPARATOR . 'puzzles', $kernelConfig->instanceId),
+                new LazyThreatStateStore(static fn(): FileThreatStateStore => new FileThreatStateStore(
+                    $kernelConfig->stateDir . \DIRECTORY_SEPARATOR . 'puzzles',
+                    $kernelConfig->instanceId,
+                )),
                 $kernelConfig->instanceId,
             );
 
