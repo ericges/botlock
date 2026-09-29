@@ -73,7 +73,7 @@ final class VerifyCrawlerMiddlewareTest extends TestCase
 
     public function testFailedVerificationRaisesToAtLeastLevelTwoAndNeverLowers(): void
     {
-        foreach ([null => 2, 0 => 2, 1 => 2, 2 => 2, 3 => 3, 4 => 4] as $level => $expected) {
+        foreach ([null => 2, 0 => 2, 1 => 2, 2 => 2, 3 => 3] as $level => $expected) {
             $request = $this->request(threatLevel: $level === '' ? null : $level, individual: 0);
 
             $this->process(self::GOOGLEBOT, $request, new StubCrawlerVerifier(CrawlerVerification::Failed));
@@ -127,6 +127,18 @@ final class VerifyCrawlerMiddlewareTest extends TestCase
 
         self::assertSame(CrawlerVerification::Unverified, $request->context->crawlerVerification);
         self::assertSame([], $verifier->calls);
+    }
+
+    public function testBlockedClientsCostNoLookups(): void
+    {
+        $verifier = new StubCrawlerVerifier();
+        $request = $this->request(threatLevel: 4);
+
+        $this->process(self::GOOGLEBOT, $request, $verifier);
+
+        self::assertSame(CrawlerVerification::Unverified, $request->context->crawlerVerification);
+        self::assertSame([], $verifier->calls);
+        self::assertSame(4, $request->context->threatLevel);
     }
 
     public function testDefaultVerifierIsUsedWhenNoneIsInjected(): void

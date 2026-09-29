@@ -18,7 +18,7 @@ use GES\Botlock\Template\LocalizedPage;
  * DNS lookups; verification only ever raises a level to 2.
  *
  * GET ?_botlock=status stays reachable so a blocked client can still see
- * why.
+ * why; VerifyCrawlerMiddleware skips its lookup for it.
  */
 final readonly class ThreatBlockMiddleware implements MiddlewareInterface
 {
