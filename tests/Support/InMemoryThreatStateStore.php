@@ -65,10 +65,7 @@ final class InMemoryThreatStateStore implements ThreatStateStore
             return null;
         }
 
-        $timestamps = \array_values(\array_filter($this->individual[$fingerprint] ?? [], static fn(int $ts): bool => $ts >= $windowStart));
-        \sort($timestamps);
-
-        return $timestamps;
+        return \array_values(\array_filter($this->individual[$fingerprint] ?? [], static fn(int $ts): bool => $ts >= $windowStart));
     }
 
     public function collectGarbage(int $windowStart, int $maxEntries = 500): int

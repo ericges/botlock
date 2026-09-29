@@ -118,6 +118,8 @@ final readonly class PuzzleBudget
             return $window;
         }
 
+        \sort($renders);
+
         return \max(1, $renders[\count($renders) - $limit] + $window + 1 - $now);
     }
 

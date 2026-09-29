@@ -119,6 +119,22 @@ final class PuzzleBudgetTest extends TestCase
         self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve(self::IP, 'fp'), 'and not a second longer');
     }
 
+    public function testRetryTimeDoesNotDependOnTheStoredOrder(): void
+    {
+        $budget = $this->budget(limit: 3);
+        foreach ([0, 120, 300] as $offset) {
+            $this->now = 1_800_000_000 + $offset;
+            $budget->reserve(self::IP, 'fp');
+        }
+
+        // Parallel writers may append out of order.
+        $key = \array_key_first($this->store->individual);
+        $this->store->individual[$key] = [300 + 1_800_000_000, 1_800_000_000, 120 + 1_800_000_000];
+
+        $this->now = 1_800_000_000 + 540;
+        self::assertSame(61, $budget->retryAfter(PuzzleBudgetResult::ClientExhausted, self::IP, 'fp'));
+    }
+
     public function testRetryFallsBackToTheWindow(): void
     {
         self::assertSame(600, $this->budget()->retryAfter(PuzzleBudgetResult::ClientExhausted, self::IP, 'fp'), 'nothing counted, a failed write refused');

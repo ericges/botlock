@@ -120,12 +120,7 @@ final class FileThreatStateStore implements ThreatStateStore
             return [];
         }
 
-        return $this->withLock($path, 'r', function ($file) use ($windowStart): array {
-            $timestamps = $this->readTimestamps($file, $windowStart);
-            \sort($timestamps);
-
-            return $timestamps;
-        });
+        return $this->withLock($path, 'r', fn($file): array => $this->readTimestamps($file, $windowStart));
     }
 
     /**
