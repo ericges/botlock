@@ -7,6 +7,7 @@ use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Config\ProofOfWorkConfig;
 use GES\Botlock\Exception\JsonResponseException;
+use GES\Botlock\Filesystem\Sweep;
 use GES\Botlock\Http\Request;
 
 /**
@@ -131,7 +132,7 @@ final readonly class TicketService
      */
     public function maybeCollectGarbage(): void
     {
-        if ($this->gcProbability > 0 && \random_int(1, $this->gcProbability) === 1) {
+        if (Sweep::isDue($this->gcProbability)) {
             // A minute of slack past the longest lifetime; renewed tickets
             // stay in their issue minute. Every call issues one ticket, so a
             // budget of twice the sweep interval outpaces them.

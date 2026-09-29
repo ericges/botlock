@@ -3,6 +3,7 @@
 namespace GES\Botlock\Challenge;
 
 use GES\Botlock\Config\RateLimitConfig;
+use GES\Botlock\Filesystem\Sweep;
 use GES\Botlock\Threat\ThreatStateStore;
 
 /**
@@ -193,9 +194,7 @@ final readonly class PuzzleBudget
 
     private function maybeCollectGarbage(int $now): void
     {
-        $probability = $this->config->gcProbability;
-
-        if ($probability > 0 && \random_int(1, $probability) === 1) {
+        if (Sweep::isDue($this->config->gcProbability)) {
             $this->store->collectGarbage($now - $this->window());
         }
     }

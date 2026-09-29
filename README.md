@@ -304,7 +304,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, the per-IP and per-minute budgets of slider puzzle renders, the slider puzzle and the rules that judge how its slider was moved. |
 | `src/Image/` | A dependency-free PNG encoder for the slider puzzle. |
 | `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
-| `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
+| `src/Filesystem/` | Creates the state directory, keeps its contents owner-only and decides when a request sweeps stale state files. |
 | `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
 | `templates/blocked.php` | The level-4 page answered with `429`, rendered and cached the same way; it carries the `Retry-After` value, which its script formats as the wait time. |
 | `templates/partials/style.css` | Styles shared by both pages (colour tokens, card layout, text), printed in its own `<style>` element before the page-specific one. |
