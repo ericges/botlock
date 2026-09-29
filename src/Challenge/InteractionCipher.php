@@ -18,8 +18,12 @@ final class InteractionCipher
     private const IV_BYTES = 12;
     private const TAG_BYTES = 16;
 
-    /** Largest sealed report accepted, in bytes; a full slider track fits easily. */
-    private const MAX_BYTES = 65536;
+    /**
+     * Largest sealed report accepted, in bytes. A full slider track is
+     * SliderTrack::MAX_SAMPLES entries, and the largest, a key entry, takes
+     * about 42 bytes of JSON: some 84 KB, rounded up.
+     */
+    private const MAX_BYTES = 131072;
 
     /** JSON nesting of a slider report: report, track, entry, samples, sample, number. */
     private const MAX_DEPTH = 6;

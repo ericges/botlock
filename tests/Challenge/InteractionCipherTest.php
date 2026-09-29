@@ -3,6 +3,7 @@
 namespace GES\Botlock\Tests\Challenge;
 
 use GES\Botlock\Challenge\InteractionCipher;
+use GES\Botlock\Challenge\SliderTrack;
 use GES\Botlock\Tests\Support\Reports;
 use GES\Botlock\Tests\Support\Tracks;
 use PHPUnit\Framework\TestCase;
@@ -30,6 +31,20 @@ final class InteractionCipherTest extends TestCase
 
         $deeper = Reports::seal($key, self::CID, ['track' => [[[[[1]]]]]]);
         self::assertNull(InteractionCipher::open($key, self::CID, $deeper['iv'], $deeper['ct']));
+    }
+
+    public function testOpensAFullTrackOfKeyPresses(): void
+    {
+        $key = InteractionCipher::newKey();
+        $track = [];
+        for ($i = 0; $i < SliderTrack::MAX_SAMPLES; $i++) {
+            // The longest a key entry gets: a late time with a fraction, a three-digit value, false.
+            $track[] = ['k' => 'k', 't' => 100000.5 + $i, 'v' => 250, 'r' => false];
+        }
+        $report = ['pos' => 250, 'track' => $track];
+        $sealed = Reports::seal($key, self::CID, $report);
+
+        self::assertEquals($report, InteractionCipher::open($key, self::CID, $sealed['iv'], $sealed['ct']));
     }
 
     public function testRejectsAnotherKey(): void
@@ -73,7 +88,7 @@ final class InteractionCipherTest extends TestCase
     public function testRejectsAnOversizedReport(): void
     {
         $key = InteractionCipher::newKey();
-        $sealed = Reports::seal($key, self::CID, ['pad' => \str_repeat('a', 70000)]);
+        $sealed = Reports::seal($key, self::CID, ['pad' => \str_repeat('a', 140000)]);
 
         self::assertNull(InteractionCipher::open($key, self::CID, $sealed['iv'], $sealed['ct']));
     }
