@@ -312,7 +312,7 @@ ddev composer validate --no-check-publish   # Composer metadata
 ddev exec sh -c "find src tests templates translations demo -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
-Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore`, `InMemoryChallengeTicketStore`, `StubCrawlerVerifier`, the `Reports` sealer and the `Tracks` factory for slider tracks from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
+Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore`, `InMemoryChallengeTicketStore`, `StubCrawlerVerifier`, the `Reports` sealer and the `Tracks` factory for slider tracks from `tests/Support/`. The behaviour every ticket store must keep is tested once in `tests/Challenge/ChallengeTicketStoreContract.php`, which the tests of both stores extend. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
 
 ### Building the PHAR
 

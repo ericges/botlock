@@ -3,12 +3,10 @@
 namespace GES\Botlock\Tests\Challenge;
 
 use GES\Botlock\Challenge\ChallengeTicket;
+use GES\Botlock\Challenge\ChallengeTicketStore;
 use GES\Botlock\Challenge\FileChallengeTicketStore;
-use GES\Botlock\Challenge\Interaction;
-use GES\Botlock\Challenge\InteractionCipher;
-use PHPUnit\Framework\TestCase;
 
-final class FileChallengeTicketStoreTest extends TestCase
+final class FileChallengeTicketStoreTest extends ChallengeTicketStoreContract
 {
     private string $dir;
     private FileChallengeTicketStore $store;
@@ -31,13 +29,17 @@ final class FileChallengeTicketStoreTest extends TestCase
         @\rmdir($this->dir);
     }
 
-    public function testSavedTicketIsConsumedExactlyOnce(): void
+    protected function store(): ChallengeTicketStore
     {
-        $ticket = self::ticket(sliderTarget: 120);
+        return $this->store;
+    }
 
-        self::assertTrue($this->store->save($ticket));
-        self::assertEquals($ticket, $this->store->consume('fp', $ticket->id));
-        self::assertNull($this->store->consume('fp', $ticket->id), 'a ticket is single-use');
+    public function testAConsumedTicketLeavesNoFile(): void
+    {
+        $ticket = self::ticket();
+        $this->store->save($ticket);
+        $this->store->consume('fp', $ticket->id);
+
         self::assertSame([], \glob($this->dir . '/tickets/*/*'));
     }
 
@@ -48,7 +50,6 @@ final class FileChallengeTicketStoreTest extends TestCase
         $this->store->save($ticket->withInteracted());
 
         self::assertCount(1, \glob($this->dir . '/tickets/*/*'));
-        self::assertTrue($this->store->consume('fp', $ticket->id)?->interacted);
     }
 
     public function testTicketIsFiledUnderItsIssueMinuteWithoutRevealingTheId(): void
@@ -64,25 +65,6 @@ final class FileChallengeTicketStoreTest extends TestCase
         self::assertSame(0700, \fileperms(\dirname($file)) & 0777);
     }
 
-    public function testAnotherSubjectFindsNothingAndLeavesTheTicket(): void
-    {
-        $ticket = self::ticket();
-        $this->store->save($ticket);
-
-        self::assertNull($this->store->consume('other-fp', $ticket->id));
-        self::assertCount(1, \glob($this->dir . '/tickets/*/*'), 'the owner\'s ticket is untouched');
-        self::assertEquals($ticket, $this->store->consume('fp', $ticket->id));
-    }
-
-    public function testRequestWithoutFingerprintFindsNothing(): void
-    {
-        $ticket = self::ticket();
-        $this->store->save($ticket);
-
-        self::assertNull($this->store->consume('', $ticket->id));
-        self::assertNotNull($this->store->consume('fp', $ticket->id));
-    }
-
     public function testATamperedIssueMinuteFindsNothing(): void
     {
         $ticket = self::ticket();
@@ -92,12 +74,6 @@ final class FileChallengeTicketStoreTest extends TestCase
         self::assertNull($this->store->consume('fp', $tampered));
         self::assertCount(1, \glob($this->dir . '/tickets/*'), 'no directory is created for the forged minute');
         self::assertNotNull($this->store->consume('fp', $ticket->id));
-    }
-
-    public function testUnknownOrMalformedIdsYieldNull(): void
-    {
-        self::assertNull($this->store->consume('fp', ChallengeTicket::newId(\microtime(true))));
-        self::assertNull($this->store->consume('fp', '../../etc/passwd'));
     }
 
     public function testCorruptFileIsConsumedButRejected(): void
@@ -146,22 +122,5 @@ final class FileChallengeTicketStoreTest extends TestCase
         self::assertSame(1, $this->store->collectGarbage($cutoff, 2));
         self::assertSame([], \glob($this->dir . '/tickets/*'));
         self::assertSame(0, $this->store->collectGarbage($cutoff, 2));
-    }
-
-    private static function ticket(?int $sliderTarget = null, ?float $issuedAt = null): ChallengeTicket
-    {
-        $issuedAt ??= \microtime(true);
-
-        return new ChallengeTicket(
-            id: ChallengeTicket::newId($issuedAt),
-            subject: 'fp',
-            level: 2,
-            interaction: $sliderTarget === null ? Interaction::Click : Interaction::Slider,
-            issuedAt: $issuedAt,
-            expiresAt: (int) \floor($issuedAt) + ChallengeTicket::TTL,
-            difficulty: 0.5,
-            sliderTarget: $sliderTarget,
-            key: InteractionCipher::newKey(),
-        );
     }
 }
