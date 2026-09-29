@@ -62,7 +62,7 @@ final readonly class PuzzleAction implements ActionHandlerInterface
         $result = $this->budget->reserve($context->clientIp, (string) $context->fingerprint);
 
         if ($result !== PuzzleBudgetResult::Granted) {
-            return self::refusal($result, $this->budget->retryAfter($result));
+            return self::refusal($result, $this->budget->retryAfter($result, $context->clientIp, (string) $context->fingerprint));
         }
 
         // Rendered before reading the clock, so puzzleAt is the moment the picture exists.

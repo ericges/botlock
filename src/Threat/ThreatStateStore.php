@@ -40,6 +40,12 @@ interface ThreatStateStore
     public function countIndividual(string $fingerprint, int $windowStart): ?int;
 
     /**
+     * @return list<int>|null the timestamps at or after $windowStart, oldest
+     *                        first, or null when unreadable
+     */
+    public function individualTimestamps(string $fingerprint, int $windowStart): ?array;
+
+    /**
      * Removes individual entries whose newest timestamp is older than $windowStart.
      *
      * @param int $maxEntries upper bound on entries inspected in one call, so a

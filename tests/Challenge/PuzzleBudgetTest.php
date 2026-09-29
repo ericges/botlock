@@ -103,11 +103,30 @@ final class PuzzleBudgetTest extends TestCase
         }
     }
 
-    public function testRefusedClientsRetryAfterTheWindow(): void
+    public function testRefusedClientsRetryWhenTheirOldestRenderLeavesTheWindow(): void
     {
-        self::assertSame(600, $this->budget()->retryAfter(PuzzleBudgetResult::ClientExhausted));
-        self::assertSame(0, $this->budget()->retryAfter(PuzzleBudgetResult::Granted));
-        self::assertSame(1, $this->budget(window: 0)->retryAfter(PuzzleBudgetResult::ClientExhausted), 'at least a second');
+        $budget = $this->budget(limit: 3);
+        foreach ([0, 120, 300] as $offset) {
+            $this->now = 1_800_000_000 + $offset;
+            self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve(self::IP, 'fp'));
+        }
+
+        $this->now = 1_800_000_000 + 540;
+        self::assertSame(PuzzleBudgetResult::ClientExhausted, $budget->reserve(self::IP, 'fp'));
+        self::assertSame(61, $budget->retryAfter(PuzzleBudgetResult::ClientExhausted, self::IP, 'fp'), 'the render at 0 counts until 600');
+
+        $this->now += 61;
+        self::assertSame(PuzzleBudgetResult::Granted, $budget->reserve(self::IP, 'fp'), 'and not a second longer');
+    }
+
+    public function testRetryFallsBackToTheWindow(): void
+    {
+        self::assertSame(600, $this->budget()->retryAfter(PuzzleBudgetResult::ClientExhausted, self::IP, 'fp'), 'nothing counted, a failed write refused');
+        self::assertSame(0, $this->budget()->retryAfter(PuzzleBudgetResult::Granted, self::IP, 'fp'));
+
+        $this->store = new InMemoryThreatStateStore(failIndividualRead: true);
+        self::assertSame(600, $this->budget()->retryAfter(PuzzleBudgetResult::ClientExhausted, self::IP, 'fp'), 'unreadable');
+        self::assertSame(1, $this->budget(window: 0)->retryAfter(PuzzleBudgetResult::ClientExhausted, self::IP, 'fp'), 'at least a second');
     }
 
     public function testSweepsItsOwnWindow(): void
@@ -198,6 +217,11 @@ final class PuzzleBudgetTest extends TestCase
                 return $this->inner->collectGarbage($windowStart, $maxEntries);
             }
 
+            public function individualTimestamps(string $fingerprint, int $windowStart): ?array
+            {
+                return $this->inner->individualTimestamps($fingerprint, $windowStart);
+            }
+
             public function countIndividual(string $fingerprint, int $windowStart): ?int
             {
                 $count = $this->inner->countIndividual($fingerprint, $windowStart);
@@ -239,10 +263,10 @@ final class PuzzleBudgetTest extends TestCase
 
     public function testBusyClientsRetryAtTheNextMinute(): void
     {
-        self::assertSame(60, $this->budget()->retryAfter(PuzzleBudgetResult::GlobalExhausted));
+        self::assertSame(60, $this->budget()->retryAfter(PuzzleBudgetResult::GlobalExhausted, self::IP, 'fp'));
 
         $this->now += 45;
-        self::assertSame(15, $this->budget()->retryAfter(PuzzleBudgetResult::GlobalExhausted));
+        self::assertSame(15, $this->budget()->retryAfter(PuzzleBudgetResult::GlobalExhausted, self::IP, 'fp'));
     }
 
     private function budget(int $limit = 10, int $window = 600, int $gcProbability = 0, string $instanceId = 'inst', int $globalLimit = 300): PuzzleBudget

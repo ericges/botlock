@@ -90,14 +90,35 @@ final readonly class PuzzleBudget
 
     /**
      * Seconds until a refused client may ask again; 0 for a granted render.
+     * Takes the same client as reserve().
      */
-    public function retryAfter(PuzzleBudgetResult $result): int
+    public function retryAfter(PuzzleBudgetResult $result, ?string $clientIp, string $fingerprint): int
     {
         return match ($result) {
             PuzzleBudgetResult::Granted => 0,
-            PuzzleBudgetResult::ClientExhausted => $this->window(),
+            PuzzleBudgetResult::ClientExhausted => $this->clientRetryAfter($this->clientKey($clientIp, $fingerprint)),
             PuzzleBudgetResult::GlobalExhausted => 60 - $this->now() % 60,
         };
+    }
+
+    /**
+     * Seconds until enough of the client's renders have left the window for
+     * one more: the window counts a render until a full window has passed
+     * since it. The whole window when the renders cannot be read, or when
+     * fewer than the limit are there (a failed write refused the client).
+     */
+    private function clientRetryAfter(string $client): int
+    {
+        $now = $this->now();
+        $window = $this->window();
+        $limit = $this->config->sliderIpLimit;
+        $renders = $this->store->individualTimestamps($client, $now - $window);
+
+        if ($renders === null || $limit <= 0 || \count($renders) < $limit) {
+            return $window;
+        }
+
+        return \max(1, $renders[\count($renders) - $limit] + $window + 1 - $now);
     }
 
     /**

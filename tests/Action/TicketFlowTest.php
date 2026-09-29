@@ -295,7 +295,7 @@ final class TicketFlowTest extends TestCase
         $response = $this->puzzle($challenge['cid'], self::solve($challenge['gate']));
 
         self::assertSame(429, $response->getStatus());
-        self::assertSame('600', $response->getHeader('Retry-After'));
+        self::assertSame('601', $response->getHeader('Retry-After'), 'both renders count until a full window has passed');
         self::assertSame(['ok' => false, 'error' => 'Too Many Requests', 'code' => 429], \json_decode((string) $response->getBody(), true));
         self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
     }
