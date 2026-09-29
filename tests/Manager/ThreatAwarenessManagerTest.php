@@ -32,30 +32,31 @@ final class ThreatAwarenessManagerTest extends TestCase
     /**
      * A challenge costs a visitor several requests; were they counted
      * globally, re-challenging everyone after a global escalation would
-     * raise the global level further.
+     * raise the global level further. The request that issues a ticket
+     * writes state, so it counts; the steps that only redeem one do not.
      */
-    public function testChallengeRequestsCountOnlyIndividually(): void
+    public function testChallengeStepsCountOnlyIndividually(): void
     {
         $store = new InMemoryThreatStateStore();
         $manager = new ThreatAwarenessManager(new RateLimitConfig(gcProbability: 0), $store);
 
-        foreach ([['GET', 'challenge'], ['POST', 'challenge'], ['POST', 'puzzle'], ['POST', 'verify']] as [$method, $action]) {
+        foreach ([['POST', 'challenge'], ['POST', 'puzzle'], ['POST', 'verify']] as [$method, $action]) {
             $request = Requests::make($method, query: ['_botlock' => $action]);
             $request->context->fingerprint = self::FP;
             $manager->recordRequest($request);
         }
 
         self::assertSame(0, \array_sum($store->global['traffic_buckets'] ?? []));
-        self::assertCount(4, $store->individual[self::FP]);
+        self::assertCount(3, $store->individual[self::FP]);
 
-        // Anything else still counts: an unknown action goes on to the page.
-        foreach ([['GET', 'status'], ['GET', 'x'], ['GET', 'verify']] as [$method, $action]) {
+        // Anything else still counts: issuing a ticket, and an unknown action, which goes on to the page.
+        foreach ([['GET', 'challenge'], ['GET', 'status'], ['GET', 'x'], ['GET', 'verify']] as [$method, $action]) {
             $request = Requests::make($method, query: ['_botlock' => $action]);
             $request->context->fingerprint = self::FP;
             $manager->recordRequest($request);
         }
 
-        self::assertSame(3, \array_sum($store->global['traffic_buckets']));
+        self::assertSame(4, \array_sum($store->global['traffic_buckets']));
     }
 
     public function testRecordingPrunesGlobalBucketsOlderThanFiveMinutes(): void

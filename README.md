@@ -171,9 +171,10 @@ of the two as the effective threat level for a request. Level `0` means that no
 configured threshold has been reached, so the request passes through without a
 challenge. The global level goes up to `3`; only the per-client rate reaches
 level `4`, because a global block would lock out every visitor during a traffic
-spike. The challenge's own requests (`?_botlock=challenge`, `puzzle` and
+spike. The challenge's POST steps (`?_botlock=challenge`, `puzzle` and
 `verify`) count only toward the per-client rate, so re-challenging every visitor
-after a global escalation does not raise the global level further. The elevated
+after a global escalation does not raise the global level much further; the
+request that issues a challenge counts like any other. The elevated
 threat levels behave as follows:
 
 | Threat level | Browsers | Crawlers that are not trusted good bots | Trusted good bots |

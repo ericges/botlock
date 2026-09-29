@@ -33,14 +33,15 @@ class ThreatAwarenessManager
     private const BUCKET_SEC = 60;
 
     /**
-     * Actions that make up a challenge, left out of the global count: a
-     * global escalation re-challenges every visitor, and counting their
-     * challenges would raise the global level further. Each is answered by
-     * its handler (or refused at level 4) and never reaches the site, so
-     * naming one does not get a page past the count; an unknown action
-     * might, and is counted.
+     * Steps of a challenge left out of the global count: a global
+     * escalation re-challenges every visitor, and counting their steps would
+     * raise the global level further. Each only redeems a ticket issued
+     * before, so it writes no new state; issuing the ticket does and is
+     * counted. Each is answered by its handler (or refused at level 4) and
+     * never reaches the site, so naming one does not get a page past the
+     * count; an unknown action might, and is counted.
      */
-    private const CHALLENGE_ACTIONS = ['GET challenge', 'POST challenge', 'POST puzzle', 'POST verify'];
+    private const CHALLENGE_ACTIONS = ['POST challenge', 'POST puzzle', 'POST verify'];
 
     private ?int $cachedGlobalThreatLevel = null;
     private array $cachedIndividualThreatLevels = [];
@@ -58,7 +59,7 @@ class ThreatAwarenessManager
 
     /**
      * Records the current request for both global and individual tracking;
-     * the challenge's own requests only individually.
+     * the challenge's steps after issuing only individually.
      */
     public function recordRequest(Request $request): void
     {
