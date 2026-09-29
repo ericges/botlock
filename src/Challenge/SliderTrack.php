@@ -38,7 +38,11 @@ final readonly class SliderTrack
     /** Reaction time before the first movement; faster is no person looking at the puzzle. */
     private const MIN_REACTION_MS = 200;
 
-    /** Share of the final position a single drag has to cover to count as dragging. */
+    /**
+     * Share of the final position a single drag has to cover to count as
+     * dragging, and share of that drag's length from which another stroke
+     * counts as a second drag instead of a correction.
+     */
     private const DRAG_SHARE = 0.7;
 
     private const MIN_DRAG_SAMPLES = 8;
@@ -150,14 +154,13 @@ final readonly class SliderTrack
             return SliderVerdict::Rejected;
         }
 
-        $drags = $this->longDrags($pos);
-        if ($drags !== []) {
-            foreach ($drags as $drag) {
-                if (!$this->isHumanDrag($drag)) {
-                    return SliderVerdict::Rejected;
-                }
-            }
-            return SliderVerdict::Drag;
+        // One stroke did most of the work. The other strokes are measured
+        // against that drag, not the target: pulling back after an overshoot
+        // is a correction, but a stroke nearly as long as the main one is a
+        // second drag and has to look human too.
+        $longest = $this->longestStroke();
+        if ($longest >= self::DRAG_SHARE * $pos) {
+            return $this->strokesAreHuman(self::DRAG_SHARE * $longest) ? SliderVerdict::Drag : SliderVerdict::Rejected;
         }
 
         return $this->actionsArePlausible() ? SliderVerdict::Assisted : SliderVerdict::Rejected;
@@ -209,25 +212,34 @@ final readonly class SliderTrack
     }
 
     /**
-     * All pointer strokes that covered most of the way on their own. A short
-     * correction after a real drag does not demote it, but a long stroke is
-     * never excused by another one: if any long drag fails isHumanDrag(), the
-     * entire track is rejected.
-     *
-     * @return list<array{k: string, t: float, end: float, from: int, v: int, pt: string, pts: list<array{float, int, float}>}>
+     * The farthest a single pointer stroke moved the slider.
      */
-    private function longDrags(int $pos): array
+    private function longestStroke(): int
     {
-        $drags = [];
-        $threshold = self::DRAG_SHARE * $pos;
+        $longest = 0;
 
         foreach ($this->entries as $entry) {
-            if ($entry['k'] === 'p' && \abs($entry['v'] - $entry['from']) >= $threshold) {
-                $drags[] = $entry;
+            if ($entry['k'] === 'p') {
+                $longest = \max($longest, \abs($entry['v'] - $entry['from']));
             }
         }
 
-        return $drags;
+        return $longest;
+    }
+
+    /**
+     * Whether every pointer stroke that moved the slider at least $distance
+     * passes isHumanDrag(); a long stroke is never excused by another one.
+     */
+    private function strokesAreHuman(float $distance): bool
+    {
+        foreach ($this->entries as $entry) {
+            if ($entry['k'] === 'p' && \abs($entry['v'] - $entry['from']) >= $distance && !$this->isHumanDrag($entry)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     /**

@@ -50,6 +50,20 @@ final class SliderTrackTest extends TestCase
         self::assertSame(SliderVerdict::Rejected, self::judge($track), 'a scripted drag is not excused by a small last one');
     }
 
+    public function testAQuickPullBackAfterAnOvershootIsACorrection(): void
+    {
+        // Human drag 0→160 past a gap at 80, then a quick 80-pixel pull-back:
+        // long next to the target, but only half of the drag it corrects.
+        $track = Tracks::humanDrag(160);
+        $pts = [];
+        foreach ([144, 128, 112, 96, 80] as $i => $v) {
+            $pts[] = [40.0 * ($i + 1), $v, 0.4 * $i];
+        }
+        $track[] = ['k' => 'p', 'pt' => 'mouse', 't0' => Tracks::end($track) + 300, 'pts' => $pts, 'co' => \count($pts)];
+
+        self::assertSame(SliderVerdict::Drag, self::judge($track, 80));
+    }
+
     public function testTwoHalfDragsAreAssisted(): void
     {
         $track = Tracks::humanDrag(75);
@@ -63,16 +77,15 @@ final class SliderTrackTest extends TestCase
 
     public function testAScriptedLongDragIsNotExcusedByAnEarlierHumanOne(): void
     {
-        // Human drag 0→140 (140 pixels, passes isHumanDrag; long drag ≥ 0.7×150 = 105)
+        // Human drag 0→140 (140 pixels, passes isHumanDrag; the main drag, ≥ 0.7×150 = 105)
         $track = Tracks::humanDrag(140);
 
-        // Correction backward 140→40 (100 pixels, not a long drag; just a correction)
+        // Scripted strokes 140→40 and 40→150 (100 and 110 pixels, both ≥ 0.7×140 = 98):
+        // second drags, not corrections, and constant speed and zero drift fail isHumanDrag
         $track[] = self::linearDragFrom(140, 40, Tracks::end($track) + 500);
-
-        // Scripted linear drag 40→150 (110 pixels, is a long drag, but constant speed and zero drift fail isHumanDrag)
         $track[] = self::linearDragFrom(40, 150, Tracks::end($track) + 500);
 
-        self::assertSame(SliderVerdict::Rejected, self::judge($track), 'every long drag must be human; the final linear one fails');
+        self::assertSame(SliderVerdict::Rejected, self::judge($track), 'a stroke nearly as long as the main drag must be human');
     }
 
     public function testKeyboardSolvesAreAssisted(): void
