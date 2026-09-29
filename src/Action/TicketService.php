@@ -77,6 +77,19 @@ final readonly class TicketService
     }
 
     /**
+     * Refuses a solution sooner than BOTLOCK_MIN_SOLVE_MS after issuing,
+     * the "min_ms" the client is told in describe().
+     *
+     * @throws JsonResponseException
+     */
+    public function assertSolvedSlowly(ChallengeTicket $ticket): void
+    {
+        if (($this->now() - $ticket->issuedAt) * 1000 < $this->config->minSolveMs) {
+            throw new JsonResponseException('Too fast', 400);
+        }
+    }
+
+    /**
      * Public ticket fields: never the slider target, and not the key, which
      * only the answer that hands out the interaction carries.
      */

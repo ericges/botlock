@@ -141,7 +141,7 @@ readonly class Kernel
             'GET challenge' => new ChallengeAction($this->detective, $policy, $ticketService),
             'POST challenge' => new InteractAction($ticketService, $policy),
             'POST puzzle' => new PuzzleAction($ticketService, $this->puzzleBudget),
-            'POST verify' => new VerifyAction($this->pow, $ticketService),
+            'POST verify' => new VerifyAction($ticketService),
             'POST reset' => new ResetAction(),
             'GET status' => new StatusAction(),
         ];

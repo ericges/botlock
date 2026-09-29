@@ -567,7 +567,7 @@ final class TicketFlowTest extends TestCase
 
     private function verify(string $cid, array $solution, int $level, string $fingerprint = self::FP, string $nonce = self::NONCE): int
     {
-        $action = new VerifyAction($this->config, $this->service());
+        $action = new VerifyAction($this->service());
         $request = $this->request('POST', $level, body: $solution + ['cid' => $cid], fingerprint: $fingerprint, headers: ['Botlock-Nonce' => $nonce]);
 
         return $action->handle($request)->getStatus();

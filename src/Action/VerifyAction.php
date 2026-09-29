@@ -6,7 +6,6 @@ use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\JsonResponse;
-use GES\Botlock\Config\ProofOfWorkConfig;
 
 /**
  * POST ?_botlock=verify — redeems a ticket with its proof-of-work solution
@@ -20,10 +19,7 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  */
 final readonly class VerifyAction implements ChallengeStepInterface
 {
-    public function __construct(
-        private ProofOfWorkConfig $config,
-        private TicketService $tickets,
-    ) {}
+    public function __construct(private TicketService $tickets) {}
 
     /**
      * @throws JsonResponseException
@@ -35,15 +31,12 @@ final readonly class VerifyAction implements ChallengeStepInterface
         }
 
         $ticket = $this->tickets->redeem($data['cid'] ?? null, $request);
-        $now = $this->tickets->now();
 
         if (!$ticket->isReadyForProof()) {
             throw new JsonResponseException('Interaction required', 400);
         }
 
-        if (($now - $ticket->issuedAt) * 1000 < $this->config->minSolveMs) {
-            throw new JsonResponseException('Too fast', 400);
-        }
+        $this->tickets->assertSolvedSlowly($ticket);
 
         $statusCode = 401;
         $session = $request->context->session;
