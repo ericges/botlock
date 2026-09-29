@@ -7,6 +7,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Middleware\ErrorMiddleware;
 use GES\Botlock\Tests\Support\Requests;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ErrorMiddlewareTest extends TestCase
@@ -26,6 +27,23 @@ final class ErrorMiddlewareTest extends TestCase
     {
         \ini_set('error_log', (string) $this->previousErrorLog);
         @\unlink($this->errorLog);
+    }
+
+    public static function acceptHeaders(): array
+    {
+        return [
+            'html' => ['text/html,application/xhtml+xml', true],
+            'json' => ['application/json', false],
+            'json wins over html' => ['text/html, application/json', false],
+            'none' => ['', false],
+            'anything' => ['*/*', false],
+        ];
+    }
+
+    #[DataProvider('acceptHeaders')]
+    public function testPrefersHtmlOnlyWithoutJson(string $accept, bool $expected): void
+    {
+        self::assertSame($expected, ErrorMiddleware::prefersHtml(Requests::make(headers: ['Accept' => $accept])));
     }
 
     public function testPassesResponseThroughWhenNothingThrows(): void

@@ -39,10 +39,7 @@ final readonly class ThreatBlockMiddleware implements MiddlewareInterface
 
         $retryAfter = (string) $this->config->retryAfterSec();
 
-        // Same precedence as ErrorMiddleware::createErrorResponse(): JSON wins over HTML.
-        $accept = \strtolower($request->getHeader('Accept', ''));
-
-        if (\str_contains($accept, 'text/html') && !\str_contains($accept, 'application/json')) {
+        if (ErrorMiddleware::prefersHtml($request)) {
             return $this->page->respond($request, 429, [
                 'Retry-After' => $retryAfter,
                 'Botlock-Error' => self::MESSAGE,
