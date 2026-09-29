@@ -81,7 +81,7 @@ final class Settings
             'IGNORE_USER_AGENTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Ignore User-Agents', 'default' => 'none', 'help' => 'Case-insensitive substrings.'],
             'IGNORE_URLS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Ignore URLs', 'default' => 'none', 'help' => 'Absolute URL prefixes.'],
             'GOOD_BOTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Good bots', 'default' => 'Googlebot, AdsBot, Bingbot, DuckDuckBot, Exabot, facebot'],
-            'VERIFY_BOTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Verify bots via DNS', 'default' => 'google'],
+            'VERIFY_BOTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Verify bots via DNS', 'default' => 'google, bing'],
             'DNS_CHECKS' => ['group' => 'Detection', 'type' => self::TYPE_BOOL, 'label' => 'DNS checks', 'default' => 'yes'],
             'TRUSTED_PROXIES' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Trusted proxies', 'default' => 'private ranges', 'help' => 'An empty list trusts no proxy.'],
             'EXTERNAL_SCHEME' => ['group' => 'Detection', 'type' => self::TYPE_ENUM, 'options' => ['auto', 'http', 'https'], 'label' => 'External scheme', 'default' => 'auto'],

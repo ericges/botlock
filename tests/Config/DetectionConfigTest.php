@@ -12,6 +12,19 @@ final class DetectionConfigTest extends TestCase
     {
         \putenv('BOTLOCK_TRUSTED_PROXIES');
         \putenv('BOTLOCK_EXTERNAL_SCHEME');
+        \putenv('BOTLOCK_VERIFY_BOTS');
+    }
+
+    public function testEveryVerifiableProviderIsVerifiedByDefault(): void
+    {
+        self::assertSame(['google', 'bing'], \array_keys(DetectionConfig::fromEnv()->verifyBots));
+    }
+
+    public function testVerifyBotsSelectsKnownProviders(): void
+    {
+        \putenv('BOTLOCK_VERIFY_BOTS=Bing, unknown');
+
+        self::assertSame(['bing' => ['Bingbot']], DetectionConfig::fromEnv()->verifyBots);
     }
 
     public function testExternalSchemeDefaultsToAuto(): void

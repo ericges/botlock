@@ -119,7 +119,7 @@ The challenge page and the level-4 page are served in the language negotiated fr
 | `BOTLOCK_IGNORE_USER_AGENTS` | Empty | List of User-Agent substrings that bypass BOTLOCK. Matched case-insensitively. |
 | `BOTLOCK_IGNORE_URLS` | Empty | List of absolute URL prefixes that bypass BOTLOCK. |
 | `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots (matched case-insensitively). Good bots pass without a challenge while the effective threat level is below `2`; at levels `2` and `3` they get an easy, self-starting challenge, and at level `4` they are refused like everyone else. |
-| `BOTLOCK_VERIFY_BOTS` | `google` | Bot providers to verify using DNS. Currently only `google` is supported (covers `Googlebot` and `AdsBot`). A good bot of a listed provider is only exempted after its IP passed the reverse-DNS check; a failed check raises the request to threat level `2`. Good bots without a listed provider are trusted by User-Agent alone. Set an empty value or `[]` to disable provider verification. |
+| `BOTLOCK_VERIFY_BOTS` | `google`, `bing` | Bot providers to verify using DNS: `google` (covers `Googlebot` and `AdsBot`, hosts under `google.com` and `googlebot.com`) and `bing` (covers `Bingbot`, hosts under `search.msn.com`). A good bot of a listed provider is only exempted after its IP resolved to a host of the provider and that host back to the IP; a failed check raises the request to threat level `2`. Good bots without a listed provider are trusted by User-Agent alone. Set an empty value or `[]` to disable provider verification. |
 | `BOTLOCK_TRUSTED_PROXIES` | Loopback, private and link-local ranges | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip`, `Client-Ip` and `X-Forwarded-Proto` headers. Unset trusts peers in `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7` and `fe80::/10`. An empty value or `[]` disables forwarding headers entirely. An explicit list replaces the default. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
 | `BOTLOCK_DNS_CHECKS` | Enabled | Enables DNS verification for providers selected by `BOTLOCK_VERIFY_BOTS`. Disabling it trusts all good bots by User-Agent alone. |
 | `BOTLOCK_EXTERNAL_SCHEME` | `auto` | Scheme visitors use to reach the site. `auto` takes `HTTPS`/port 443 as seen by PHP and `X-Forwarded-Proto` from a trusted proxy. Set `https` (or `http`) to force it, for example when the proxy does not send the header or when an appending proxy chain has a plain-HTTP inner leg. Determines the `Secure` flag of the session cookie, the session issuer and reset redirects. See [TLS termination](#tls-termination). |
@@ -186,7 +186,11 @@ threat levels behave as follows:
 
 A good bot is trusted when it is listed in `BOTLOCK_GOOD_BOTS` and, for providers
 listed in `BOTLOCK_VERIFY_BOTS`, passed the DNS check; a failed check raises the
-request to at least level `2`.
+request to at least level `2`. Good bots without a verifiable provider (by default
+`DuckDuckBot`, `Exabot` and `facebot`) are trusted by their User-Agent alone, so
+anyone sending one of those User-Agents gets the easy proof of work even at level
+`3`, without the slider; remove them from `BOTLOCK_GOOD_BOTS` if that matters more
+than their crawling.
 
 The slider captcha shows a picture with a gap and a matching piece that the
 visitor slides into place with the slider below it, by dragging its handle with

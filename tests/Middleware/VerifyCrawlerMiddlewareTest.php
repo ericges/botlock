@@ -99,10 +99,22 @@ final class VerifyCrawlerMiddlewareTest extends TestCase
         $verifier = new StubCrawlerVerifier();
         $request = $this->request(threatLevel: 1);
 
-        $this->process('Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', $request, $verifier);
+        $this->process('DuckDuckBot/1.1; (+http://duckduckgo.com/duckduckbot.html)', $request, $verifier);
 
         self::assertSame(CrawlerVerification::NotApplicable, $request->context->crawlerVerification);
         self::assertSame([], $verifier->calls);
+    }
+
+    public function testBingbotIsVerifiedByDns(): void
+    {
+        $verifier = new StubCrawlerVerifier(CrawlerVerification::Failed);
+        $request = $this->request(threatLevel: 1);
+
+        $this->process('Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', $request, $verifier);
+
+        self::assertSame([['bing', self::IP]], $verifier->calls);
+        self::assertSame(CrawlerVerification::Failed, $request->context->crawlerVerification);
+        self::assertSame(2, $request->context->threatLevel, 'a spoofed Bingbot is challenged like a crawler');
     }
 
     public function testDisabledDnsChecksOrEmptyProviderListSkipVerification(): void
