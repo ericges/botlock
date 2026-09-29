@@ -51,6 +51,15 @@ final class RequestContext
     }
 
     /**
+     * Threat level a challenge ticket or grant has to cover: the current
+     * one, but at least 1. Not capped, so nothing covers level 4.
+     */
+    public function requiredLevel(): int
+    {
+        return \max(1, $this->threatLevel ?? 1);
+    }
+
+    /**
      * Whether the grant covers the current threat level. A grant issued at a
      * lower level than the current one does not: every escalation asks for
      * a new challenge.
@@ -59,6 +68,6 @@ final class RequestContext
     {
         $level = $this->grantLevel();
 
-        return $level > 0 && $level >= \max(1, $this->threatLevel ?? 1);
+        return $level > 0 && $level >= $this->requiredLevel();
     }
 }

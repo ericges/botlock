@@ -43,7 +43,7 @@ final readonly class ChallengeAction implements ActionHandlerInterface
         $isTrustedGoodBot = $isCrawler && $this->detective->isTrustedGoodBot($request->context);
 
         // Level 4 is refused before any action runs; a challenge is always for 1–3.
-        $level = \min(3, \max(1, $request->context->threatLevel ?? 1));
+        $level = \min(3, $request->context->requiredLevel());
         $interaction = $this->policy->interaction($level, $isCrawler, $isTrustedGoodBot);
         $now = $this->tickets->now();
 

@@ -63,7 +63,7 @@ final readonly class TicketService
         }
 
         if ($ticket->isExpired($this->now())
-            || \max(1, $request->context->threatLevel ?? 1) > $ticket->level)
+            || $request->context->requiredLevel() > $ticket->level)
         {
             throw new JsonResponseException('restart', 409);
         }
