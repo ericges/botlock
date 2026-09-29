@@ -22,6 +22,7 @@ use GES\Botlock\Middleware\VerifyCrawlerMiddleware;
 use GES\Botlock\Middleware\WhoIsMiddleware;
 use GES\Botlock\Middleware\ActionMiddleware;
 use GES\Botlock\Action\ChallengeAction;
+use GES\Botlock\Action\ChallengeStepInterface;
 use GES\Botlock\Action\InteractAction;
 use GES\Botlock\Action\PuzzleAction;
 use GES\Botlock\Action\TicketService;
@@ -136,26 +137,28 @@ readonly class Kernel
         $middleware = new MiddlewareDispatcher();
         $policy = new InteractionPolicy($this->pow);
         $ticketService = new TicketService($this->tickets, $this->pow, $this->rate->gcProbability);
+        $actions = [
+            'GET challenge' => new ChallengeAction($this->detective, $policy, $ticketService),
+            'POST challenge' => new InteractAction($ticketService, $policy),
+            'POST puzzle' => new PuzzleAction($ticketService, $this->puzzleBudget),
+            'POST verify' => new VerifyAction($this->pow, $ticketService),
+            'POST reset' => new ResetAction(),
+            'GET status' => new StatusAction(),
+        ];
+        $challengeSteps = \array_keys(\array_filter($actions, static fn($handler): bool => $handler instanceof ChallengeStepInterface));
 
         $middleware
             ->add(new ErrorMiddleware)
             ->add(new WhoIsMiddleware($this->detection))
             ->add(new IgnoreListMiddleware($this->whitelist))
-            ->add(new ThreatEvaluationMiddleware($this->rate, $this->rateLimiter))
+            ->add(new ThreatEvaluationMiddleware($this->rate, $this->rateLimiter, $challengeSteps))
             // Before crawler verification: a level-4 client is refused without
             // DNS lookups, and verification can never lift a level to 4.
             ->add(new ThreatBlockMiddleware($this->rate, $page('blocked', ['retryAfter' => $this->rate->retryAfterSec()])))
             ->add(new VerifyCrawlerMiddleware($this->detective, $this->detection))
             ->add(new ThreatPassMiddleware($this->detective))
             ->add(new SessionMiddleware($this->pow))
-            ->add(new ActionMiddleware([
-                'GET challenge' => new ChallengeAction($this->detective, $policy, $ticketService),
-                'POST challenge' => new InteractAction($ticketService, $policy),
-                'POST puzzle' => new PuzzleAction($ticketService, $this->puzzleBudget),
-                'POST verify' => new VerifyAction($this->pow, $ticketService),
-                'POST reset' => new ResetAction(),
-                'GET status' => new StatusAction(),
-            ]))
+            ->add(new ActionMiddleware($actions))
             ->add(new ChallengeDocumentMiddleware($page('challenge')))
         ;
 

@@ -31,7 +31,7 @@ use GES\Botlock\Http\Response\JsonResponse;
  * issued answers 409 "restart": the client has to fetch a new challenge for
  * the higher level.
  */
-final readonly class InteractAction implements ActionHandlerInterface
+final readonly class InteractAction implements ChallengeStepInterface
 {
     public function __construct(
         private TicketService $tickets,

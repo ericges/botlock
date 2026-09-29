@@ -18,7 +18,7 @@ use GES\Botlock\Config\ProofOfWorkConfig;
  * BOTLOCK_MIN_SOLVE_MS after issuing, and with 409 "restart" when it
  * expired or the threat level rose above the ticket's in the meantime.
  */
-final readonly class VerifyAction implements ActionHandlerInterface
+final readonly class VerifyAction implements ChallengeStepInterface
 {
     public function __construct(
         private ProofOfWorkConfig $config,

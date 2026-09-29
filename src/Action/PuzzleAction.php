@@ -25,7 +25,7 @@ use GES\Botlock\Http\Response\JsonResponse;
  * The ticket gets a fresh deadline for the slider, and the slider is timed
  * from the render.
  */
-final readonly class PuzzleAction implements ActionHandlerInterface
+final readonly class PuzzleAction implements ChallengeStepInterface
 {
     public function __construct(
         private TicketService $tickets,
