@@ -29,6 +29,35 @@ final class ThreatAwarenessManagerTest extends TestCase
         self::assertSame([], $store->gcCalls);
     }
 
+    /**
+     * A challenge costs a visitor several requests; were they counted
+     * globally, re-challenging everyone after a global escalation would
+     * raise the global level further.
+     */
+    public function testChallengeRequestsCountOnlyIndividually(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $manager = new ThreatAwarenessManager(new RateLimitConfig(gcProbability: 0), $store);
+
+        foreach ([['GET', 'challenge'], ['POST', 'challenge'], ['POST', 'puzzle'], ['POST', 'verify']] as [$method, $action]) {
+            $request = Requests::make($method, query: ['_botlock' => $action]);
+            $request->context->fingerprint = self::FP;
+            $manager->recordRequest($request);
+        }
+
+        self::assertSame(0, \array_sum($store->global['traffic_buckets'] ?? []));
+        self::assertCount(4, $store->individual[self::FP]);
+
+        // Anything else still counts: an unknown action goes on to the page.
+        foreach ([['GET', 'status'], ['GET', 'x'], ['GET', 'verify']] as [$method, $action]) {
+            $request = Requests::make($method, query: ['_botlock' => $action]);
+            $request->context->fingerprint = self::FP;
+            $manager->recordRequest($request);
+        }
+
+        self::assertSame(3, \array_sum($store->global['traffic_buckets']));
+    }
+
     public function testRecordingPrunesGlobalBucketsOlderThanFiveMinutes(): void
     {
         $store = new InMemoryThreatStateStore();

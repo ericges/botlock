@@ -32,6 +32,16 @@ class ThreatAwarenessManager
     private const GLOBAL_WINDOW_SEC = 300;
     private const BUCKET_SEC = 60;
 
+    /**
+     * Actions that make up a challenge, left out of the global count: a
+     * global escalation re-challenges every visitor, and counting their
+     * challenges would raise the global level further. Each is answered by
+     * its handler (or refused at level 4) and never reaches the site, so
+     * naming one does not get a page past the count; an unknown action
+     * might, and is counted.
+     */
+    private const CHALLENGE_ACTIONS = ['GET challenge', 'POST challenge', 'POST puzzle', 'POST verify'];
+
     private ?int $cachedGlobalThreatLevel = null;
     private array $cachedIndividualThreatLevels = [];
     /** @var array<string, int|null> null marks a fingerprint whose state is unavailable */
@@ -47,7 +57,8 @@ class ThreatAwarenessManager
     ) {}
 
     /**
-     * Records the current request for both global and individual tracking.
+     * Records the current request for both global and individual tracking;
+     * the challenge's own requests only individually.
      */
     public function recordRequest(Request $request): void
     {
@@ -55,7 +66,9 @@ class ThreatAwarenessManager
             return;
         }
 
-        if ($this->config->enableGlobalRateLimit) {
+        if ($this->config->enableGlobalRateLimit
+            && !\in_array($request->getBotlockAction(), self::CHALLENGE_ACTIONS, true))
+        {
             $this->incrementGlobalBucket();
         }
 
