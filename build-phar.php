@@ -19,7 +19,7 @@ if (file_exists($pharFile)) {
 $phar = new Phar($pharFile, 0, $pharFileName);
 
 $phar->buildFromDirectory(__DIR__, '#/src/.*\.php$#');
-$phar->buildFromDirectory(__DIR__, '#/templates/.*\.(php|css)$#');
+$phar->buildFromDirectory(__DIR__, '#/templates/.*\.(php|css|js)$#');
 $phar->buildFromDirectory(__DIR__, '#/translations/.*\.php$#');
 $phar->buildFromDirectory(__DIR__, '#/vendor/.*\.(php|json|lock|twig|latte|neon|txt)$#');
 

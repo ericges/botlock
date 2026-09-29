@@ -94,8 +94,8 @@ final class ThreatBlockMiddlewareTest extends TestCase
         self::assertSame('90', $response->getHeader('Retry-After'));
         self::assertStringContainsString('data-retry-after="90"', $body);
         self::assertStringNotContainsString("method: 'HEAD'", $body, 'the page does not ask again');
-        self::assertStringContainsString('new Intl.RelativeTimeFormat(', $body);
-        self::assertStringContainsString("note.dataset.retryTemplate.replace('{time}', time)", $body);
+        self::assertStringContainsString((string) \file_get_contents(self::ROOT . '/templates/partials/relative-time.js'), $body, 'the shared formatter, verbatim');
+        self::assertStringContainsString("note.dataset.retryTemplate.replace('{time}', relativeTime(seconds))", $body);
     }
 
     public function testSecondBrowserRequestIsServedFromCache(): void
@@ -179,7 +179,7 @@ final class ThreatBlockMiddlewareTest extends TestCase
                 new RenderedPageCache($this->cacheDir, 'inst'),
                 'blocked',
                 self::ROOT . '/templates/blocked.php',
-                [self::ROOT . '/templates/partials/style.css'],
+                [self::ROOT . '/templates/partials/style.css', self::ROOT . '/templates/partials/relative-time.js'],
                 ['retryAfter' => $config->retryAfterSec()],
             ),
         );

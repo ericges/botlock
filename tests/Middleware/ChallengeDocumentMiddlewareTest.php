@@ -121,6 +121,7 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('.puzzle-slider {', $own);
         self::assertStringNotContainsString('#security {', $own);
         self::assertStringContainsString('<p id="footer-note">', $body);
+        self::assertStringContainsString((string) \file_get_contents(self::ROOT . '/templates/partials/relative-time.js'), $body, 'the shared formatter, verbatim');
     }
 
     public function testTouchDragsOnTheSliderDoNotPanThePage(): void

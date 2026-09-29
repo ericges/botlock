@@ -297,6 +297,7 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
 | `templates/blocked.php` | The level-4 page answered with `429`, rendered and cached the same way; it carries the `Retry-After` value, which its script formats as the wait time. |
 | `templates/partials/style.css` | Styles shared by both pages (colour tokens, card layout, text), printed in its own `<style>` element before the page-specific one. |
+| `templates/partials/relative-time.js` | `relativeTime()`, shared by both pages' scripts: formats the wait before a retry in the page's language. |
 | `translations/` | One `<code>.php` file per language returning the strings of both pages. |
 | `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering, `LocalizedPage` (negotiate, render once, serve from cache) and the rendered-page cache. |
 | `bootstrap.php` | The prepend entry point, also used as the PHAR stub. |

@@ -130,7 +130,7 @@ readonly class Kernel
             $this->pageCache,
             $name,
             "{$templates}/{$name}.php",
-            ["{$templates}/partials/style.css"],
+            ["{$templates}/partials/style.css", "{$templates}/partials/relative-time.js"],
             $vars,
         );
         $middleware = new MiddlewareDispatcher();

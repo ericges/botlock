@@ -2,7 +2,8 @@
 /**
  * Browser challenge page. Rendered by Template\LocalizedPage for
  * Middleware\ChallengeDocumentMiddleware, once per language, then cached.
- * The shared styles come from partials/style.css.
+ * The shared styles come from partials/style.css, relativeTime() from
+ * partials/relative-time.js.
  *
  * @var string                $lang      Language code, always one of I18n\TranslationLoader::LANGUAGES
  * @var array<string,string>  $trans     Strings for that language (keys: I18n\TranslationLoader::KEYS)
@@ -313,12 +314,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         footerElement.textContent = trans.errorFooter;
     }
 
-    function relativeTime(seconds) {
-        const lang = document.documentElement.lang;
-        // Plain "sr" formats in Cyrillic; the Serbian strings are Latin.
-        const format = new Intl.RelativeTimeFormat(lang === 'sr' ? 'sr-Latn' : lang);
-        return seconds % 60 === 0 ? format.format(seconds / 60, 'minute') : format.format(seconds, 'second');
-    }
+<?php \readfile(__DIR__ . '/partials/relative-time.js'); ?>
 
     // Too many requests or slider puzzles: the same words as the 429 page, no retry.
     function showBlocked(seconds) {

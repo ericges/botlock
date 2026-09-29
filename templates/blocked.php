@@ -2,7 +2,8 @@
 /**
  * Page for threat level 4 (429 Too Many Requests). Rendered by
  * Template\LocalizedPage for Middleware\ThreatBlockMiddleware, once per
- * language, then cached. The shared styles come from partials/style.css.
+ * language, then cached. The shared styles come from partials/style.css,
+ * relativeTime() from partials/relative-time.js.
  *
  * @var string                $lang       Language code, always one of I18n\TranslationLoader::LANGUAGES
  * @var array<string,string>  $trans      Strings for that language (keys: I18n\TranslationLoader::KEYS)
@@ -52,6 +53,8 @@ if (!isset($lang, $trans, $e, $retryAfter)) {
 </div>
 
 <script>
+<?php \readfile(__DIR__ . '/partials/relative-time.js'); ?>
+
     // Retry-After as rendered with the page: a page cannot read its own
     // response headers, and asking again would count as another request.
     // Without JavaScript the generic wait note stays.
@@ -63,12 +66,7 @@ if (!isset($lang, $trans, $e, $retryAfter)) {
             return;
         }
 
-        const lang = document.documentElement.lang;
-        // Plain "sr" formats in Cyrillic; the Serbian strings are Latin.
-        const format = new Intl.RelativeTimeFormat(lang === 'sr' ? 'sr-Latn' : lang);
-        const time = seconds % 60 === 0 ? format.format(seconds / 60, 'minute') : format.format(seconds, 'second');
-
-        note.textContent = note.dataset.retryTemplate.replace('{time}', time);
+        note.textContent = note.dataset.retryTemplate.replace('{time}', relativeTime(seconds));
     })();
 </script>
 
