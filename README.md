@@ -253,7 +253,7 @@ shows `individual_rate` as `null`.
 
 | Environment variable | Default | Description |
 | --- | --- | --- |
-| `BOTLOCK_THREAT_LEVEL_OVERRIDE` | Unset | Fixed integer threat level that bypasses rate-based threat evaluation when set. Values are clamped to `0` through `4`. |
+| `BOTLOCK_THREAT_LEVEL_OVERRIDE` | Unset | Fixed integer threat level that bypasses rate-based threat evaluation when set. Values are clamped to `0` through `4`. `4` refuses every client, good bots included, with `429` whatever `BOTLOCK_LEVEL_4_THRESHOLD_INDIVIDUAL` says; it is meant for trying out the blocked page, not for production. |
 | `BOTLOCK_ENABLE_RATE_LIMIT` | Enabled | Master switch for rate-based threat evaluation. It is effective only when at least one of the global or individual rate limits is enabled. |
 | `BOTLOCK_THRESHOLD_FACTOR` | `1` | Positive number that multiplies every global and individual level threshold below, whether set or left at its default, so one value makes the rate limits more lenient (above `1`) or stricter (below `1`). Scaled thresholds are rounded and never drop below `1`; a level 4 threshold of `0` stays off. Invalid or non-positive values fall back to `1`. |
 | `BOTLOCK_ENABLE_GLOBAL_RATE_LIMIT` | Enabled | Enables global request tracking and threat-level calculation. |
