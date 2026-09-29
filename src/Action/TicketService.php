@@ -48,18 +48,23 @@ final readonly class TicketService
      * fingerprint is not found and stays untouched: ChallengeTicketStore
      * promises that, and every store is tested against it.
      *
+     * An expired ticket asks for a restart like an escalation does, so a
+     * page left open past its phase starts over instead of failing; once
+     * the ticket has been swept, it is merely not found.
+     *
      * @throws JsonResponseException
      */
     public function redeem(mixed $id, Request $request): ChallengeTicket
     {
         if (!ChallengeTicket::isValidId($id)
-            || !($ticket = $this->tickets->consume((string) $request->context->fingerprint, $id))
-            || $ticket->isExpired($this->now()))
+            || !($ticket = $this->tickets->consume((string) $request->context->fingerprint, $id)))
         {
             throw new JsonResponseException('Invalid challenge', 400);
         }
 
-        if (\max(1, $request->context->threatLevel ?? 1) > $ticket->level) {
+        if ($ticket->isExpired($this->now())
+            || \max(1, $request->context->threatLevel ?? 1) > $ticket->level)
+        {
             throw new JsonResponseException('restart', 409);
         }
 

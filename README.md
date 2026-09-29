@@ -233,7 +233,10 @@ costs a new challenge, a gate proof of work and a puzzle from the client's budge
 When the threat level has risen above the ticket's
 before it is redeemed, all three endpoints — the interaction, the gate and
 `verify` — answer `409` and the page starts over with a challenge for the new
-level.
+level. Each phase of a ticket (the gate, the interaction and the proof) lasts
+five minutes, and an expired ticket answers `409` as well, so a challenge page
+left open starts over instead of failing. Once the ticket has been swept, it is
+simply unknown and answers `400`.
 
 When the rate-limit state in `BOTLOCK_STATE_DIR` cannot be read or written (for
 example a full disk or lock contention), the affected level is reported as `1`

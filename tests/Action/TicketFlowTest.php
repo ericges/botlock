@@ -408,12 +408,24 @@ final class TicketFlowTest extends TestCase
         self::assertSame(2, $this->session->get('grant'));
     }
 
-    public function testExpiredTicketIsRejected(): void
+    /**
+     * A tab left open past its phase starts over quietly: the page restarts
+     * on 409 as it does after an escalation.
+     */
+    public function testExpiredTicketRestarts(): void
     {
         $challenge = $this->challenge(level: 1);
-
         $this->now += ChallengeTicket::TTL + 2;
-        $this->assertRejected(400, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1));
+        $this->assertRejected(409, fn() => $this->verify($challenge['cid'], self::solve($challenge['pow']), level: 1));
+
+        $click = $this->challenge(level: 2);
+        $this->now += ChallengeTicket::TTL + 2;
+        $this->assertRejected(409, fn() => $this->interact($click, level: 2));
+
+        $slider = $this->challenge(level: 3);
+        $this->now += ChallengeTicket::TTL + 2;
+        $this->assertRejected(409, fn() => $this->puzzle($slider['cid'], self::solve($slider['gate'])));
+        self::assertNull($this->store->find($slider['cid']), 'the expired ticket is spent');
     }
 
     public function testTicketOfAnotherClientIsRejected(): void
