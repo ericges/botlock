@@ -162,7 +162,13 @@ final readonly class SliderTrack
         // second drag and has to look human too.
         $longest = $this->longestStroke();
         if ($longest >= self::DRAG_SHARE * $pos) {
-            return $this->strokesAreHuman(self::DRAG_SHARE * $longest) ? SliderVerdict::Drag : SliderVerdict::Rejected;
+            return match (true) {
+                !$this->strokesAreHuman(self::DRAG_SHARE * $longest) => SliderVerdict::Rejected,
+                // A hand rarely holds a mouse or pen perfectly level: a
+                // script might, so such a drag pays like the keyboard.
+                $this->hasLevelStroke(self::DRAG_SHARE * $longest) => SliderVerdict::Assisted,
+                default => SliderVerdict::Drag,
+            };
         }
 
         // No single stroke did the work: one that moved farther than a key
@@ -245,6 +251,23 @@ final readonly class SliderTrack
     }
 
     /**
+     * Whether a mouse or pen stroke that moved the slider at least $distance
+     * never drifted vertically; touch screens may report a level line.
+     */
+    private function hasLevelStroke(float $distance): bool
+    {
+        foreach ($this->entries as $entry) {
+            if ($entry['k'] === 'p' && $entry['pt'] !== 'touch' && \abs($entry['v'] - $entry['from']) >= $distance
+                && \count(\array_unique(\array_map(static fn(array $pt): string => (string) $pt[2], $entry['pts']))) < 2)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Whether every pointer stroke that moved the slider at least $distance
      * passes isHumanDrag(); a long stroke is never excused by another one.
      */
@@ -274,7 +297,6 @@ final readonly class SliderTrack
 
         $intervals = [];
         $speeds = [];
-        $drifts = [];
 
         // Between samples only: the first one's time since the press includes the reaction.
         for ($i = 1; $i < $count; $i++) {
@@ -287,12 +309,6 @@ final readonly class SliderTrack
             if (\abs($dy) > self::MAX_DRIFT) {
                 return false;
             }
-            $drifts[(string) $dy] = true;
-        }
-
-        // A hand never holds a mouse or pen perfectly level; touch screens may report it so.
-        if ($drag['pt'] !== 'touch' && \count($drifts) < 2) {
-            return false;
         }
 
         if (\max($intervals) - \min($intervals) < self::MIN_INTERVAL_SPREAD_MS) {

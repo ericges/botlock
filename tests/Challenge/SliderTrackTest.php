@@ -101,7 +101,7 @@ final class SliderTrackTest extends TestCase
         $track = Tracks::humanDrag(140);
 
         // Scripted strokes 140→40 and 40→150 (100 and 110 pixels, both ≥ 0.7×140 = 98):
-        // second drags, not corrections, and constant speed and zero drift fail isHumanDrag
+        // second drags, not corrections, and constant speed fails isHumanDrag
         $track[] = self::linearDragFrom(140, 40, Tracks::end($track) + 500);
         $track[] = self::linearDragFrom(40, 150, Tracks::end($track) + 500);
 
@@ -170,14 +170,6 @@ final class SliderTrackTest extends TestCase
         unset($sample);
         self::assertSame(SliderVerdict::Rejected, self::judge($wobbly), 'linear at a steady speed, with jitter');
 
-        $level = Tracks::humanDrag(self::TARGET);
-        $level[0]['pts'] = \array_map(fn(array $p): array => [$p[0], $p[1], 0], $level[0]['pts']);
-        self::assertSame(SliderVerdict::Rejected, self::judge($level), 'a mouse held perfectly level');
-
-        $touch = $level;
-        $touch[0]['pt'] = 'touch';
-        self::assertSame(SliderVerdict::Drag, self::judge($touch), 'touch may report a level line');
-
         $jump = Tracks::humanDrag(self::TARGET);
         $jump[0]['pts'][5][1] = self::TARGET;
         self::assertSame(SliderVerdict::Rejected, self::judge($jump), 'a jump in the middle of a drag');
@@ -195,6 +187,21 @@ final class SliderTrackTest extends TestCase
         $drift = Tracks::humanDrag(self::TARGET);
         $drift[0]['pts'][3][2] = 200;
         self::assertSame(SliderVerdict::Rejected, self::judge($drift), 'the pointer far off the slider');
+    }
+
+    public function testALevelMouseDragPaysTheAssistedFactor(): void
+    {
+        $level = Tracks::humanDrag(self::TARGET);
+        $level[0]['pts'] = \array_map(fn(array $p): array => [$p[0], $p[1], 0], $level[0]['pts']);
+        self::assertSame(SliderVerdict::Assisted, self::judge($level), 'a mouse held perfectly level, e.g. on a trackpad');
+
+        $pen = $level;
+        $pen[0]['pt'] = 'pen';
+        self::assertSame(SliderVerdict::Assisted, self::judge($pen), 'a pen held perfectly level');
+
+        $touch = $level;
+        $touch[0]['pt'] = 'touch';
+        self::assertSame(SliderVerdict::Drag, self::judge($touch), 'touch may report a level line');
     }
 
     public function testASpeedPeakAtTheEndIsRejected(): void

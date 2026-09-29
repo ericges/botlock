@@ -104,7 +104,7 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_EXPIRE` | `3600` | Session lifetime in seconds. Each phase of a challenge ticket gets its own five minutes, fifteen at most. |
 | `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
 | `BOTLOCK_CRAWLER_FACTOR` | `15` | Multiplies proof-of-work difficulty for crawlers that are not listed as good bots. The effective minimum is `1`. |
-| `BOTLOCK_SLIDER_ASSISTED_FACTOR` | `4` | Multiplies proof-of-work difficulty when the slider captcha was solved with the keyboard instead of dragging, on top of any crawler factor. The effective minimum is `1`. |
+| `BOTLOCK_SLIDER_ASSISTED_FACTOR` | `4` | Multiplies proof-of-work difficulty when the slider captcha was solved with the keyboard instead of dragging, or with a mouse or pen drag held perfectly level, on top of any crawler factor. The effective minimum is `1`. |
 | `BOTLOCK_MIN_SOLVE_MS` | `1000` | Minimum time in milliseconds between issuing a challenge and accepting its solution. Faster solutions are rejected and spend the ticket; the challenge page waits out the rest of this time before it submits. `0` disables the check. |
 
 ### Language
@@ -177,7 +177,7 @@ spike. The elevated threat levels behave as follows:
 | --- | --- | --- | --- |
 | `1` | Proof of work, starts on its own | Click, then proof of work (× `BOTLOCK_CRAWLER_FACTOR`) | Pass without a challenge |
 | `2` | Click, then proof of work | Click, then proof of work (× factor) | Easy proof of work, starts on its own |
-| `3` | Slider captcha, then proof of work (× `BOTLOCK_SLIDER_ASSISTED_FACTOR` without a drag) | Slider captcha, then proof of work (× factors) | Easy proof of work, starts on its own |
+| `3` | Slider captcha, then proof of work (× `BOTLOCK_SLIDER_ASSISTED_FACTOR` without a drag or with a perfectly level mouse drag) | Slider captcha, then proof of work (× factors) | Easy proof of work, starts on its own |
 | `4` | `429 Too Many Requests` with `Retry-After`, no challenge: browsers get a page in their language that explains the block and shows when to retry | same | same |
 
 A good bot is trusted when it is listed in `BOTLOCK_GOOD_BOTS` and, for providers
