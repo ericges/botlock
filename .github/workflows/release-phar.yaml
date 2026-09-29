@@ -72,9 +72,14 @@ jobs:
           BOTLOCK_THREAT_LEVEL_OVERRIDE: '2'
           BOTLOCK_STATE_DIR: ${{ runner.temp }}/botlock-state
         run: |
-          # Serve the repo's demo index.php with the freshly built PHAR prepended
-          # and expect the challenge page (401 + session cookie) from a bare request.
-          php -S 127.0.0.1:8099 -t . -d "auto_prepend_file=phar://$PWD/$PHAR_FILENAME" > server.log 2>&1 &
+          # Serve a stub page with the freshly built PHAR prepended and expect the
+          # challenge page (401 + session cookie) from a bare request. The stub
+          # lives outside the repo because the built-in server answers 404 for a
+          # missing index.php before the prepend runs.
+          DOCROOT="$RUNNER_TEMP/smoke-docroot"
+          mkdir -p "$DOCROOT"
+          echo '<?php echo "Passed BOTLOCK";' > "$DOCROOT/index.php"
+          php -S 127.0.0.1:8099 -t "$DOCROOT" -d "auto_prepend_file=phar://$PWD/$PHAR_FILENAME" > server.log 2>&1 &
           SERVER_PID=$!
           trap 'kill $SERVER_PID 2>/dev/null || true' EXIT
           sleep 2
