@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Romanian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Romanian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Verificare de securitate',
     'mainHeading' => 'Verificăm dacă sunteți o persoană…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Verificare de securitate',
     'confirmParagraph' => 'Pentru a continua, vă rugăm să confirmați că nu sunteți robot.',
     'verifyButton' => 'Verificați',
+    'sliderHeading' => 'Verificare de securitate',
+    'sliderParagraph' => 'Mutați glisorul până când piesa se potrivește în golul cu aceeași formă.',
+    'sliderLabel' => 'Poziția piesei',
+    'sliderSubmit' => 'Confirmă',
+    'sliderRetry' => 'Nu s-a potrivit. Vă rugăm să încercați din nou cu noua imagine.',
     'errorHeading' => 'Verificare eșuată',
     'errorMessage' => 'Nu am putut verifica solicitarea dvs. în acest moment. Este posibil să fie o problemă temporară.',
     'errorWidget' => 'A apărut o eroare',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Veți fi redirecționat în scurt timp…',
     'noscriptHeading' => 'JavaScript este necesar pentru verificarea de securitate.',
     'noscriptText' => 'Activați JavaScript în setările browserului și reîmprospătați pagina.',
+    'blockedHeading' => 'Prea multe solicitări',
+    'blockedMessage' => 'Am primit prea multe solicitări de la conexiunea dvs. într-un timp scurt, așa că accesul este suspendat temporar.',
+    'blockedWait' => 'Vă rugăm să așteptați un moment, apoi reîncărcați pagina.',
+    'blockedRetry' => 'Puteți încerca din nou {time}.',
+    'blockedFooter' => 'Această limită protejează serviciul împotriva traficului automatizat.',
 ];

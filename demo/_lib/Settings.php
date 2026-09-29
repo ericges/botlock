@@ -14,6 +14,7 @@ namespace GES\Botlock\Demo;
 final class Settings
 {
     public const TYPE_INT = 'int';
+    public const TYPE_FLOAT = 'float';
     public const TYPE_BOOL = 'bool';
     public const TYPE_ENUM = 'enum';
     public const TYPE_LIST = 'list';
@@ -30,6 +31,7 @@ final class Settings
         'LEVEL_1_THRESHOLD_INDIVIDUAL' => '10',
         'LEVEL_2_THRESHOLD_INDIVIDUAL' => '20',
         'LEVEL_3_THRESHOLD_INDIVIDUAL' => '30',
+        'LEVEL_4_THRESHOLD_INDIVIDUAL' => '40',
         'INDIVIDUAL_RATE_WINDOW_SEC' => '60',
         'LEVEL_1_THRESHOLD_GLOBAL' => '60',
         'LEVEL_2_THRESHOLD_GLOBAL' => '120',
@@ -48,11 +50,12 @@ final class Settings
     public static function schema(): array
     {
         return [
-            'THREAT_LEVEL_OVERRIDE' => ['group' => 'Mode', 'type' => self::TYPE_ENUM, 'options' => ['0', '1', '2', '3'], 'label' => 'Threat level override', 'default' => 'unset (rate-based)', 'help' => 'Fixed level that replaces rate evaluation.'],
+            'THREAT_LEVEL_OVERRIDE' => ['group' => 'Mode', 'type' => self::TYPE_ENUM, 'options' => ['0', '1', '2', '3', '4'], 'label' => 'Threat level override', 'default' => 'unset (rate-based)', 'help' => 'Fixed level that replaces rate evaluation.'],
             'ENABLE_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Rate limiting', 'default' => 'yes'],
             'ENABLE_GLOBAL_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Global rate limit', 'default' => 'yes'],
             'ENABLE_INDIVIDUAL_RATE_LIMIT' => ['group' => 'Mode', 'type' => self::TYPE_BOOL, 'label' => 'Individual rate limit', 'default' => 'yes'],
 
+            'THRESHOLD_FACTOR' => ['group' => 'Rate limits', 'type' => self::TYPE_FLOAT, 'label' => 'Threshold factor', 'default' => '1', 'help' => 'Multiplies every level threshold.'],
             'LEVEL_1_THRESHOLD_GLOBAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Global level 1', 'default' => '120', 'help' => 'Weighted five-minute score.'],
             'LEVEL_2_THRESHOLD_GLOBAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Global level 2', 'default' => '300'],
             'LEVEL_3_THRESHOLD_GLOBAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Global level 3', 'default' => '600'],
@@ -60,19 +63,25 @@ final class Settings
             'LEVEL_1_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 1', 'default' => '60', 'help' => 'Requests per window.'],
             'LEVEL_2_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 2', 'default' => '90'],
             'LEVEL_3_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 3', 'default' => '120'],
+            'LEVEL_4_THRESHOLD_INDIVIDUAL' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual level 4', 'default' => '180', 'help' => 'Answered with 429, no challenge. 0 or not above level 3: off.'],
             'INDIVIDUAL_RATE_WINDOW_SEC' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Individual window (s)', 'default' => '60'],
             'GC_PROBABILITY' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'GC probability (1 in N)', 'default' => '1000', 'help' => '0 disables the sweep.'],
+            'SLIDER_IP_LIMIT' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Slider puzzles per IP', 'default' => '10', 'help' => 'Per window; 429 beyond. 0 disables.'],
+            'SLIDER_IP_WINDOW_SEC' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Slider budget window (s)', 'default' => '600'],
+            'SLIDER_GLOBAL_LIMIT' => ['group' => 'Rate limits', 'type' => self::TYPE_INT, 'label' => 'Slider puzzles per minute', 'default' => '300', 'help' => 'All clients; 503 beyond. 0 disables.'],
 
             'POW_ALGORITHM' => ['group' => 'Proof of work', 'type' => self::TYPE_ENUM, 'options' => ['sha256', 'sha384', 'sha512'], 'label' => 'Algorithm', 'default' => 'sha256'],
             'MAX_NUMBER' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Max number', 'default' => '50000', 'help' => 'Base difficulty.'],
             'CRAWLER_FACTOR' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Crawler factor', 'default' => '15'],
+            'SLIDER_ASSISTED_FACTOR' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Slider keyboard factor', 'default' => '4', 'help' => 'Slider solved without a drag.'],
             'EXPIRE' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Session lifetime (s)', 'default' => '3600'],
+            'MIN_SOLVE_MS' => ['group' => 'Proof of work', 'type' => self::TYPE_INT, 'label' => 'Minimum solve time (ms)', 'default' => '1000', 'help' => 'Between issuing and verifying.'],
 
             'IGNORE_IPS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Ignore IPs', 'default' => 'none'],
             'IGNORE_USER_AGENTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Ignore User-Agents', 'default' => 'none', 'help' => 'Case-insensitive substrings.'],
             'IGNORE_URLS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Ignore URLs', 'default' => 'none', 'help' => 'Absolute URL prefixes.'],
             'GOOD_BOTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Good bots', 'default' => 'Googlebot, AdsBot, Bingbot, DuckDuckBot, Exabot, facebot'],
-            'VERIFY_BOTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Verify bots via DNS', 'default' => 'google'],
+            'VERIFY_BOTS' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Verify bots via DNS', 'default' => 'google, bing'],
             'DNS_CHECKS' => ['group' => 'Detection', 'type' => self::TYPE_BOOL, 'label' => 'DNS checks', 'default' => 'yes'],
             'TRUSTED_PROXIES' => ['group' => 'Detection', 'type' => self::TYPE_LIST, 'label' => 'Trusted proxies', 'default' => 'private ranges', 'help' => 'An empty list trusts no proxy.'],
             'EXTERNAL_SCHEME' => ['group' => 'Detection', 'type' => self::TYPE_ENUM, 'options' => ['auto', 'http', 'https'], 'label' => 'External scheme', 'default' => 'auto'],
@@ -215,6 +224,10 @@ final class Settings
             case self::TYPE_INT:
                 $value = \is_int($value) ? (string) $value : $value;
                 return \is_string($value) && \ctype_digit($value) ? (string) (int) $value : null;
+
+            case self::TYPE_FLOAT:
+                $number = \is_int($value) || \is_float($value) || (\is_string($value) && \is_numeric($value)) ? (float) $value : null;
+                return $number !== null && \is_finite($number) && $number > 0 ? (string) $number : null;
 
             case self::TYPE_BOOL:
                 $value = \is_bool($value) ? ($value ? 'yes' : 'no') : $value;

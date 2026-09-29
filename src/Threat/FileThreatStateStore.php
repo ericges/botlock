@@ -107,13 +107,20 @@ final class FileThreatStateStore implements ThreatStateStore
 
     public function countIndividual(string $fingerprint, int $windowStart): ?int
     {
+        $timestamps = $this->individualTimestamps($fingerprint, $windowStart);
+
+        return $timestamps === null ? null : \count($timestamps);
+    }
+
+    public function individualTimestamps(string $fingerprint, int $windowStart): ?array
+    {
         $path = $this->individualFile($fingerprint);
 
         if (!\is_file($path)) {
-            return 0;
+            return [];
         }
 
-        return $this->withLock($path, 'r', fn($file): int => \count($this->readTimestamps($file, $windowStart)));
+        return $this->withLock($path, 'r', fn($file): array => $this->readTimestamps($file, $windowStart));
     }
 
     /**

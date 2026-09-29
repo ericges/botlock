@@ -108,6 +108,23 @@ const effectiveInt = (key) => {
     return Number.isNaN(number) ? null : number;
 };
 
+// Mirrors RateLimitConfig::fromEnv(): the threshold scaled by BOTLOCK_THRESHOLD_FACTOR.
+const effectiveThreshold = (key) => {
+    const value = effectiveInt(key);
+    const factor = parseFloat(demo.values.THRESHOLD_FACTOR ?? demo.schema.THRESHOLD_FACTOR?.default);
+    const scale = Number.isFinite(factor) && factor > 0 ? factor : 1;
+
+    return value === null || value <= 0 ? value : Math.max(1, Math.round(value * scale));
+};
+
+// Mirrors RateLimitConfig::isLevel4Enabled(): null while level 4 is off.
+const level4Threshold = () => {
+    const level3 = effectiveThreshold('LEVEL_3_THRESHOLD_INDIVIDUAL');
+    const level4 = effectiveThreshold('LEVEL_4_THRESHOLD_INDIVIDUAL');
+
+    return level4 !== null && level4 > 0 && (level3 === null || level4 > level3) ? level4 : null;
+};
+
 /* Status: meters, header chip, history */
 
 (() => {
@@ -120,8 +137,9 @@ const effectiveInt = (key) => {
     const LEVEL_TEXT = [
         'no challenge',
         'challenge unlisted clients',
-        'challenge everyone',
-        'highest severity, challenge everyone',
+        'click to start the challenge',
+        'slider captcha',
+        'blocked with 429',
     ];
     const POLL_INTERVAL_MS = 5000;
     const HISTORY_SIZE = 60;
@@ -149,7 +167,7 @@ const effectiveInt = (key) => {
         return typeof value === 'object' ? JSON.stringify(value) : String(value);
     };
 
-    const isLevel = (level) => Number.isInteger(level) && level >= 0 && level <= 3;
+    const isLevel = (level) => Number.isInteger(level) && level >= 0 && level <= 4;
 
     const renderMeter = (row, level) => {
         const known = isLevel(level);
@@ -168,12 +186,13 @@ const effectiveInt = (key) => {
 
     const renderRate = (data) => {
         const window = effectiveInt('INDIVIDUAL_RATE_WINDOW_SEC');
-        const thresholds = [1, 2, 3].map((n) => effectiveInt(`LEVEL_${n}_THRESHOLD_INDIVIDUAL`));
+        const thresholds = [1, 2, 3, 4].map((n) => effectiveThreshold(`LEVEL_${n}_THRESHOLD_INDIVIDUAL`));
+        const level4 = level4Threshold();
 
         status.querySelector('[data-rate]').textContent = format(data?.individual_rate);
         status.querySelector('[data-rate-window]').textContent = format(window);
         status.querySelector('[data-rate-thresholds]').textContent =
-            `(L1 ${thresholds[0]} · L2 ${thresholds[1]} · L3 ${thresholds[2]})`;
+            `(L1 ${thresholds[0]} · L2 ${thresholds[1]} · L3 ${thresholds[2]} · L4 ${level4 ?? 'off'})`;
     };
 
     const renderChip = (data) => {
@@ -190,13 +209,13 @@ const effectiveInt = (key) => {
     };
 
     const renderHistory = () => {
-        const scale = Math.max(effectiveInt('LEVEL_3_THRESHOLD_INDIVIDUAL') ?? 1, ...samples.map((s) => s.rate ?? 0), 1);
+        const scale = Math.max(level4Threshold() ?? effectiveThreshold('LEVEL_3_THRESHOLD_INDIVIDUAL') ?? 1, ...samples.map((s) => s.rate ?? 0), 1);
         const slot = 240 / HISTORY_SIZE;
         const offset = HISTORY_SIZE - samples.length;
 
         history.replaceChildren(...samples.map((sample, index) => {
             // Without a rate (override, individual limit off) the bar shows the level instead.
-            const ratio = sample.rate === null ? (sample.level ?? 0) / 3 : sample.rate / scale;
+            const ratio = sample.rate === null ? (sample.level ?? 0) / 4 : sample.rate / scale;
             const height = Math.max(2, Math.min(1, ratio) * 40);
             const bar = document.createElementNS(SVG_NS, 'rect');
             const title = document.createElementNS(SVG_NS, 'title');
@@ -465,7 +484,7 @@ if (new URLSearchParams(location.search).has('demo')) {
     const state = block.querySelector('[data-frame-state]');
     const auto = document.querySelector('[data-frame-auto]');
 
-    /** What the frame shows: the protected page, the challenge, or something else. */
+    /** What the frame shows: the protected page, the challenge, the level-4 block, or something else. */
     const classify = () => {
         try {
             const doc = frame.contentDocument;
@@ -474,7 +493,11 @@ if (new URLSearchParams(location.search).has('demo')) {
                 return 'protected';
             }
 
-            return doc?.getElementById('bot-check-widget') ? 'challenge' : 'error';
+            if (doc?.getElementById('bot-check-widget')) {
+                return 'challenge';
+            }
+
+            return doc?.body?.hasAttribute('data-botlock-blocked') ? 'blocked' : 'error';
         } catch {
             return 'error';
         }
@@ -484,7 +507,7 @@ if (new URLSearchParams(location.search).has('demo')) {
         const current = classify();
 
         state.dataset.state = current;
-        state.textContent = current === 'error' ? 'other response' : current;
+        state.textContent = {error: 'other response', blocked: 'blocked (429)'}[current] ?? current;
         demo.refreshStatus();
         demo.refreshLog();
     });
@@ -567,6 +590,10 @@ if (new URLSearchParams(location.search).has('demo')) {
     const statusClass = (status) => {
         if (status === 401) {
             return 'challenge';
+        }
+
+        if (status === 429) {
+            return 'blocked';
         }
 
         return status >= 200 && status < 400 ? 'ok' : 'fail';

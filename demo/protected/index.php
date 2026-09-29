@@ -25,6 +25,7 @@ $received = [
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="color-scheme" content="dark light">
     <title>Botlock - Protected page</title>
+    <?php require \dirname(__DIR__) . '/_lib/favicon.php' ?>
     <link rel="stylesheet" href="/assets/panel.css?v=<?= \filemtime(\dirname(__DIR__) . '/assets/panel.css') ?>">
 </head>
 <body data-demo-protected class="protected-page">

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Danish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Danish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sikkerhedskontrol',
     'mainHeading' => 'Vi kontrollerer, at du er et menneske…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Sikkerhedskontrol',
     'confirmParagraph' => 'Bekræft, at du ikke er en robot, for at fortsætte.',
     'verifyButton' => 'Bekræft',
+    'sliderHeading' => 'Sikkerhedstjek',
+    'sliderParagraph' => 'Flyt skyderen, indtil brikken passer ind i hullet med samme form.',
+    'sliderLabel' => 'Brikkens position',
+    'sliderSubmit' => 'Bekræft',
+    'sliderRetry' => 'Det passede ikke. Prøv igen med det nye billede.',
     'errorHeading' => 'Bekræftelsen mislykkedes',
     'errorMessage' => 'Vi kunne ikke bekræfte din anmodning på nuværende tidspunkt. Det kan være et midlertidigt problem.',
     'errorWidget' => 'Der opstod en fejl',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Du bliver omdirigeret om et øjeblik…',
     'noscriptHeading' => 'JavaScript er påkrævet til sikkerhedskontrollen.',
     'noscriptText' => 'Aktivér JavaScript i browserindstillingerne, og genindlæs siden.',
+    'blockedHeading' => 'For mange anmodninger',
+    'blockedMessage' => 'Vi har modtaget for mange anmodninger fra din forbindelse på kort tid, så adgangen er midlertidigt sat på pause.',
+    'blockedWait' => 'Vent et øjeblik, og genindlæs derefter siden.',
+    'blockedRetry' => 'Du kan prøve igen {time}.',
+    'blockedFooter' => 'Denne grænse beskytter tjenesten mod automatiseret trafik.',
 ];

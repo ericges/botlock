@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Portuguese challenge page strings. Keys must match TranslationLoader::KEYS.
+// Portuguese page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Verificação de segurança',
     'mainHeading' => 'Estamos a verificar se é uma pessoa…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Verificação de segurança',
     'confirmParagraph' => 'Para continuar, confirme que não é um robô.',
     'verifyButton' => 'Verificar',
+    'sliderHeading' => 'Verificação de segurança',
+    'sliderParagraph' => 'Mova o controlo deslizante até a peça encaixar no espaço com a mesma forma.',
+    'sliderLabel' => 'Posição da peça',
+    'sliderSubmit' => 'Confirmar',
+    'sliderRetry' => 'Não encaixou. Tente novamente com a nova imagem.',
     'errorHeading' => 'Falha na verificação',
     'errorMessage' => 'Não foi possível verificar o seu pedido neste momento. Pode tratar-se de um problema temporário.',
     'errorWidget' => 'Ocorreu um erro',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Será redirecionado em breve…',
     'noscriptHeading' => 'O JavaScript é necessário para efetuar a verificação de segurança.',
     'noscriptText' => 'Ative o JavaScript nas definições do navegador e recarregue a página.',
+    'blockedHeading' => 'Demasiados pedidos',
+    'blockedMessage' => 'Recebemos demasiados pedidos da sua ligação num curto espaço de tempo, pelo que o acesso está temporariamente suspenso.',
+    'blockedWait' => 'Aguarde um momento e, em seguida, recarregue a página.',
+    'blockedRetry' => 'Poderá tentar novamente {time}.',
+    'blockedFooter' => 'Este limite protege o serviço contra tráfego automatizado.',
 ];

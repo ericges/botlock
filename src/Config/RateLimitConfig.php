@@ -3,12 +3,17 @@
 namespace GES\Botlock\Config;
 
 /**
- * Thresholds and switches for the rate-based threat evaluation.
+ * Thresholds and switches for the rate-based threat evaluation. fromEnv()
+ * multiplies every level threshold by BOTLOCK_THRESHOLD_FACTOR. The slider
+ * puzzle budget is not scaled.
  */
 final readonly class RateLimitConfig
 {
+    /** Highest threat level; only the individual rate can reach it. */
+    public const MAX_LEVEL = 4;
+
     public function __construct(
-        /** Fixed threat level that replaces rate evaluation entirely when set. */
+        /** Fixed threat level (clamped to 0–4) that replaces rate evaluation entirely when set. */
         public ?int $threatLevelOverride = null,
         public bool $enableGlobalRateLimit = true,
         public bool $enableIndividualRateLimit = true,
@@ -26,29 +31,68 @@ final readonly class RateLimitConfig
         public int  $level1ThresholdIndividual = 60,
         public int  $level2ThresholdIndividual = 90,
         public int  $level3ThresholdIndividual = 120,
+        /**
+         * Requests per individual window that activate level 4: answered with 429, no challenge.
+         * Off when 0 or not above the level 3 threshold, see isLevel4Enabled().
+         */
+        public int  $level4ThresholdIndividual = 180,
         /** One request in this many sweeps stale per-client state; 0 disables. */
         public int  $gcProbability = 1000,
+        /** Slider puzzles rendered per client IP within sliderIpWindowSec; 0 disables the per-client budget. */
+        public int  $sliderIpLimit = 10,
+        /** Window of the per-client puzzle budget in seconds; also its Retry-After. */
+        public int  $sliderIpWindowSec = 600,
+        /** Slider puzzles rendered per minute across all clients; 0 disables the cap. */
+        public int  $sliderGlobalLimit = 300,
     ) {}
 
     public static function fromEnv(): self
     {
         $override = Env::get('THREAT_LEVEL_OVERRIDE');
+        $factor = Env::float('THRESHOLD_FACTOR', 1.0);
+        $factor = \is_finite($factor) && $factor > 0 ? $factor : 1.0;
+        // Zero (level 4 off) and negative values keep their meaning; a positive threshold never rounds to 0.
+        $scale = static fn(int $threshold): int => $threshold <= 0 ? $threshold : \max(1, (int) \round($threshold * $factor));
 
         return new self(
-            threatLevelOverride: \is_null($override) ? null : (int) $override,
+            threatLevelOverride: \is_null($override) ? null : \min(self::MAX_LEVEL, \max(0, (int) $override)),
             enableGlobalRateLimit: (bool) Env::bool('ENABLE_GLOBAL_RATE_LIMIT', true),
             enableIndividualRateLimit: (bool) Env::bool('ENABLE_INDIVIDUAL_RATE_LIMIT', true),
             enableRateLimit: (bool) Env::bool('ENABLE_RATE_LIMIT', true),
-            level1ThresholdGlobal: Env::int('LEVEL_1_THRESHOLD_GLOBAL', 120),
-            level2ThresholdGlobal: Env::int('LEVEL_2_THRESHOLD_GLOBAL', 300),
-            level3ThresholdGlobal: Env::int('LEVEL_3_THRESHOLD_GLOBAL', 600),
+            level1ThresholdGlobal: $scale(Env::int('LEVEL_1_THRESHOLD_GLOBAL', 120)),
+            level2ThresholdGlobal: $scale(Env::int('LEVEL_2_THRESHOLD_GLOBAL', 300)),
+            level3ThresholdGlobal: $scale(Env::int('LEVEL_3_THRESHOLD_GLOBAL', 600)),
             levelDecayGracePeriod: Env::int('LEVEL_DECAY_GRACE_PERIOD', 300),
             individualRateWindowSec: Env::int('INDIVIDUAL_RATE_WINDOW_SEC', 60),
-            level1ThresholdIndividual: Env::int('LEVEL_1_THRESHOLD_INDIVIDUAL', 60),
-            level2ThresholdIndividual: Env::int('LEVEL_2_THRESHOLD_INDIVIDUAL', 90),
-            level3ThresholdIndividual: Env::int('LEVEL_3_THRESHOLD_INDIVIDUAL', 120),
+            level1ThresholdIndividual: $scale(Env::int('LEVEL_1_THRESHOLD_INDIVIDUAL', 60)),
+            level2ThresholdIndividual: $scale(Env::int('LEVEL_2_THRESHOLD_INDIVIDUAL', 90)),
+            level3ThresholdIndividual: $scale(Env::int('LEVEL_3_THRESHOLD_INDIVIDUAL', 120)),
+            level4ThresholdIndividual: $scale(Env::int('LEVEL_4_THRESHOLD_INDIVIDUAL', 180)),
             gcProbability: \max(0, Env::int('GC_PROBABILITY', 1000)),
+            sliderIpLimit: \max(0, Env::int('SLIDER_IP_LIMIT', 10)),
+            sliderIpWindowSec: \max(1, Env::int('SLIDER_IP_WINDOW_SEC', 600)),
+            sliderGlobalLimit: \max(0, Env::int('SLIDER_GLOBAL_LIMIT', 300)),
         );
+    }
+
+    /**
+     * True when the individual rate can reach level 4. A threshold at or below
+     * level 3's would block clients before they are ever challenged at level 3,
+     * which is what a deployment that raised its thresholds before level 4
+     * existed would get from the default, so level 4 stays off then.
+     */
+    public function isLevel4Enabled(): bool
+    {
+        return $this->level4ThresholdIndividual > 0 && $this->level4ThresholdIndividual > $this->level3ThresholdIndividual;
+    }
+
+    /**
+     * Seconds a level-4 client is told to wait: the individual window,
+     * which it has to fall below again, and at least one.
+     */
+    public function retryAfterSec(): int
+    {
+        return \max(1, $this->individualRateWindowSec);
     }
 
     /** True when rate evaluation runs at all. */

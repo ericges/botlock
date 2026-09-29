@@ -71,7 +71,7 @@ final class VerifyCrawlerMiddlewareTest extends TestCase
         }
     }
 
-    public function testFailedVerificationRaisesToAtLeastLevelTwoAndNeverAboveThree(): void
+    public function testFailedVerificationRaisesToAtLeastLevelTwoAndNeverLowers(): void
     {
         foreach ([null => 2, 0 => 2, 1 => 2, 2 => 2, 3 => 3] as $level => $expected) {
             $request = $this->request(threatLevel: $level === '' ? null : $level, individual: 0);
@@ -99,10 +99,22 @@ final class VerifyCrawlerMiddlewareTest extends TestCase
         $verifier = new StubCrawlerVerifier();
         $request = $this->request(threatLevel: 1);
 
-        $this->process('Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', $request, $verifier);
+        $this->process('DuckDuckBot/1.1; (+http://duckduckgo.com/duckduckbot.html)', $request, $verifier);
 
         self::assertSame(CrawlerVerification::NotApplicable, $request->context->crawlerVerification);
         self::assertSame([], $verifier->calls);
+    }
+
+    public function testBingbotIsVerifiedByDns(): void
+    {
+        $verifier = new StubCrawlerVerifier(CrawlerVerification::Failed);
+        $request = $this->request(threatLevel: 1);
+
+        $this->process('Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', $request, $verifier);
+
+        self::assertSame([['bing', self::IP]], $verifier->calls);
+        self::assertSame(CrawlerVerification::Failed, $request->context->crawlerVerification);
+        self::assertSame(2, $request->context->threatLevel, 'a spoofed Bingbot is challenged like a crawler');
     }
 
     public function testDisabledDnsChecksOrEmptyProviderListSkipVerification(): void
@@ -127,6 +139,18 @@ final class VerifyCrawlerMiddlewareTest extends TestCase
 
         self::assertSame(CrawlerVerification::Unverified, $request->context->crawlerVerification);
         self::assertSame([], $verifier->calls);
+    }
+
+    public function testBlockedClientsCostNoLookups(): void
+    {
+        $verifier = new StubCrawlerVerifier();
+        $request = $this->request(threatLevel: 4);
+
+        $this->process(self::GOOGLEBOT, $request, $verifier);
+
+        self::assertSame(CrawlerVerification::Unverified, $request->context->crawlerVerification);
+        self::assertSame([], $verifier->calls);
+        self::assertSame(4, $request->context->threatLevel);
     }
 
     public function testDefaultVerifierIsUsedWhenNoneIsInjected(): void

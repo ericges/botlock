@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// German challenge page strings. Keys must match TranslationLoader::KEYS.
+// German page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sicherheitsüberprüfung',
     'mainHeading' => 'Überprüfe, ob Sie ein Mensch sind …',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Sicherheitsüberprüfung',
     'confirmParagraph' => 'Bitte bestätigen Sie, dass Sie kein Roboter sind, um fortzufahren.',
     'verifyButton' => 'Überprüfen',
+    'sliderHeading' => 'Sicherheitsüberprüfung',
+    'sliderParagraph' => 'Bewegen Sie den Schieberegler, bis das Puzzleteil in die Lücke mit derselben Form passt.',
+    'sliderLabel' => 'Position des Puzzleteils',
+    'sliderSubmit' => 'Bestätigen',
+    'sliderRetry' => 'Das hat nicht gepasst. Bitte versuchen Sie es mit dem neuen Bild noch einmal.',
     'errorHeading' => 'Überprüfung Fehlgeschlagen',
     'errorMessage' => 'Wir konnten Ihre Anfrage derzeit nicht überprüfen. Dies könnte ein vorübergehendes Problem sein.',
     'errorWidget' => 'Ein Fehler ist aufgetreten',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Sie werden in Kürze weitergeleitet …',
     'noscriptHeading' => 'JavaScript wird für die Sicherheitsüberprüfung benötigt.',
     'noscriptText' => 'Bitte aktivieren Sie JavaScript in Ihren Browsereinstellungen und aktualisieren Sie die Seite.',
+    'blockedHeading' => 'Zu viele Anfragen',
+    'blockedMessage' => 'Wir haben in kurzer Zeit zu viele Anfragen von Ihrer Verbindung erhalten, daher ist der Zugriff vorübergehend pausiert.',
+    'blockedWait' => 'Bitte warten Sie einen Moment und laden Sie die Seite dann neu.',
+    'blockedRetry' => 'Sie können es {time} erneut versuchen.',
+    'blockedFooter' => 'Diese Begrenzung schützt den Dienst vor automatisiertem Datenverkehr.',
 ];

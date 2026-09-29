@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Polish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Polish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Kontrola bezpieczeństwa',
     'mainHeading' => 'Sprawdzamy, czy jesteś człowiekiem…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Kontrola bezpieczeństwa',
     'confirmParagraph' => 'Aby kontynuować, potwierdź, że nie jesteś robotem.',
     'verifyButton' => 'Zweryfikuj',
+    'sliderHeading' => 'Kontrola bezpieczeństwa',
+    'sliderParagraph' => 'Przesuń suwak, aż element wpasuje się w lukę o tym samym kształcie.',
+    'sliderLabel' => 'Położenie elementu',
+    'sliderSubmit' => 'Potwierdź',
+    'sliderRetry' => 'Nie pasowało. Spróbuj ponownie z nowym obrazkiem.',
     'errorHeading' => 'Weryfikacja nie powiodła się',
     'errorMessage' => 'Nie udało nam się teraz zweryfikować Twojego żądania. Być może jest to problem tymczasowy.',
     'errorWidget' => 'Wystąpił błąd',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Za chwilę nastąpi przekierowanie…',
     'noscriptHeading' => 'JavaScript jest wymagany do przeprowadzenia kontroli bezpieczeństwa.',
     'noscriptText' => 'Włącz JavaScript w ustawieniach przeglądarki i odśwież stronę.',
+    'blockedHeading' => 'Zbyt wiele żądań',
+    'blockedMessage' => 'W krótkim czasie otrzymaliśmy zbyt wiele żądań z Twojego połączenia, dlatego dostęp został tymczasowo wstrzymany.',
+    'blockedWait' => 'Poczekaj chwilę, a następnie odśwież stronę.',
+    'blockedRetry' => 'Możesz spróbować ponownie {time}.',
+    'blockedFooter' => 'Ten limit chroni usługę przed ruchem automatycznym.',
 ];

@@ -22,11 +22,12 @@ final class InMemoryThreatStateStore implements ThreatStateStore
         public bool $failing = false,
         public bool $failIndividualRead = false,
         public bool $failIndividualWrite = false,
+        public bool $failGlobalWrite = false,
     ) {}
 
     public function updateGlobal(callable $reducer): ?array
     {
-        if ($this->failing) {
+        if ($this->failing || $this->failGlobalWrite) {
             return null;
         }
 
@@ -53,11 +54,18 @@ final class InMemoryThreatStateStore implements ThreatStateStore
 
     public function countIndividual(string $fingerprint, int $windowStart): ?int
     {
+        $timestamps = $this->individualTimestamps($fingerprint, $windowStart);
+
+        return $timestamps === null ? null : \count($timestamps);
+    }
+
+    public function individualTimestamps(string $fingerprint, int $windowStart): ?array
+    {
         if ($this->failing || $this->failIndividualRead) {
             return null;
         }
 
-        return \count(\array_filter($this->individual[$fingerprint] ?? [], static fn(int $ts): bool => $ts >= $windowStart));
+        return \array_values(\array_filter($this->individual[$fingerprint] ?? [], static fn(int $ts): bool => $ts >= $windowStart));
     }
 
     public function collectGarbage(int $windowStart, int $maxEntries = 500): int

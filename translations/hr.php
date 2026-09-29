@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Croatian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Croatian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sigurnosna provjera',
     'mainHeading' => 'Provjeravamo jeste li čovjek…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Sigurnosna provjera',
     'confirmParagraph' => 'Za nastavak potvrdite da niste robot.',
     'verifyButton' => 'Potvrdi',
+    'sliderHeading' => 'Sigurnosna provjera',
+    'sliderParagraph' => 'Pomičite klizač dok se dio ne uklopi u prazninu istog oblika.',
+    'sliderLabel' => 'Položaj dijela',
+    'sliderSubmit' => 'Potvrdi',
+    'sliderRetry' => 'Nije se uklopilo. Pokušajte ponovno s novom slikom.',
     'errorHeading' => 'Provjera nije uspjela',
     'errorMessage' => 'Trenutačno nismo mogli provjeriti vaš zahtjev. Možda je riječ o privremenom problemu.',
     'errorWidget' => 'Došlo je do pogreške',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Uskoro ćete biti preusmjereni…',
     'noscriptHeading' => 'JavaScript je potreban za sigurnosnu provjeru.',
     'noscriptText' => 'Omogućite JavaScript u postavkama preglednika i osvježite stranicu.',
+    'blockedHeading' => 'Previše zahtjeva',
+    'blockedMessage' => 'U kratkom smo vremenu primili previše zahtjeva s vaše veze, stoga je pristup privremeno zaustavljen.',
+    'blockedWait' => 'Pričekajte trenutak, a zatim ponovno učitajte stranicu.',
+    'blockedRetry' => 'Ponovno možete pokušati {time}.',
+    'blockedFooter' => 'Ovo ograničenje štiti uslugu od automatiziranog prometa.',
 ];

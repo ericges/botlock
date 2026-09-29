@@ -12,7 +12,8 @@ use GES\Botlock\Http\Response\PassResponse;
  * Passes requests through to the application when the evaluated threat
  * level does not warrant a challenge: no threshold reached, or a trusted
  * good bot while the effective level is still below 2. Levels 2 and 3
- * challenge everyone who is not explicitly whitelisted.
+ * challenge everyone who is not explicitly whitelisted; level 4 never gets
+ * here, ThreatBlockMiddleware answers it first.
  */
 final readonly class ThreatPassMiddleware implements MiddlewareInterface
 {

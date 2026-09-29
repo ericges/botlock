@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Greek challenge page strings. Keys must match TranslationLoader::KEYS.
+// Greek page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Έλεγχος ασφαλείας',
     'mainHeading' => 'Επαληθεύουμε ότι είστε άνθρωπος…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Έλεγχος ασφαλείας',
     'confirmParagraph' => 'Για να συνεχίσετε, επιβεβαιώστε ότι δεν είστε ρομπότ.',
     'verifyButton' => 'Επαλήθευση',
+    'sliderHeading' => 'Έλεγχος ασφαλείας',
+    'sliderParagraph' => 'Μετακινήστε το ρυθμιστικό μέχρι το κομμάτι να ταιριάξει στο κενό με το ίδιο σχήμα.',
+    'sliderLabel' => 'Θέση του κομματιού',
+    'sliderSubmit' => 'Επιβεβαίωση',
+    'sliderRetry' => 'Δεν ταίριαξε. Δοκιμάστε ξανά με τη νέα εικόνα.',
     'errorHeading' => 'Η επαλήθευση απέτυχε',
     'errorMessage' => 'Δεν μπορέσαμε να επαληθεύσουμε το αίτημά σας αυτήν τη στιγμή. Ενδέχεται να πρόκειται για προσωρινό πρόβλημα.',
     'errorWidget' => 'Παρουσιάστηκε σφάλμα',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Θα ανακατευθυνθείτε σύντομα…',
     'noscriptHeading' => 'Απαιτείται JavaScript για τον έλεγχο ασφαλείας.',
     'noscriptText' => 'Ενεργοποιήστε τη JavaScript στις ρυθμίσεις του προγράμματος περιήγησης και ανανεώστε τη σελίδα.',
+    'blockedHeading' => 'Πάρα πολλά αιτήματα',
+    'blockedMessage' => 'Λάβαμε πάρα πολλά αιτήματα από τη σύνδεσή σας σε σύντομο χρονικό διάστημα, γι’ αυτό η πρόσβαση έχει ανασταλεί προσωρινά.',
+    'blockedWait' => 'Περιμένετε λίγο και, στη συνέχεια, φορτώστε ξανά τη σελίδα.',
+    'blockedRetry' => 'Μπορείτε να δοκιμάσετε ξανά {time}.',
+    'blockedFooter' => 'Αυτό το όριο προστατεύει την υπηρεσία από την αυτοματοποιημένη κίνηση.',
 ];

@@ -1,0 +1,28 @@
+<?php declare(strict_types=1);
+
+namespace GES\Botlock\Challenge;
+
+/**
+ * Persistence for issued challenge tickets.
+ */
+interface ChallengeTicketStore
+{
+    /**
+     * Stores the ticket, replacing one with the same id. False when it
+     * could not be written.
+     */
+    public function save(ChallengeTicket $ticket): bool;
+
+    /**
+     * Removes and returns the ticket issued to $subject under $id. Of
+     * several concurrent callers at most one receives it, which makes every
+     * ticket single-use. Another subject finds nothing and removes nothing.
+     */
+    public function consume(string $subject, string $id): ?ChallengeTicket;
+
+    /**
+     * Deletes up to $maxEntries files of tickets issued before
+     * $issuedBefore; returns how many.
+     */
+    public function collectGarbage(float $issuedBefore, int $maxEntries): int;
+}

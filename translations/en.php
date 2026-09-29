@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// English challenge page strings. Keys must match TranslationLoader::KEYS.
+// English page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Security Check',
     'mainHeading' => 'Verifying you are human…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Security Check',
     'confirmParagraph' => 'Please confirm that you are not a robot to continue.',
     'verifyButton' => 'Verify',
+    'sliderHeading' => 'Security Check',
+    'sliderParagraph' => 'Move the slider until the piece fits into the gap with the same shape.',
+    'sliderLabel' => 'Piece position',
+    'sliderSubmit' => 'Confirm',
+    'sliderRetry' => 'That did not fit. Please try again with the new picture.',
     'errorHeading' => 'Verification Failed',
     'errorMessage' => 'We couldn\'t verify your request at this time. This might be a temporary issue.',
     'errorWidget' => 'An error occurred',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'You will be redirected shortly…',
     'noscriptHeading' => 'JavaScript is required for the security check.',
     'noscriptText' => 'Please enable JavaScript in your browser settings and refresh the page.',
+    'blockedHeading' => 'Too Many Requests',
+    'blockedMessage' => 'We received too many requests from your connection in a short time, so access is paused for now.',
+    'blockedWait' => 'Please wait a moment, then reload the page.',
+    'blockedRetry' => 'You can try again {time}.',
+    'blockedFooter' => 'This limit protects the service from automated traffic.',
 ];

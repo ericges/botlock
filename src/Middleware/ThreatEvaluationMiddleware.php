@@ -10,9 +10,14 @@ use GES\Botlock\Manager\ThreatAwarenessManager;
 
 final readonly class ThreatEvaluationMiddleware implements MiddlewareInterface
 {
+    /**
+     * @param list<string> $uncountedGlobally actions (see Request::getBotlockAction()) counted
+     *                                        toward the client's rate only, see ChallengeStepInterface
+     */
     public function __construct(
         private RateLimitConfig $config,
         private ThreatAwarenessManager $rateLimiter,
+        private array $uncountedGlobally = [],
     ) {}
 
     public function process(Request $request, callable $next): Response
@@ -31,7 +36,10 @@ final readonly class ThreatEvaluationMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        $this->rateLimiter->recordRequest($request);
+        $this->rateLimiter->recordRequest(
+            $request,
+            countGlobally: !\in_array($request->getBotlockAction(), $this->uncountedGlobally, true),
+        );
 
         if ($this->config->enableGlobalRateLimit)
         {

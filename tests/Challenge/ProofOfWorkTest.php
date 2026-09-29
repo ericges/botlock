@@ -41,6 +41,24 @@ final class ProofOfWorkTest extends TestCase
         self::assertFalse($pow->verify($solution, 'fingerprint-b'), 'a solved challenge must not be replayable by another client');
     }
 
+    public function testSignatureCoversTheBinding(): void
+    {
+        $pow = new ProofOfWork($this->config);
+        $solution = self::solve($pow->create(self::SUBJECT, 'cid|click|2'));
+
+        self::assertTrue($pow->verify($solution, self::SUBJECT, 'cid|click|2'));
+        self::assertFalse($pow->verify($solution, self::SUBJECT, 'cid|none|2'), 'a different interaction must not verify');
+        self::assertFalse($pow->verify($solution, self::SUBJECT, 'cid|click|1'), 'a different level must not verify');
+        self::assertFalse($pow->verify($solution, self::SUBJECT), 'the binding cannot be dropped');
+    }
+
+    public function testExplicitExpiry(): void
+    {
+        $expire = \time() + 42;
+
+        self::assertSame($expire, (new ProofOfWork($this->config))->create(self::SUBJECT, '', $expire)['exp']);
+    }
+
     public function testVerifyIsIndependentOfInstance(): void
     {
         $solution = self::solve((new ProofOfWork($this->config))->create(self::SUBJECT));
@@ -116,6 +134,14 @@ final class ProofOfWorkTest extends TestCase
         self::assertEquals(300, $pow->setDifficulty(1)->create(self::SUBJECT)['max']);
         self::assertEquals(600, $pow->setDifficulty(2)->create(self::SUBJECT)['max']);
         self::assertEquals(100, $pow->setDifficulty(0)->create(self::SUBJECT)['max'], 'floor of 100 even at difficulty 0');
+    }
+
+    public function testFractionalDifficultyIsNotTruncated(): void
+    {
+        $pow = new ProofOfWork(new ProofOfWorkConfig(secret: self::SECRET, maxNumber: 50000));
+
+        self::assertSame(0.5, $pow->setDifficulty(0.5)->getDifficulty());
+        self::assertSame(25000, $pow->create(self::SUBJECT)['max'], 'a good bot factor of 0.5 halves max instead of collapsing to the floor');
     }
 
     public function testUnsupportedAlgorithmIsRejectedByConfig(): void

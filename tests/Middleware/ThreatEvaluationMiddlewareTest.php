@@ -75,6 +75,25 @@ final class ThreatEvaluationMiddlewareTest extends TestCase
         self::assertSame([], $store->global);
     }
 
+    public function testIndividualRateReachesLevelFour(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $store->individual = [self::FP => \array_fill(0, 4, \time())];
+        $config = new RateLimitConfig(
+            level1ThresholdIndividual: 2,
+            level2ThresholdIndividual: 3,
+            level3ThresholdIndividual: 4,
+            level4ThresholdIndividual: 5,
+            gcProbability: 0,
+        );
+
+        $request = $this->evaluate($config, $store);
+
+        self::assertSame(5, $request->context->individualRate);
+        self::assertSame(4, $request->context->threatLevelIndividual);
+        self::assertSame(4, $request->context->threatLevel);
+    }
+
     public function testEffectiveLevelIsTheHigherOfGlobalAndIndividual(): void
     {
         $store = new InMemoryThreatStateStore();
@@ -119,12 +138,45 @@ final class ThreatEvaluationMiddlewareTest extends TestCase
         $this->evaluate(new RateLimitConfig(gcProbability: 0), new InMemoryThreatStateStore(), fingerprint: null);
     }
 
-    private function evaluate(RateLimitConfig $config, InMemoryThreatStateStore $store, ?string $fingerprint = self::FP): Request
+    /**
+     * A challenge costs a visitor several requests; were its steps counted
+     * globally, re-challenging everyone after a global escalation would
+     * raise the global level further.
+     */
+    public function testListedActionsCountOnlyIndividually(): void
     {
-        $request = Requests::make();
+        $config = new RateLimitConfig(gcProbability: 0);
+        $store = new InMemoryThreatStateStore();
+        $uncounted = ['POST challenge', 'POST verify'];
+
+        $this->evaluate($config, $store, request: Requests::make('POST', query: ['_botlock' => 'challenge']), uncountedGlobally: $uncounted);
+        $this->evaluate($config, $store, request: Requests::make('POST', query: ['_botlock' => 'verify']), uncountedGlobally: $uncounted);
+
+        self::assertSame(0, \array_sum($store->global['traffic_buckets'] ?? []));
+        self::assertCount(2, $store->individual[self::FP]);
+
+        // Anything else still counts: an unlisted action, an unknown one (it goes on to the page) and a plain request.
+        $this->evaluate($config, $store, request: Requests::make('GET', query: ['_botlock' => 'challenge']), uncountedGlobally: $uncounted);
+        $this->evaluate($config, $store, request: Requests::make('POST', query: ['_botlock' => 'x']), uncountedGlobally: $uncounted);
+        $this->evaluate($config, $store, uncountedGlobally: $uncounted);
+
+        self::assertSame(3, \array_sum($store->global['traffic_buckets']));
+    }
+
+    /**
+     * @param list<string> $uncountedGlobally
+     */
+    private function evaluate(
+        RateLimitConfig $config,
+        InMemoryThreatStateStore $store,
+        ?string $fingerprint = self::FP,
+        ?Request $request = null,
+        array $uncountedGlobally = [],
+    ): Request {
+        $request ??= Requests::make();
         $request->context->fingerprint = $fingerprint;
 
-        $middleware = new ThreatEvaluationMiddleware($config, new ThreatAwarenessManager($config, $store));
+        $middleware = new ThreatEvaluationMiddleware($config, new ThreatAwarenessManager($config, $store), $uncountedGlobally);
         $response = $middleware->process($request, static fn(Request $r): Response => new Response(204));
 
         self::assertSame(204, $response->getStatus());

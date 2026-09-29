@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Turkish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Turkish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Güvenlik kontrolü',
     'mainHeading' => 'İnsan olduğunuzu doğruluyoruz…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Güvenlik kontrolü',
     'confirmParagraph' => 'Devam etmek için lütfen robot olmadığınızı doğrulayın.',
     'verifyButton' => 'Doğrula',
+    'sliderHeading' => 'Güvenlik Kontrolü',
+    'sliderParagraph' => 'Parça aynı şekildeki boşluğa oturana kadar kaydırıcıyı hareket ettirin.',
+    'sliderLabel' => 'Parçanın konumu',
+    'sliderSubmit' => 'Onayla',
+    'sliderRetry' => 'Parça oturmadı. Lütfen yeni resimle tekrar deneyin.',
     'errorHeading' => 'Doğrulama başarısız',
     'errorMessage' => 'İsteğinizi şu anda doğrulayamadık. Bu geçici bir sorun olabilir.',
     'errorWidget' => 'Bir hata oluştu',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Kısa süre içinde yönlendirileceksiniz…',
     'noscriptHeading' => 'Güvenlik kontrolü için JavaScript gereklidir.',
     'noscriptText' => 'Tarayıcı ayarlarınızdan JavaScript’i etkinleştirin ve sayfayı yenileyin.',
+    'blockedHeading' => 'Çok fazla istek',
+    'blockedMessage' => 'Kısa sürede bağlantınızdan çok fazla istek aldık, bu nedenle erişim geçici olarak duraklatıldı.',
+    'blockedWait' => 'Lütfen biraz bekleyin, ardından sayfayı yeniden yükleyin.',
+    'blockedRetry' => '{time} tekrar deneyebilirsiniz.',
+    'blockedFooter' => 'Bu sınır, hizmeti otomatik trafiğe karşı korur.',
 ];

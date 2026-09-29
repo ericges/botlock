@@ -1,4 +1,4 @@
-<?php
+<?php declare(strict_types=1);
 
 namespace GES\Botlock\Challenge;
 
@@ -13,31 +13,32 @@ class ProofOfWork
 
     public function setDifficulty(float $difficulty): static
     {
-        $this->difficulty = \max(0, $difficulty);  // >= 1
+        $this->difficulty = \max(0.0, $difficulty);
 
         return $this;
     }
 
-    public function getDifficulty(): int
+    public function getDifficulty(): float
     {
         return $this->difficulty;
     }
 
     /**
-     * @param string $subject Client identifier (fingerprint) the challenge is bound to;
-     *                        a solution is only valid for the subject it was issued to.
+     * @param string   $subject Client identifier (fingerprint) the challenge is bound to;
+     *                          a solution is only valid for the subject it was issued to.
+     * @param string   $binding Further data the signature covers, such as the ticket id,
+     *                          level and required interaction (ChallengeTicket::binding())
+     * @param int|null $expire  Unix time the challenge expires at; defaults to now + the configured lifetime
      */
-    public function create(string $subject): array
+    public function create(string $subject, string $binding = '', ?int $expire = null): array
     {
         $factor = $this->getDifficulty();
-        $max = \floor($this->config->maxNumber * $factor);
-        $max = \max(100, $max);   // >= 100
-        $min = \floor($max / 10);  // 10% of max, >= 10
+        $max = \max(100, (int) \floor($this->config->maxNumber * $factor));
+        $min = \intdiv($max, 10);  // 10% of max, >= 10
 
         $number = \random_int($min, $max);
         $salt = randStr(15);
-        $expire = $this->config->expire;
-        $expire = $expire > 0 ? time() + $this->config->expire : 0;
+        $expire ??= $this->config->expire > 0 ? \time() + $this->config->expire : 0;
 
         $powAlgorithm = $this->config->algorithm;
 
@@ -51,15 +52,16 @@ class ProofOfWork
             'max' => $max,
             'slt' => $salt,
             'tgt' => $target,
-            'sig' => $this->sign($target, $subject),
+            'sig' => $this->sign($target, $subject, $binding),
         ];
     }
 
     /**
      * @param array  $data    Solution as submitted by the client: num, sig, slt, exp, alg
      * @param string $subject Client identifier the challenge was created for
+     * @param string $binding The binding the challenge was created with
      */
-    public function verify($data, string $subject): bool
+    public function verify($data, string $subject, string $binding = ''): bool
     {
         if (!\is_array($data)
             || \count($data) !== 5
@@ -94,12 +96,14 @@ class ProofOfWork
             return false;
         }
 
-        return \hash_equals($this->sign($hash, $subject), $signature);
+        return \hash_equals($this->sign($hash, $subject, $binding), $signature);
     }
 
-    private function sign(string $target, string $subject): string
+    private function sign(string $target, string $subject, string $binding): string
     {
-        return \hash_hmac('sha384', $subject . "\0" . $target, $this->config->secret);
+        $message = $subject . "\0" . $target . ($binding === '' ? '' : "\0" . $binding);
+
+        return \hash_hmac('sha384', $message, $this->config->secret);
     }
 
     private function hashTarget(string $algorithm, int $number, string $salt, int $expire): ?string

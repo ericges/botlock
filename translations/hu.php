@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Hungarian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Hungarian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Biztonsági ellenőrzés',
     'mainHeading' => 'Ellenőrizzük, hogy Ön valóban ember…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Biztonsági ellenőrzés',
     'confirmParagraph' => 'A folytatáshoz erősítse meg, hogy Ön nem robot.',
     'verifyButton' => 'Megerősítés',
+    'sliderHeading' => 'Biztonsági ellenőrzés',
+    'sliderParagraph' => 'Mozgassa a csúszkát, amíg a darab bele nem illik az azonos alakú résbe.',
+    'sliderLabel' => 'A darab helyzete',
+    'sliderSubmit' => 'Megerősítés',
+    'sliderRetry' => 'Nem illett bele. Kérjük, próbálja újra az új képpel.',
     'errorHeading' => 'Az ellenőrzés sikertelen',
     'errorMessage' => 'Jelenleg nem sikerült ellenőriznünk a kérését. Lehetséges, hogy ez csak átmeneti probléma.',
     'errorWidget' => 'Hiba történt',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Hamarosan átirányítjuk…',
     'noscriptHeading' => 'A biztonsági ellenőrzéshez JavaScript szükséges.',
     'noscriptText' => 'Engedélyezze a JavaScriptet a böngésző beállításaiban, majd frissítse az oldalt.',
+    'blockedHeading' => 'Túl sok kérés',
+    'blockedMessage' => 'Rövid idő alatt túl sok kérés érkezett az Ön kapcsolatáról, ezért a hozzáférés átmenetileg szünetel.',
+    'blockedWait' => 'Kérjük, várjon egy kicsit, majd töltse újra az oldalt.',
+    'blockedRetry' => '{time} újra próbálkozhat.',
+    'blockedFooter' => 'Ez a korlátozás megvédi a szolgáltatást az automatizált forgalomtól.',
 ];

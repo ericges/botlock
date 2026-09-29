@@ -3,6 +3,7 @@
 namespace GES\Botlock\Middleware;
 
 use GES\Botlock\Config\DetectionConfig;
+use GES\Botlock\Config\RateLimitConfig;
 use GES\Botlock\Crawler\CrawlerVerification;
 use GES\Botlock\Crawler\CrawlerVerifier;
 use GES\Botlock\Crawler\DnsCrawlerVerifier;
@@ -18,7 +19,8 @@ use GES\Botlock\Manager\BotTestManager;
  * crawler names match the detected crawler, so the check does not depend on
  * the User-Agent's casing. A failed verification raises the effective threat
  * level to at least 2; a successful one changes no level, the verification
- * state alone decides whether ThreatPassMiddleware may exempt the bot.
+ * state alone decides whether ThreatPassMiddleware may exempt the bot. A
+ * client already at level 4 is left unverified without a lookup.
  */
 final readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
 {
@@ -47,16 +49,21 @@ final readonly class VerifyCrawlerMiddleware implements MiddlewareInterface
             return $next($request);
         }
 
-        if (!$ip = $context->clientIp) {
+        // A level-4 client is refused whatever DNS says (verification only
+        // ever raises a level to 2), so it costs no lookups; GET
+        // ?_botlock=status is what reaches here past ThreatBlockMiddleware.
+        if (($context->threatLevel ?? 0) >= RateLimitConfig::MAX_LEVEL || !$context->clientIp) {
             $context->crawlerVerification = CrawlerVerification::Unverified;
 
             return $next($request);
         }
 
+        $ip = $context->clientIp;
+
         $context->crawlerVerification = $this->verifier->verify($provider, $ip);
 
         if ($context->crawlerVerification === CrawlerVerification::Failed) {
-            $context->threatLevel = \min(3, \max(2, $context->threatLevel ?? 0));
+            $context->threatLevel = \max(2, $context->threatLevel ?? 0);
         }
 
         return $next($request);

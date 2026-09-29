@@ -7,6 +7,7 @@ use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Middleware\ErrorMiddleware;
 use GES\Botlock\Tests\Support\Requests;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class ErrorMiddlewareTest extends TestCase
@@ -26,6 +27,23 @@ final class ErrorMiddlewareTest extends TestCase
     {
         \ini_set('error_log', (string) $this->previousErrorLog);
         @\unlink($this->errorLog);
+    }
+
+    public static function acceptHeaders(): array
+    {
+        return [
+            'html' => ['text/html,application/xhtml+xml', true],
+            'json' => ['application/json', false],
+            'json wins over html' => ['text/html, application/json', false],
+            'none' => ['', false],
+            'anything' => ['*/*', false],
+        ];
+    }
+
+    #[DataProvider('acceptHeaders')]
+    public function testPrefersHtmlOnlyWithoutJson(string $accept, bool $expected): void
+    {
+        self::assertSame($expected, ErrorMiddleware::prefersHtml(Requests::make(headers: ['Accept' => $accept])));
     }
 
     public function testPassesResponseThroughWhenNothingThrows(): void
@@ -53,7 +71,7 @@ final class ErrorMiddlewareTest extends TestCase
         $response = (new ErrorMiddleware)->process($request, $this->throwing());
 
         self::assertSame(500, $response->getStatus());
-        self::assertSame(['ok' => false, 'error' => 'Internal Server Error'], \json_decode((string) $response->getBody(), true));
+        self::assertSame(['ok' => false, 'error' => 'Internal Server Error', 'code' => 500], \json_decode((string) $response->getBody(), true));
         self::assertStringNotContainsString('hunter2', (string) $response->getBody());
     }
 
@@ -78,6 +96,18 @@ final class ErrorMiddlewareTest extends TestCase
         self::assertSame(400, $response->getStatus());
         self::assertSame('Invalid  nonce', $response->getHeader('Botlock-Error'));
         self::assertSame(['ok' => false, 'error' => "Invalid\r\nnonce", 'code' => 400], \json_decode((string) $response->getBody(), true));
+    }
+
+    public function testJsonResponseExceptionCarriesItsHeaders(): void
+    {
+        $next = static function (): Response {
+            throw new JsonResponseException('Busy', 503, headers: ['Retry-After' => '42', 'Botlock-Error' => 'not this']);
+        };
+
+        $response = (new ErrorMiddleware)->process(Requests::make(), $next);
+
+        self::assertSame('42', $response->getHeader('Retry-After'));
+        self::assertSame('Busy', $response->getHeader('Botlock-Error'), 'the message names the error');
     }
 
     private function throwing(): callable

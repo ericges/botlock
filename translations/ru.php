@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Russian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Russian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Проверка безопасности',
     'mainHeading' => 'Проверяем, что вы человек…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Проверка безопасности',
     'confirmParagraph' => 'Чтобы продолжить, подтвердите, что вы не робот.',
     'verifyButton' => 'Подтвердить',
+    'sliderHeading' => 'Проверка безопасности',
+    'sliderParagraph' => 'Передвиньте ползунок, пока фрагмент не встанет в пустое место той же формы.',
+    'sliderLabel' => 'Положение фрагмента',
+    'sliderSubmit' => 'Подтвердить',
+    'sliderRetry' => 'Не подошло. Попробуйте ещё раз с новой картинкой.',
     'errorHeading' => 'Не удалось пройти проверку',
     'errorMessage' => 'Сейчас нам не удалось проверить ваш запрос. Возможно, это временная проблема.',
     'errorWidget' => 'Произошла ошибка',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Скоро вы будете перенаправлены…',
     'noscriptHeading' => 'Для проверки безопасности требуется JavaScript.',
     'noscriptText' => 'Включите JavaScript в настройках браузера и обновите страницу.',
+    'blockedHeading' => 'Слишком много запросов',
+    'blockedMessage' => 'За короткое время с вашего подключения поступило слишком много запросов, поэтому доступ временно приостановлен.',
+    'blockedWait' => 'Подождите немного, а затем перезагрузите страницу.',
+    'blockedRetry' => 'Повторить попытку можно {time}.',
+    'blockedFooter' => 'Это ограничение защищает сервис от автоматизированного трафика.',
 ];

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Swedish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Swedish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Säkerhetskontroll',
     'mainHeading' => 'Vi kontrollerar att du är en människa…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Säkerhetskontroll',
     'confirmParagraph' => 'Bekräfta att du inte är en robot för att fortsätta.',
     'verifyButton' => 'Bekräfta',
+    'sliderHeading' => 'Säkerhetskontroll',
+    'sliderParagraph' => 'Flytta reglaget tills biten passar in i luckan med samma form.',
+    'sliderLabel' => 'Bitens position',
+    'sliderSubmit' => 'Bekräfta',
+    'sliderRetry' => 'Det passade inte. Försök igen med den nya bilden.',
     'errorHeading' => 'Verifieringen misslyckades',
     'errorMessage' => 'Vi kunde inte verifiera din begäran just nu. Det kan vara ett tillfälligt problem.',
     'errorWidget' => 'Ett fel inträffade',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Du omdirigeras inom kort…',
     'noscriptHeading' => 'JavaScript krävs för säkerhetskontrollen.',
     'noscriptText' => 'Aktivera JavaScript i webbläsarens inställningar och uppdatera sidan.',
+    'blockedHeading' => 'För många förfrågningar',
+    'blockedMessage' => 'Vi har tagit emot för många förfrågningar från din anslutning på kort tid, så åtkomsten är tillfälligt pausad.',
+    'blockedWait' => 'Vänta en stund och läs sedan in sidan igen.',
+    'blockedRetry' => 'Du kan försöka igen {time}.',
+    'blockedFooter' => 'Den här gränsen skyddar tjänsten mot automatiserad trafik.',
 ];

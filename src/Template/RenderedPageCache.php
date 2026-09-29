@@ -5,13 +5,13 @@ namespace GES\Botlock\Template;
 use GES\Botlock\Filesystem\PrivateDirectory;
 
 /**
- * Best-effort on-disk cache for rendered challenge pages, one file per
- * language and version, stored in the state directory next to the secret
- * and rate-limit state. Every method degrades to "no cache" on I/O errors.
+ * Best-effort on-disk cache for rendered pages, one file per page, language
+ * and version, stored in the state directory next to the secret and
+ * rate-limit state. Every method degrades to "no cache" on I/O errors.
  */
 final readonly class RenderedPageCache
 {
-    private const PREFIX = 'botlock_challenge_';
+    private const PREFIX = 'botlock_';
 
     public function __construct(
         private string $stateDir,
@@ -37,26 +37,28 @@ final readonly class RenderedPageCache
     /**
      * Path of the cached page, or null when it has not been rendered yet.
      */
-    public function find(string $lang, string $version): ?string
+    public function find(string $page, string $lang, string $version): ?string
     {
-        $file = $this->file($lang, $version);
+        $file = $this->file($page, $lang, $version);
 
         return \is_file($file) ? $file : null;
     }
 
     /**
      * Writes the page atomically and removes stale versions of the same
-     * language. Returns the cache path, or null when it could not be written.
+     * page and language. Returns the cache path, or null when it could not
+     * be written.
      */
-    public function store(string $lang, string $version, string $html): ?string
+    public function store(string $page, string $lang, string $version, string $html): ?string
     {
+        $file = $this->file($page, $lang, $version);
+
         try {
             PrivateDirectory::ensure($this->stateDir);
         } catch (\RuntimeException) {
             return null;
         }
 
-        $file = $this->file($lang, $version);
         $tmp = $file . '.' . \uniqid('', true) . '.tmp';
 
         if (@\file_put_contents($tmp, $html) !== \strlen($html)) {
@@ -73,7 +75,7 @@ final readonly class RenderedPageCache
             return null;
         }
 
-        foreach (\glob($this->file($lang, '*')) ?: [] as $stale) {
+        foreach (\glob($this->file($page, $lang, '*')) ?: [] as $stale) {
             if ($stale !== $file) {
                 @\unlink($stale);
             }
@@ -82,8 +84,15 @@ final readonly class RenderedPageCache
         return $file;
     }
 
-    private function file(string $lang, string $version): string
+    /**
+     * @throws \InvalidArgumentException for page names other than lowercase letters
+     */
+    private function file(string $page, string $lang, string $version): string
     {
-        return $this->stateDir . \DIRECTORY_SEPARATOR . self::PREFIX . $this->instanceId . '_' . $lang . '_' . $version . '.html';
+        if (!\preg_match('/^[a-z]+$/', $page)) {
+            throw new \InvalidArgumentException(\sprintf('Invalid page name "%s"', $page));
+        }
+
+        return $this->stateDir . \DIRECTORY_SEPARATOR . self::PREFIX . $page . '_' . $this->instanceId . '_' . $lang . '_' . $version . '.html';
     }
 }

@@ -7,7 +7,7 @@ BOTLOCK is a PHP script that blocks bad bots and scrapers from accessing your we
 
 ## Installation
 
-BOTLOCK requires PHP 8.2 or newer.
+BOTLOCK requires PHP 8.2 or newer with the OpenSSL extension.
 
 ### Using the PHAR file (recommended)
 
@@ -98,16 +98,18 @@ All configuration is read from environment variables. Boolean values accept `1`,
 | `BOTLOCK_ENABLED` | Disabled | Enables BOTLOCK. This must be enabled when using `bootstrap.php` or the PHAR as an `auto_prepend_file`. |
 | `BOTLOCK_FAIL_OPEN` | Disabled | When enabled, boot errors (for example an unwritable state directory) let the request through to your application with a `Botlock-Error` header instead of answering `500`. Disabled means BOTLOCK fails closed and blocks the request. |
 | `BOTLOCK_INSTANCE_ID` | MD5 hash of the source directory | Identifies this BOTLOCK instance and separates its secret and global rate-limit state from other instances using the same state directory. |
-| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files and the cached challenge pages (`botlock_challenge_<instance-id>_<lang>_<version>.html`). BOTLOCK creates it with mode `0700` and keeps the files inside owner-only (`0600`); an existing directory or file with wider permissions is tightened where the PHP user is allowed to do so, but its ownership is not verified. On a host shared with other local accounts, point this at a directory only the PHP user can reach (inside the application's private storage, not under the system temporary directory), because another account could pre-create the default path. See [Shared hosting](#shared-hosting). |
+| `BOTLOCK_STATE_DIR` | System temporary directory plus `/botlock` | Writable directory used for the generated secret, the rate-limit state files, pending challenge tickets (`tickets/`, one subdirectory per issue minute) and the cached pages (`botlock_challenge_<instance-id>_<lang>_<version>.html` and `botlock_blocked_…` for the level-4 page). BOTLOCK creates it with mode `0700` and keeps the files inside owner-only (`0600`); an existing directory or file with wider permissions is tightened where the PHP user is allowed to do so, but its ownership is not verified. On a host shared with other local accounts, point this at a directory only the PHP user can reach (inside the application's private storage, not under the system temporary directory), because another account could pre-create the default path. See [Shared hosting](#shared-hosting). |
 | `BOTLOCK_SECRET` | Generated automatically | Secret used to sign challenges and session data. When unset, a 32-character secret is generated once, atomically, and stored owner-only as `botlock_secret_<instance-id>` in `BOTLOCK_STATE_DIR`. Set it explicitly when several hosts share sessions, or on shared hosts, so the signing secret never depends on the state directory. |
 | `BOTLOCK_POW_ALGORITHM` | `sha256` | Hash algorithm used for proof-of-work challenges. Allowed values are `sha256`, `sha384`, and `sha512`. |
-| `BOTLOCK_EXPIRE` | `3600` | Challenge and session lifetime in seconds. |
+| `BOTLOCK_EXPIRE` | `3600` | Session lifetime in seconds. Each phase of a challenge ticket gets its own five minutes, fifteen at most. |
 | `BOTLOCK_MAX_NUMBER` | `50000` | Base upper bound for the number searched by a proof-of-work challenge. |
 | `BOTLOCK_CRAWLER_FACTOR` | `15` | Multiplies proof-of-work difficulty for crawlers that are not listed as good bots. The effective minimum is `1`. |
+| `BOTLOCK_SLIDER_ASSISTED_FACTOR` | `4` | Multiplies proof-of-work difficulty when the slider captcha was solved with the keyboard instead of dragging, or with a mouse or pen drag held perfectly level, on top of any crawler factor. The effective minimum is `1`. |
+| `BOTLOCK_MIN_SOLVE_MS` | `1000` | Minimum time in milliseconds between issuing a challenge and accepting its solution. Faster solutions are rejected and spend the ticket; the challenge page waits out the rest of this time before it submits. `0` disables the check. |
 
 ### Language
 
-The challenge page is served in the language negotiated from the browser's `Accept-Language` header: language ranges are ranked by their `q` value, matched on the primary subtag (`de-AT` selects `de`), and `nb`/`nn` map to `no`. When none of the shipped languages in `translations/` are acceptable, English is used. There is no setting for this. The response carries `Content-Language` and `Vary: Accept-Language`. Each language is rendered once and then served from a cached file in `BOTLOCK_STATE_DIR`; the cache refreshes itself when the template or a translation file changes.
+The challenge page and the level-4 page are served in the language negotiated from the browser's `Accept-Language` header: language ranges are ranked by their `q` value, matched on the primary subtag (`de-AT` selects `de`), and `nb`/`nn` map to `no`. When none of the shipped languages in `translations/` are acceptable, English is used. There is no setting for this. The response carries `Content-Language` and `Vary: Accept-Language`. Each language is rendered once and then served from a cached file in `BOTLOCK_STATE_DIR`; the cache refreshes itself when a template, the shared stylesheet or a translation file changes.
 
 ### Bot detection, proxies, and exclusions
 
@@ -116,8 +118,8 @@ The challenge page is served in the language negotiated from the browser's `Acce
 | `BOTLOCK_IGNORE_IPS` | Empty | List of exact client IP addresses that bypass BOTLOCK. |
 | `BOTLOCK_IGNORE_USER_AGENTS` | Empty | List of User-Agent substrings that bypass BOTLOCK. Matched case-insensitively. |
 | `BOTLOCK_IGNORE_URLS` | Empty | List of absolute URL prefixes that bypass BOTLOCK. |
-| `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots (matched case-insensitively). Good bots pass without a challenge while the effective threat level is below `2`. |
-| `BOTLOCK_VERIFY_BOTS` | `google` | Bot providers to verify using DNS. Currently only `google` is supported (covers `Googlebot` and `AdsBot`). A good bot of a listed provider is only exempted after its IP passed the reverse-DNS check; a failed check raises the request to threat level `2`. Good bots without a listed provider are trusted by User-Agent alone. Set an empty value or `[]` to disable provider verification. |
+| `BOTLOCK_GOOD_BOTS` | `Googlebot`, `AdsBot`, `Bingbot`, `DuckDuckBot`, `Exabot`, `facebot` | CrawlerDetect names treated as good bots (matched case-insensitively). Good bots pass without a challenge while the effective threat level is below `2`; at levels `2` and `3` they get an easy, self-starting challenge, and at level `4` they are refused like everyone else. |
+| `BOTLOCK_VERIFY_BOTS` | `google`, `bing` | Bot providers to verify using DNS: `google` (covers `Googlebot` and `AdsBot`, hosts under `google.com` and `googlebot.com`) and `bing` (covers `Bingbot`, hosts under `search.msn.com`). A good bot of a listed provider is only exempted after its IP resolved to a host of the provider and that host back to the IP; a failed check raises the request to threat level `2`. Good bots without a listed provider are trusted by User-Agent alone. Set an empty value or `[]` to disable provider verification. |
 | `BOTLOCK_TRUSTED_PROXIES` | Loopback, private and link-local ranges | List of proxy IP addresses or CIDR ranges (for example `10.0.0.0/8`, `2001:db8::/32`) allowed to supply the `X-Forwarded-For`, `X-Real-Ip`, `Client-Ip` and `X-Forwarded-Proto` headers. Unset trusts peers in `127.0.0.0/8`, `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `169.254.0.0/16`, `::1/128`, `fc00::/7` and `fe80::/10`. An empty value or `[]` disables forwarding headers entirely. An explicit list replaces the default. Malformed entries stop BOTLOCK from booting. See [Reverse proxies](#reverse-proxies). |
 | `BOTLOCK_DNS_CHECKS` | Enabled | Enables DNS verification for providers selected by `BOTLOCK_VERIFY_BOTS`. Disabling it trusts all good bots by User-Agent alone. |
 | `BOTLOCK_EXTERNAL_SCHEME` | `auto` | Scheme visitors use to reach the site. `auto` takes `HTTPS`/port 443 as seen by PHP and `X-Forwarded-Proto` from a trusted proxy. Set `https` (or `http`) to force it, for example when the proxy does not send the header or when an appending proxy chain has a plain-HTTP inner leg. Determines the `Secure` flag of the session cookie, the session issuer and reset redirects. See [TLS termination](#tls-termination). |
@@ -146,7 +148,7 @@ To confirm which address BOTLOCK actually resolved, request the status endpoint,
 curl -s -H 'X-Forwarded-For: 198.51.100.7' 'https://your-site/?_botlock=status'
 ```
 
-The response contains `subject` (the client fingerprint, derived from the resolved IP address and a few request headers), `threat_level`, `threat_level_global`, `threat_level_individual`, `individual_rate`, `crawler_verification` (`verified`, `failed`, `unverified` or `not_applicable` for crawlers, `null` otherwise) and `passed` (whether the client has completed the challenge). The fingerprint changes with the resolved client IP: if two requests with different `X-Forwarded-For` values return the same `subject`, the header is being ignored and the `Botlock-Warning` header of a plain request tells you why.
+The response contains `subject` (the client fingerprint, derived from the resolved IP address and a few request headers), `threat_level`, `threat_level_global`, `threat_level_individual`, `individual_rate`, `crawler_verification` (`verified`, `failed`, `unverified` or `not_applicable` for crawlers, `null` otherwise) `passed` (whether the session holds a grant for at least the current threat level) and `grant_level` (the threat level the grant was issued for, `0` without one). The fingerprint changes with the resolved client IP: if two requests with different `X-Forwarded-For` values return the same `subject`, the header is being ignored and the `Botlock-Warning` header of a plain request tells you why.
 
 > **Breaking change:** earlier releases trusted forwarding headers from every source when `BOTLOCK_TRUSTED_PROXIES` was unset. Installations behind a proxy with a public address must now list it, otherwise all visitors share the proxy address and are rate-limited together.
 
@@ -167,18 +169,82 @@ BOTLOCK defends a site against traffic from outside; other local accounts on the
 BOTLOCK calculates separate global and per-client threat levels and uses the higher
 of the two as the effective threat level for a request. Level `0` means that no
 configured threshold has been reached, so the request passes through without a
-challenge. The three elevated threat levels behave as follows:
+challenge. The global level goes up to `3`; only the per-client rate reaches
+level `4`, because a global block would lock out every visitor during a traffic
+spike. The challenge's POST steps (`?_botlock=challenge`, `puzzle` and
+`verify`) count only toward the per-client rate, so re-challenging every visitor
+after a global escalation does not raise the global level much further; the
+request that issues a challenge counts like any other. The elevated
+threat levels behave as follows:
 
-| Threat level | Behavior |
-| --- | --- |
-| `1` | Unlisted clients must complete the proof-of-work challenge. Recognized good bots pass without a challenge; for providers listed in `BOTLOCK_VERIFY_BOTS` this requires a successful DNS check, and a failed check raises the request to level `2`. |
-| `2` | All clients that are not explicitly whitelisted must complete the proof-of-work challenge, including verified good bots. |
-| `3` | Marks the highest configured traffic severity. Its current request handling is the same as level `2`: non-whitelisted clients are challenged rather than blocked outright. |
+| Threat level | Browsers | Crawlers that are not trusted good bots | Trusted good bots |
+| --- | --- | --- | --- |
+| `1` | Proof of work, starts on its own | Click, then proof of work (× `BOTLOCK_CRAWLER_FACTOR`) | Pass without a challenge |
+| `2` | Click, then proof of work | Click, then proof of work (× factor) | Easy proof of work, starts on its own |
+| `3` | Slider captcha, then proof of work (× `BOTLOCK_SLIDER_ASSISTED_FACTOR` without a drag or with a perfectly level mouse drag) | Slider captcha, then proof of work (× factors) | Easy proof of work, starts on its own |
+| `4` | `429 Too Many Requests` with `Retry-After`, no challenge: browsers get a page in their language that explains the block and shows when to retry | same | same |
 
-Clients that have already completed the challenge retain access for the configured
-`BOTLOCK_EXPIRE` lifetime. Explicit IP, User-Agent, and URL exclusions bypass all
-three elevated levels and are not counted toward any threshold, so monitoring
-checks or your own addresses never raise the threat level.
+A good bot is trusted when it is listed in `BOTLOCK_GOOD_BOTS` and, for providers
+listed in `BOTLOCK_VERIFY_BOTS`, passed the DNS check; a failed check raises the
+request to at least level `2`. Good bots without a verifiable provider (by default
+`DuckDuckBot`, `Exabot` and `facebot`) are trusted by their User-Agent alone, so
+anyone sending one of those User-Agents gets the easy proof of work even at level
+`3`, without the slider; remove them from `BOTLOCK_GOOD_BOTS` if that matters more
+than their crawling.
+
+The slider captcha shows a picture with a gap and a matching piece that the
+visitor slides into place with the slider below it, by dragging its handle with
+the mouse or by touch, or with the arrow keys; a press elsewhere on the track
+does not jump the handle there. The target position stays on the server. The piece
+comes in one of ten notch layouts. Its gap is shaded faintly and unevenly with
+soft edges, among distractor shapes shaded the same way, and one or two decoy gaps
+on the same row look alike except for notches on other sides; sliding onto a decoy
+counts as a miss. The page also reports how the slider was moved, and the
+server judges that track with plain rules: a drag must take a plausible time,
+drift a little vertically, speed up and slow down instead of gliding evenly,
+and not jump, and the time it claims must fit into the time the server saw
+pass. Key presses say less about the visitor, so they pass
+looser checks and pay with a harder proof of work instead; a pointer stroke
+that moves the handle farther than a key press can is always judged as a drag. A track that fails
+counts as a miss too, with the same answer, so a script cannot tell which
+check it tripped. It makes generic automation more expensive; like every self-hosted captcha it does
+not stop a determined attacker with image processing, and visitors who cannot
+see the picture cannot solve it, so level `3` should stay reserved for real abuse.
+
+A completed challenge grants the session for the threat level it was issued at,
+for the configured `BOTLOCK_EXPIRE` lifetime. When the level rises above that,
+the next page request is challenged again at the higher level. Explicit IP,
+User-Agent, and URL exclusions bypass all elevated levels, including the `429`,
+and are not counted toward any threshold, so monitoring checks or your own
+addresses never raise the threat level.
+
+Each challenge is a single-use ticket kept in `BOTLOCK_STATE_DIR`; each of its
+steps (the interaction, the level-3 gate, the proof of work) has five
+minutes, so a slow interaction does not shorten the time left for the proof.
+`GET ?_botlock=challenge` issues it and names the required interaction
+(`int`: `none`, `click` or `slider`) together with the ticket's threat level; the
+proof of work is included only when no interaction is required, otherwise
+`POST ?_botlock=challenge` hands it out once the interaction is reported.
+At level `3` the answer carries a proof of work at base difficulty instead of a
+picture: `POST ?_botlock=puzzle` takes its solution, counts the render against
+`BOTLOCK_SLIDER_IP_LIMIT` and only then draws the puzzle, so a bare request never
+costs the server a picture, and the slider is timed from the moment it was drawn.
+`BOTLOCK_SLIDER_GLOBAL_LIMIT` caps the renders of all clients together per minute.
+An interactive ticket comes with a random key, and the page reports the
+interaction encrypted with it (AES-GCM); a report that does not decrypt
+counts as a miss. The key is handed to the page, so this only keeps
+automation that does not know BOTLOCK from posting the answer directly. The
+proof-of-work signature covers the ticket id, level and interaction, so a
+solution cannot be moved to another ticket. `POST ?_botlock=verify` spends the
+ticket whatever the outcome. A missed slider spends it as well, so every guess
+costs a new challenge, a gate proof of work and a puzzle from the client's budget.
+When the threat level has risen above the ticket's
+before it is redeemed, all three endpoints — the interaction, the gate and
+`verify` — answer `409` and the page starts over with a challenge for the new
+level. Each phase of a ticket (the gate, the interaction and the proof) lasts
+five minutes, and an expired ticket answers `409` as well, so a challenge page
+left open starts over instead of failing. Once the ticket has been swept, it is
+simply unknown and answers `400`.
 
 When the rate-limit state in `BOTLOCK_STATE_DIR` cannot be read or written (for
 example a full disk or lock contention), the affected level is reported as `1`
@@ -187,8 +253,9 @@ shows `individual_rate` as `null`.
 
 | Environment variable | Default | Description |
 | --- | --- | --- |
-| `BOTLOCK_THREAT_LEVEL_OVERRIDE` | Unset | Fixed integer threat level that bypasses rate-based threat evaluation when set. Expected levels are `0` through `3`. |
+| `BOTLOCK_THREAT_LEVEL_OVERRIDE` | Unset | Fixed integer threat level that bypasses rate-based threat evaluation when set. Values are clamped to `0` through `4`. `4` refuses every client, good bots included, with `429` whatever `BOTLOCK_LEVEL_4_THRESHOLD_INDIVIDUAL` says; it is meant for trying out the blocked page, not for production. |
 | `BOTLOCK_ENABLE_RATE_LIMIT` | Enabled | Master switch for rate-based threat evaluation. It is effective only when at least one of the global or individual rate limits is enabled. |
+| `BOTLOCK_THRESHOLD_FACTOR` | `1` | Positive number that multiplies every global and individual level threshold below, whether set or left at its default, so one value makes the rate limits more lenient (above `1`) or stricter (below `1`). Scaled thresholds are rounded and never drop below `1`; a level 4 threshold of `0` stays off. Invalid or non-positive values fall back to `1`. |
 | `BOTLOCK_ENABLE_GLOBAL_RATE_LIMIT` | Enabled | Enables global request tracking and threat-level calculation. |
 | `BOTLOCK_LEVEL_1_THRESHOLD_GLOBAL` | `120` | Weighted five-minute global request score that activates threat level 1. |
 | `BOTLOCK_LEVEL_2_THRESHOLD_GLOBAL` | `300` | Weighted five-minute global request score that activates threat level 2. |
@@ -199,20 +266,24 @@ shows `individual_rate` as `null`.
 | `BOTLOCK_LEVEL_1_THRESHOLD_INDIVIDUAL` | `60` | Requests per individual window that activate threat level 1. |
 | `BOTLOCK_LEVEL_2_THRESHOLD_INDIVIDUAL` | `90` | Requests per individual window that activate threat level 2. |
 | `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL` | `120` | Requests per individual window that activate threat level 3. |
-| `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. Each sweep inspects up to 500 files, starting at a random shard so that every shard is reached over time. `0` disables the sweep. |
+| `BOTLOCK_LEVEL_4_THRESHOLD_INDIVIDUAL` | `180` | Requests per individual window that activate threat level 4: every request of that client is answered with `429` and no challenge until its rate drops. `GET ?_botlock=status` stays reachable. `0`, or a value not above `BOTLOCK_LEVEL_3_THRESHOLD_INDIVIDUAL`, turns level 4 off, so thresholds raised above the default cannot block clients before they are challenged at level 3. |
+| `BOTLOCK_GC_PROBABILITY` | `1000` | Roughly one request in this many sweeps stale per-client state files out of `BOTLOCK_STATE_DIR`. Each sweep inspects up to 500 files, starting at a random shard so that every shard is reached over time. Roughly one challenge request in this many also deletes expired challenge tickets, whole issue minutes at a time and up to twice this many files per sweep. `0` disables both sweeps. |
+| `BOTLOCK_SLIDER_IP_LIMIT` | `10` | Slider puzzles rendered per client IP within `BOTLOCK_SLIDER_IP_WINDOW_SEC`. Further puzzle requests from that IP are answered with `429` and the page shows how long to wait. Every render counts, solved or not, so blind guessing gets this many tries per window. Clients without a known IP are counted by fingerprint. IPv6 clients are counted per /64 network. Behind a reverse proxy that is missing from `BOTLOCK_TRUSTED_PROXIES`, every visitor resolves to the proxy's own address and shares one budget; see [Reverse proxies](#reverse-proxies). Not scaled by `BOTLOCK_THRESHOLD_FACTOR`. `0` disables the budget. |
+| `BOTLOCK_SLIDER_IP_WINDOW_SEC` | `600` | Window of the per-IP slider puzzle budget in seconds. Its `Retry-After` is the time until the oldest counted render leaves the window. The effective minimum is `1`. |
+| `BOTLOCK_SLIDER_GLOBAL_LIMIT` | `300` | Slider puzzles rendered per minute across all clients. Beyond it, puzzle requests are answered with `503` and `Retry-After` until the next minute, and the page waits and starts over. Each render costs roughly 90 ms of CPU, so the default keeps a flood from many IPs to about half a core. Not scaled by `BOTLOCK_THRESHOLD_FACTOR`. `0` disables the cap. |
 
 ## Developers
 
-BOTLOCK needs PHP 8.2 or newer and Composer. A [DDEV](https://ddev.com/) project is checked in, so the quickest way to a working setup is:
+BOTLOCK needs PHP 8.2 or newer with the OpenSSL extension, and Composer. A [DDEV](https://ddev.com/) project is checked in, so the quickest way to a working setup is:
 
 ```bash
 ddev start
 ddev composer install
 ```
 
-This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that runs BOTLOCK only for the protected area `/protected/`; the dashboard at `/` stays open whatever the settings are. By default the demo uses the rate-limit sandbox: rate-based threat levels with low thresholds (10/20/30 requests per minute per client), so the protected page passes at first and a few reloads or a request burst escalate it. The dashboard has two panes:
+This serves the `demo/` directory at `https://botlock.ddev.site` with Apache and PHP 8.3. Its `.user.ini` prepends a demo shim that runs BOTLOCK only for the protected area `/protected/`; the dashboard at `/` stays open whatever the settings are. By default the demo uses the rate-limit sandbox: rate-based threat levels with low thresholds (10/20/30/40 requests per minute per client), so the protected page passes at first and a few reloads or a request burst escalate it up to the level-4 `429`. The dashboard has two panes:
 
-- the left pane shows the live `?_botlock=status` of the selected identity as threat-level meters with the individual rate against its thresholds, a history of recent samples and any `Botlock-Error` or `Botlock-Warning` header; below it presets (always challenge, off, a rate-limit sandbox with low thresholds, library defaults), every `BOTLOCK_*` setting except the secret, state directory and instance ID, grouped as in the tables above, with change markers, per-field reset and a sticky save bar, and copyable `curl` recipes;
+- the left pane shows the live `?_botlock=status` of the selected identity as threat-level meters with the individual rate against its thresholds, a history of recent samples and any `Botlock-Error` or `Botlock-Warning` header; below it presets (always challenge, slider captcha, off, a rate-limit sandbox with low thresholds, library defaults), every `BOTLOCK_*` setting except the secret, state directory and instance ID, grouped as in the tables above, with change markers, per-field reset and a sticky save bar, and copyable `curl` recipes;
 - the right pane stays in view with tools (request burst, clearing the rate-limit state, rotating the generated secret, resetting the challenge), an identity bar and a frame showing the protected page as BOTLOCK serves it to that identity, next to a request log.
 
 An identity is a forged client: a User-Agent, a client IP sent as `X-Forwarded-For`, an Accept-Language and extra headers. For any identity other than "This browser" the frame, status, burst and reset go through the relay `/_forge.php/<identity>/protected/…`, which repeats each request from inside the container with the identity's headers. Loopback is a trusted proxy by default, so BOTLOCK takes the forged address as the client IP, and `Host` and `X-Forwarded-Proto` are passed on so it sees the visitor's origin. Because the challenge page's own requests travel through the same relay, the challenge runs and is solved in the browser but for the forged fingerprint; the relay renames and path-scopes the session cookie per identity, so each identity keeps its own grant and never touches the browser's own session. The request log tab lists every relayed exchange (what was sent to BOTLOCK, the response headers and the start of the body). The identity is base64url-encoded in the relay URL, so nothing is stored for it.
@@ -227,14 +298,19 @@ Without DDEV, any local PHP setup works as long as `bootstrap.php` (or `demo/_li
 | --- | --- |
 | `src/Kernel.php` | Boots the configuration and assembles the middleware pipeline. |
 | `src/Middleware/` | One class per request-processing step, in the order listed in `Kernel::handleRequest()`. |
-| `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge`, `verify`, `reset` and `status`. |
+| `src/Action/` | Handlers for the `?_botlock=<action>` endpoints: `challenge` (`GET` issues a ticket, `POST` reports the interaction), `puzzle` (pays the level-3 gate for the slider picture), `verify`, `reset` and `status`. They share `TicketService` for saving, redeeming and describing tickets. |
 | `src/Config/` | Typed configuration objects, each with a `fromEnv()` factory reading `BOTLOCK_*` variables. |
-| `src/Manager/`, `src/Threat/`, `src/Challenge/` | Bot detection, rate-limit state and proof-of-work logic. |
+| `src/Manager/`, `src/Threat/` | Bot detection and rate-limit state. |
+| `src/Challenge/` | Proof of work, the per-level interaction policy, single-use challenge tickets and their store, the cipher that opens the page's encrypted interaction report, the per-IP and per-minute budgets of slider puzzle renders, the slider puzzle and the rules that judge how its slider was moved. |
+| `src/Image/` | A dependency-free PNG encoder for the slider puzzle. |
 | `src/Crawler/` | Crawler verification state and the DNS verifier behind `CrawlerVerifier`. |
-| `src/Filesystem/` | Creates the state directory and keeps its contents owner-only. |
+| `src/Filesystem/` | Creates the state directory, keeps its contents owner-only and decides when a request sweeps stale state files. |
 | `templates/challenge.php` | The browser challenge page, a native PHP template rendered once per language and cached in the state directory. |
-| `translations/` | One `<code>.php` file per language returning the challenge page strings. |
-| `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering and the rendered-page cache. |
+| `templates/blocked.php` | The level-4 page answered with `429`, rendered and cached the same way; it carries the `Retry-After` value, which its script formats as the wait time. |
+| `templates/partials/style.css` | Styles shared by both pages (colour tokens, card layout, text), printed in its own `<style>` element before the page-specific one. |
+| `templates/partials/relative-time.js` | `relativeTime()`, shared by both pages' scripts: formats the wait before a retry in the page's language. |
+| `translations/` | One `<code>.php` file per language returning the strings of both pages. |
+| `src/I18n/`, `src/Template/` | `Accept-Language` negotiation, translation loading, template rendering, `LocalizedPage` (negotiate, render once, serve from cache) and the rendered-page cache. |
 | `bootstrap.php` | The prepend entry point, also used as the PHAR stub. |
 | `build-phar.php` | Builds the release archive. |
 | `demo/` | The DDEV docroot: open dashboard (`index.php`), settings endpoint (`_demo.php`), request forging relay (`_forge.php`), the protected area (`protected/`), and the prepend shim, settings schema, presets, identities and relay log in `_lib/`. Not part of the library or the PHAR. |
@@ -247,7 +323,7 @@ ddev composer validate --no-check-publish   # Composer metadata
 ddev exec sh -c "find src tests templates translations demo -name '*.php' -print0 | xargs -0 -n1 php -l"
 ```
 
-Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore` and `StubCrawlerVerifier` from `tests/Support/`. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
+Unit tests live in `tests/`, mirroring `src/`. Construct the `Config\*` value objects directly instead of setting environment variables, and use the `Requests` factory, `InMemoryThreatStateStore`, `InMemoryChallengeTicketStore`, `StubCrawlerVerifier`, the `Reports` sealer and the `Tracks` factory for slider tracks from `tests/Support/`. The behaviour every ticket store must keep is tested once in `tests/Challenge/ChallengeTicketStoreContract.php`, which the tests of both stores extend. CI runs the same checks on PHP 8.2 through 8.5 for every push and pull request.
 
 ### Building the PHAR
 

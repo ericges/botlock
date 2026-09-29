@@ -15,6 +15,7 @@ final readonly class DetectionConfig
     /** Providers that can be verified via DNS, mapped to the CrawlerDetect names they cover. */
     public const VERIFIABLE_BOTS = [
         'google' => ['Googlebot', 'AdsBot'],
+        'bing' => ['Bingbot'],
     ];
 
     /** Values BOTLOCK_EXTERNAL_SCHEME and a trusted X-Forwarded-Proto may take. */

@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Bulgarian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Bulgarian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Проверка за сигурност',
     'mainHeading' => 'Проверяваме дали сте човек…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Проверка за сигурност',
     'confirmParagraph' => 'За да продължите, потвърдете, че не сте робот.',
     'verifyButton' => 'Потвърждаване',
+    'sliderHeading' => 'Проверка за сигурност',
+    'sliderParagraph' => 'Преместете плъзгача, докато парчето пасне в празнината със същата форма.',
+    'sliderLabel' => 'Позиция на парчето',
+    'sliderSubmit' => 'Потвърди',
+    'sliderRetry' => 'Не пасна. Моля, опитайте отново с новата картина.',
     'errorHeading' => 'Неуспешна проверка',
     'errorMessage' => 'В момента не можем да потвърдим заявката ви. Възможно е това да е временен проблем.',
     'errorWidget' => 'Възникна грешка',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Скоро ще бъдете пренасочени…',
     'noscriptHeading' => 'За проверката за сигурност е необходим JavaScript.',
     'noscriptText' => 'Активирайте JavaScript в настройките на браузъра и обновете страницата.',
+    'blockedHeading' => 'Твърде много заявки',
+    'blockedMessage' => 'Получихме твърде много заявки от вашата връзка за кратко време, затова достъпът е временно спрян.',
+    'blockedWait' => 'Моля, изчакайте малко и след това презаредете страницата.',
+    'blockedRetry' => 'Можете да опитате отново {time}.',
+    'blockedFooter' => 'Това ограничение защитава услугата от автоматизиран трафик.',
 ];

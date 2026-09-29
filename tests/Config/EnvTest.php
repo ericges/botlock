@@ -23,6 +23,7 @@ final class EnvTest extends TestCase
         self::assertTrue(Env::bool(self::NAME, true));
         self::assertNull(Env::list(self::NAME));
         self::assertSame(7, Env::int(self::NAME, 7));
+        self::assertSame(1.5, Env::float(self::NAME, 1.5));
     }
 
     public function testValuesAreTrimmedAndNameIsUppercased(): void
@@ -79,6 +80,18 @@ final class EnvTest extends TestCase
 
         \putenv('BOTLOCK_' . self::NAME . '=lots');
         self::assertSame(1, Env::int(self::NAME, 1));
+    }
+
+    public function testFloatFallsBackForNonNumeric(): void
+    {
+        \putenv('BOTLOCK_' . self::NAME . '=2.5');
+        self::assertSame(2.5, Env::float(self::NAME, 1.0));
+
+        \putenv('BOTLOCK_' . self::NAME . '=3');
+        self::assertSame(3.0, Env::float(self::NAME, 1.0));
+
+        \putenv('BOTLOCK_' . self::NAME . '=lots');
+        self::assertSame(1.0, Env::float(self::NAME, 1.0));
     }
 
     public function testRateLimitMasterSwitchNeedsAtLeastOneLimit(): void

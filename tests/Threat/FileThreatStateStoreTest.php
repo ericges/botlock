@@ -78,6 +78,21 @@ final class FileThreatStateStoreTest extends TestCase
         self::assertFileExists("$this->dir/ua/ab/$fp.lst");
     }
 
+    public function testIndividualTimestampsAreThoseInTheWindow(): void
+    {
+        $now = \time();
+        $fp = 'cd' . \str_repeat('0', 62);
+
+        $this->store->recordIndividual($fp, $now - 10, $now - 600);
+        $this->store->recordIndividual($fp, $now - 300, $now - 600);
+        $this->store->recordIndividual($fp, $now - 30, $now - 600);
+
+        // In no particular order: only PuzzleBudget needs one and sorts.
+        self::assertEqualsCanonicalizing([$now - 300, $now - 30, $now - 10], $this->store->individualTimestamps($fp, $now - 600));
+        self::assertEqualsCanonicalizing([$now - 30, $now - 10], $this->store->individualTimestamps($fp, $now - 60));
+        self::assertSame([], $this->store->individualTimestamps('zz' . \str_repeat('1', 62), $now - 60));
+    }
+
     public function testCountIndividualForUnknownFingerprintIsZero(): void
     {
         self::assertSame(0, $this->store->countIndividual('zz' . \str_repeat('1', 62), \time() - 60));

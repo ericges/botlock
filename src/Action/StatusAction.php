@@ -23,7 +23,8 @@ final readonly class StatusAction implements ActionHandlerInterface
             'threat_level_individual' => $context->threatLevelIndividual,
             'individual_rate' => $context->individualRate,
             'crawler_verification' => $context->crawlerVerification?->value,
-            'passed' => $context->session?->get('grant'),
+            'passed' => $context->isGrantSufficient(),
+            'grant_level' => $context->grantLevel(),
         ]);
     }
 }

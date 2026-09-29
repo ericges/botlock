@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Slovenian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Slovenian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Varnostno preverjanje',
     'mainHeading' => 'Preverjamo, ali ste človek…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Varnostno preverjanje',
     'confirmParagraph' => 'Za nadaljevanje potrdite, da niste robot.',
     'verifyButton' => 'Potrdi',
+    'sliderHeading' => 'Varnostno preverjanje',
+    'sliderParagraph' => 'Premikajte drsnik, dokler se košček ne prilega vrzeli enake oblike.',
+    'sliderLabel' => 'Položaj koščka',
+    'sliderSubmit' => 'Potrdi',
+    'sliderRetry' => 'Ni se prilegalo. Poskusite znova z novo sliko.',
     'errorHeading' => 'Preverjanje ni uspelo',
     'errorMessage' => 'Vaše zahteve trenutno nismo mogli preveriti. Morda gre za začasno težavo.',
     'errorWidget' => 'Prišlo je do napake',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Kmalu boste preusmerjeni…',
     'noscriptHeading' => 'Za varnostno preverjanje je potreben JavaScript.',
     'noscriptText' => 'Omogočite JavaScript v nastavitvah brskalnika in osvežite stran.',
+    'blockedHeading' => 'Preveč zahtev',
+    'blockedMessage' => 'V kratkem času smo z vaše povezave prejeli preveč zahtev, zato je dostop začasno ustavljen.',
+    'blockedWait' => 'Počakajte trenutek in nato znova naložite stran.',
+    'blockedRetry' => 'Znova lahko poskusite {time}.',
+    'blockedFooter' => 'Ta omejitev ščiti storitev pred samodejnim prometom.',
 ];

@@ -29,6 +29,19 @@ final class ThreatAwarenessManagerTest extends TestCase
         self::assertSame([], $store->gcCalls);
     }
 
+    public function testRequestLeftOutOfTheGlobalCountStillCountsIndividually(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $manager = new ThreatAwarenessManager(new RateLimitConfig(gcProbability: 0), $store);
+
+        $request = Requests::make();
+        $request->context->fingerprint = self::FP;
+        $manager->recordRequest($request, countGlobally: false);
+
+        self::assertSame(0, \array_sum($store->global['traffic_buckets'] ?? []));
+        self::assertCount(1, $store->individual[self::FP]);
+    }
+
     public function testRecordingPrunesGlobalBucketsOlderThanFiveMinutes(): void
     {
         $store = new InMemoryThreatStateStore();
@@ -46,18 +59,45 @@ final class ThreatAwarenessManagerTest extends TestCase
     public function testIndividualLevelFollowsThresholds(): void
     {
         $store = new InMemoryThreatStateStore();
-        $config = new RateLimitConfig(level1ThresholdIndividual: 2, level2ThresholdIndividual: 3, level3ThresholdIndividual: 4, gcProbability: 0);
+        $config = new RateLimitConfig(level1ThresholdIndividual: 2, level2ThresholdIndividual: 3, level3ThresholdIndividual: 4, level4ThresholdIndividual: 6, gcProbability: 0);
 
         $request = Requests::make();
         $request->context->fingerprint = self::FP;
 
-        // thresholds 2/3/4 requests per window
-        foreach ([0 => 0, 1 => 0, 2 => 1, 3 => 2, 4 => 3, 9 => 3] as $hits => $expectedLevel) {
+        // thresholds 2/3/4/6 requests per window
+        foreach ([0 => 0, 1 => 0, 2 => 1, 3 => 2, 4 => 3, 5 => 3, 6 => 4, 9 => 4] as $hits => $expectedLevel) {
             $manager = new ThreatAwarenessManager($config, $store);
             $store->individual = [self::FP => \array_fill(0, $hits, \time())];
 
             self::assertSame($expectedLevel, $manager->getIndividualThreatLevel(self::FP), "after $hits hits");
         }
+    }
+
+    public function testLevel4IsOffAtZeroOrNotAboveLevel3(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $store->individual = [self::FP => \array_fill(0, 500, \time())];
+
+        foreach (['zero' => 0, 'below level 3' => 150, 'equal to level 3' => 200] as $case => $threshold) {
+            $config = new RateLimitConfig(level3ThresholdIndividual: 200, level4ThresholdIndividual: $threshold, gcProbability: 0);
+
+            self::assertFalse($config->isLevel4Enabled(), $case);
+            self::assertSame(3, (new ThreatAwarenessManager($config, $store))->getIndividualThreatLevel(self::FP), $case);
+        }
+
+        $config = new RateLimitConfig(level3ThresholdIndividual: 200, level4ThresholdIndividual: 201, gcProbability: 0);
+
+        self::assertTrue($config->isLevel4Enabled());
+        self::assertSame(4, (new ThreatAwarenessManager($config, $store))->getIndividualThreatLevel(self::FP));
+    }
+
+    public function testRaisedLevel3ThresholdIsNotUndercutByTheLevel4Default(): void
+    {
+        $store = new InMemoryThreatStateStore();
+        $store->individual = [self::FP => \array_fill(0, 250, \time())];
+        $config = new RateLimitConfig(level1ThresholdIndividual: 200, level2ThresholdIndividual: 250, level3ThresholdIndividual: 300, gcProbability: 0);
+
+        self::assertSame(2, (new ThreatAwarenessManager($config, $store))->getIndividualThreatLevel(self::FP));
     }
 
     public function testIndividualRateIgnoresTimestampsOutsideWindow(): void
@@ -79,6 +119,7 @@ final class ThreatAwarenessManagerTest extends TestCase
         self::assertSame(1, $this->globalLevelFor($config, [$bucket => 82]));   // 121.1
         self::assertSame(2, $this->globalLevelFor($config, [$bucket => 204])); // 301.4
         self::assertSame(3, $this->globalLevelFor($config, [$bucket => 407])); // 601.3
+        self::assertSame(3, $this->globalLevelFor($config, [$bucket => 100000]), 'the global level never reaches 4');
     }
 
     public function testOlderBucketsWeighLess(): void

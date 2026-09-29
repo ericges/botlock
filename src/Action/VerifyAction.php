@@ -2,49 +2,49 @@
 
 namespace GES\Botlock\Action;
 
-use GES\Botlock\Challenge\ProofOfWork;
 use GES\Botlock\Exception\JsonResponseException;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Response\JsonResponse;
-use GES\Botlock\Config\ProofOfWorkConfig;
 
 /**
- * POST ?_botlock=verify — checks a submitted proof-of-work solution against
- * the nonce stored in the session and grants the session on success.
+ * POST ?_botlock=verify — redeems a ticket with its proof-of-work solution
+ * (body {"cid": …, "num": …, "sig": …, "slt": …, "exp": …, "alg": …}) and
+ * raises the session's grant to the ticket's threat level on success; a
+ * grant already higher, from another tab's solve, is kept.
+ *
+ * The ticket is consumed whatever the outcome. It is rejected when its
+ * interaction was not completed, when it is redeemed sooner than
+ * BOTLOCK_MIN_SOLVE_MS after issuing, and with 409 "restart" when it
+ * expired or the threat level rose above the ticket's in the meantime.
  */
-final readonly class VerifyAction implements ActionHandlerInterface
+final readonly class VerifyAction implements ChallengeStepInterface
 {
-    public function __construct(private ProofOfWorkConfig $config) {}
+    public function __construct(private TicketService $tickets) {}
 
     /**
      * @throws JsonResponseException
      */
     public function handle(Request $request): Response
     {
-        $session = $request->context->session;
-
-        if (!$nonceHash = $session->get('nh')) {
-            throw new JsonResponseException('Invalid session data', 400);
-        }
-
-        if (!($nonce = $request->getHeader('Botlock-Nonce')) || !\password_verify($nonce, $nonceHash)) {
-            throw new JsonResponseException('Invalid nonce', 400);
-        }
-
         if (!$data = $request->getJsonBody()) {
             throw new JsonResponseException('Invalid data', 400);
         }
 
-        unset($data['nonce']);
+        $ticket = $this->tickets->redeem($data['cid'] ?? null, $request);
+
+        if (!$ticket->isReadyForProof()) {
+            throw new JsonResponseException('Interaction required', 400);
+        }
+
+        $this->tickets->assertSolvedSlowly($ticket);
 
         $statusCode = 401;
+        $session = $request->context->session;
 
-        $challenge = new ProofOfWork($this->config);
-        if ($ok = $challenge->verify($data, $request->context->fingerprint))
+        if ($ok = $this->tickets->verifyProof($ticket, $data, $ticket->binding()))
         {
-            $session->set('grant', true);
-            $session->remove('nh');
+            $session->set('grant', \max($request->context->grantLevel(), $ticket->level));
             $session->commit();
             $statusCode = 200;
         }

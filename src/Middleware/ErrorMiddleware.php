@@ -25,7 +25,7 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
             return new Response\JsonResponse(
                 $exception->getCode() ?: 500,
                 $exception->getData(),
-                ['Botlock-Error' => self::headerSafe($exception->getMessage())]
+                ['Botlock-Error' => self::headerSafe($exception->getMessage())] + $exception->getHeaders(),
             );
         }
         catch (\Throwable $throwable)
@@ -42,19 +42,29 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
         }
     }
 
+    /**
+     * Whether the client asked for HTML and not for JSON: JSON wins when a
+     * client accepts both, as the challenge page's fetch() calls do.
+     */
+    public static function prefersHtml(Request $request): bool
+    {
+        $accept = self::accept($request);
+
+        return \str_contains($accept, 'text/html') && !\str_contains($accept, 'application/json');
+    }
+
     public static function createErrorResponse(Request $request, int $statusCode, string $message): Response
     {
-        $accept = strtolower($request->getHeader('Accept', ''));
-
         $headers = [
             'Botlock-Error' => self::headerSafe($message),
         ];
 
-        if (\str_contains($accept, 'application/json')) {
-            return new Response\JsonResponse($statusCode, ['ok' => false, 'error' => $message], $headers);
+        if (\str_contains(self::accept($request), 'application/json')) {
+            // The same shape as JsonResponseException::getData().
+            return new Response\JsonResponse($statusCode, ['ok' => false, 'error' => $message, 'code' => $statusCode], $headers);
         }
 
-        if (\str_contains($accept, 'text/html')) {
+        if (self::prefersHtml($request)) {
             $html = \sprintf(
                 '<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Error</title></head>' .
                 '<body><h1>Error %d</h1><p>%s</p></body></html>',
@@ -65,6 +75,11 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
         }
 
         return new Response($statusCode, $headers + ['Content-Type' => 'text/plain; charset=utf-8'], $message);
+    }
+
+    private static function accept(Request $request): string
+    {
+        return \strtolower($request->getHeader('Accept', ''));
     }
 
     /**

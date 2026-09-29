@@ -16,13 +16,18 @@ final class Presets
         return [
             'sandbox' => [
                 'label' => 'Rate-limit sandbox',
-                'description' => 'Rate-based levels with low thresholds (10/20/30 requests per minute), so a request burst escalates within seconds. The demo default.',
+                'description' => 'Rate-based levels with low thresholds (10/20/30/40 requests per minute), so a request burst escalates within seconds and ends in 429s. The demo default.',
                 'values' => Settings::DEFAULTS,
             ],
             'challenge' => [
                 'label' => 'Always challenge',
-                'description' => 'Threat level pinned to 2: every visitor solves the challenge.',
+                'description' => 'Threat level pinned to 2: every visitor clicks to start the challenge.',
                 'values' => ['THREAT_LEVEL_OVERRIDE' => '2'],
+            ],
+            'captcha' => [
+                'label' => 'Slider captcha',
+                'description' => 'Threat level pinned to 3: every visitor solves the slider puzzle before the challenge.',
+                'values' => ['THREAT_LEVEL_OVERRIDE' => '3'],
             ],
             'off' => [
                 'label' => 'Off',

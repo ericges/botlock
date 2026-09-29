@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Spanish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Spanish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Comprobación de seguridad',
     'mainHeading' => 'Estamos verificando que eres una persona…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Comprobación de seguridad',
     'confirmParagraph' => 'Para continuar, confirma que no eres un robot.',
     'verifyButton' => 'Verificar',
+    'sliderHeading' => 'Control de seguridad',
+    'sliderParagraph' => 'Mueve el control deslizante hasta que la pieza encaje en el hueco con la misma forma.',
+    'sliderLabel' => 'Posición de la pieza',
+    'sliderSubmit' => 'Confirmar',
+    'sliderRetry' => 'No ha encajado. Inténtalo de nuevo con la nueva imagen.',
     'errorHeading' => 'Error de verificación',
     'errorMessage' => 'No hemos podido verificar tu solicitud en este momento. Puede que se trate de un problema temporal.',
     'errorWidget' => 'Se ha producido un error',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Te redirigiremos en unos instantes…',
     'noscriptHeading' => 'JavaScript es necesario para realizar la comprobación de seguridad.',
     'noscriptText' => 'Activa JavaScript en la configuración del navegador y actualiza la página.',
+    'blockedHeading' => 'Demasiadas solicitudes',
+    'blockedMessage' => 'Hemos recibido demasiadas solicitudes desde tu conexión en poco tiempo, así que el acceso está en pausa por ahora.',
+    'blockedWait' => 'Espera un momento y vuelve a cargar la página.',
+    'blockedRetry' => 'Podrás volver a intentarlo {time}.',
+    'blockedFooter' => 'Este límite protege el servicio frente al tráfico automatizado.',
 ];

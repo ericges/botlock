@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Norwegian challenge page strings. Keys must match TranslationLoader::KEYS.
+// Norwegian page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sikkerhetskontroll',
     'mainHeading' => 'Vi kontrollerer at du er et menneske…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Sikkerhetskontroll',
     'confirmParagraph' => 'Bekreft at du ikke er en robot for å fortsette.',
     'verifyButton' => 'Bekreft',
+    'sliderHeading' => 'Sikkerhetssjekk',
+    'sliderParagraph' => 'Flytt glidebryteren til brikken passer inn i hullet med samme form.',
+    'sliderLabel' => 'Brikkens posisjon',
+    'sliderSubmit' => 'Bekreft',
+    'sliderRetry' => 'Det passet ikke. Prøv igjen med det nye bildet.',
     'errorHeading' => 'Verifiseringen mislyktes',
     'errorMessage' => 'Vi kunne ikke verifisere forespørselen din nå. Dette kan være et midlertidig problem.',
     'errorWidget' => 'Det oppstod en feil',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Du blir videresendt om kort tid…',
     'noscriptHeading' => 'JavaScript kreves for sikkerhetskontrollen.',
     'noscriptText' => 'Aktiver JavaScript i nettleserinnstillingene, og last inn siden på nytt.',
+    'blockedHeading' => 'For mange forespørsler',
+    'blockedMessage' => 'Vi har mottatt for mange forespørsler fra tilkoblingen din på kort tid, så tilgangen er midlertidig satt på pause.',
+    'blockedWait' => 'Vent et øyeblikk, og last deretter inn siden på nytt.',
+    'blockedRetry' => 'Du kan prøve igjen {time}.',
+    'blockedFooter' => 'Denne grensen beskytter tjenesten mot automatisert trafikk.',
 ];

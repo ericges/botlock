@@ -11,7 +11,7 @@ enum CrawlerVerification: string
     /** No verifier applies (provider not verifiable, not selected, or DNS checks off): trusted by User-Agent alone. */
     case NotApplicable = 'not_applicable';
 
-    /** A verifier is configured for this provider but could not run (no client IP). Never trusted. */
+    /** A verifier is configured for this provider but did not run (no client IP, or the client is at level 4). Never trusted. */
     case Unverified = 'unverified';
 
     /** The client IP resolves to the provider. */

@@ -43,7 +43,8 @@ final class BotTestManagerTest extends TestCase
         yield 'Googlebot' => ['Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)', true, true, 'google'];
         yield 'lowercase googlebot' => ['googlebot/2.1', true, true, 'google'];
         yield 'AdsBot' => ['AdsBot-Google (+http://www.google.com/adsbot.html)', true, true, 'google'];
-        yield 'bingbot has no verifier' => ['Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', true, true, null];
+        yield 'bingbot' => ['Mozilla/5.0 (compatible; bingbot/2.0; +http://www.bing.com/bingbot.htm)', true, true, 'bing'];
+        yield 'DuckDuckBot has no verifier' => ['DuckDuckBot/1.1; (+http://duckduckgo.com/duckduckbot.html)', true, true, null];
         yield 'unknown crawler' => ['Scrapy/2.11 (+https://scrapy.org)', true, false, null];
         yield 'browser' => ['Mozilla/5.0 (X11; Linux x86_64) Firefox/130.0', false, false, null];
     }

@@ -20,6 +20,10 @@ final readonly class ProofOfWorkConfig
         public int    $maxNumber = 50000,
         /** Difficulty multiplier for crawlers that are not good bots; clamped to >= 1. */
         public int    $crawlerFactor = 15,
+        /** Minimum milliseconds between issuing a challenge and accepting its solution. */
+        public int    $minSolveMs = 1000,
+        /** Difficulty multiplier for slider solves by keys instead of a drag; clamped to >= 1. */
+        public int    $assistedFactor = 4,
     ) {
         if (!\in_array($this->algorithm, self::ALLOWED_ALGORITHMS, true)) {
             throw new \InvalidArgumentException('Invalid PoW algorithm provided');
@@ -36,12 +40,19 @@ final readonly class ProofOfWorkConfig
             algorithm: \strtolower((string) Env::get('POW_ALGORITHM', 'sha256')),
             expire: (int) (Env::get('EXPIRE') ?: 3600),
             maxNumber: (int) (Env::get('MAX_NUMBER') ?: 50000),
-            crawlerFactor: (int) (Env::get('CRAWLER_FACTOR') ?: 15),
+            crawlerFactor: Env::int('CRAWLER_FACTOR', 15),
+            minSolveMs: \max(0, Env::int('MIN_SOLVE_MS', 1000)),
+            assistedFactor: Env::int('SLIDER_ASSISTED_FACTOR', 4),
         );
     }
 
     public function getCrawlerFactor(): int
     {
         return \max(1, $this->crawlerFactor);
+    }
+
+    public function getAssistedFactor(): int
+    {
+        return \max(1, $this->assistedFactor);
     }
 }

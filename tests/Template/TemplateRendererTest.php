@@ -4,11 +4,13 @@ namespace GES\Botlock\Tests\Template;
 
 use GES\Botlock\I18n\TranslationLoader;
 use GES\Botlock\Template\TemplateRenderer;
+use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
 
 final class TemplateRendererTest extends TestCase
 {
     private const TEMPLATE = __DIR__ . '/../../templates/challenge.php';
+    private const BLOCKED_TEMPLATE = __DIR__ . '/../../templates/blocked.php';
 
     /** @var list<string> */
     private array $tempFiles = [];
@@ -46,14 +48,45 @@ final class TemplateRendererTest extends TestCase
         self::assertStringContainsString('<script>window.trans = {};</script>', $html);
     }
 
-    public function testTemplateWithoutVariablesRendersNothing(): void
+    public function testRendersBlockedTemplateAndEscapes(): void
+    {
+        $trans = \array_fill_keys(TranslationLoader::KEYS, 'text');
+        $trans['blockedHeading'] = '</title><script>x</script>';
+        $trans['blockedRetry'] = 'Retry "{time}" <now>';
+
+        $html = (new TemplateRenderer())->render(self::BLOCKED_TEMPLATE, [
+            'lang' => 'de',
+            'trans' => $trans,
+            'retryAfter' => 90,
+        ]);
+
+        self::assertStringStartsWith('<!DOCTYPE html>', $html);
+        self::assertStringContainsString('<html lang="de">', $html);
+        self::assertStringContainsString('<title>&lt;/title&gt;&lt;script&gt;x&lt;/script&gt;</title>', $html);
+        self::assertStringNotContainsString('<script>x</script>', $html);
+        self::assertStringContainsString('<body data-botlock-blocked>', $html);
+        self::assertStringContainsString('data-retry-template="Retry &quot;{time}&quot; &lt;now&gt;"', $html);
+        self::assertStringContainsString('#security {', $html, 'shared styles');
+    }
+
+    /**
+     * @return iterable<string, array{0: string}>
+     */
+    public static function templates(): iterable
+    {
+        yield 'challenge' => [self::TEMPLATE];
+        yield 'blocked' => [self::BLOCKED_TEMPLATE];
+    }
+
+    #[DataProvider('templates')]
+    public function testTemplateWithoutVariablesRendersNothing(string $template): void
     {
         $level = \ob_get_level();
         \ob_start();
 
         try
         {
-            include self::TEMPLATE;
+            include $template;
             $output = (string) \ob_get_clean();
         }
         finally

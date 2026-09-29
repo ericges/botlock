@@ -10,6 +10,7 @@ use GES\Botlock\Http\Session;
 use GES\Botlock\I18n\LanguageNegotiator;
 use GES\Botlock\I18n\TranslationLoader;
 use GES\Botlock\Middleware\ChallengeDocumentMiddleware;
+use GES\Botlock\Template\LocalizedPage;
 use GES\Botlock\Template\RenderedPageCache;
 use GES\Botlock\Template\TemplateRenderer;
 use GES\Botlock\Tests\Support\Requests;
@@ -109,6 +110,28 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('<h1 id="main-heading">Vérification en cours…</h1>', $body);
     }
 
+    public function testSharedStylesAreInlined(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertSame(2, \preg_match_all('#<style>(.*?)</style>#s', $body, $styles));
+        [$shared, $own] = $styles[1];
+
+        self::assertStringEqualsFile(self::ROOT . '/templates/partials/style.css', $shared, 'shared styles come first, verbatim');
+        self::assertStringContainsString('.puzzle-slider {', $own);
+        self::assertStringNotContainsString('#security {', $own);
+        self::assertStringContainsString('<p id="footer-note">', $body);
+        self::assertStringContainsString((string) \file_get_contents(self::ROOT . '/templates/partials/relative-time.js'), $body, 'the shared formatter, verbatim');
+    }
+
+    public function testTouchDragsOnTheSliderDoNotPanThePage(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertSame(1, \preg_match('#\.puzzle-slider \{([^}]*)\}#', $body, $rule));
+        self::assertStringContainsString('touch-action: none;', $rule[1]);
+    }
+
     public function testChallengeScriptGuardsCryptoBeforeUse(): void
     {
         $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
@@ -133,6 +156,32 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertFalse($request->context->session->isCommited());
     }
 
+    public function testGrantCoversItsLevelAndBelow(): void
+    {
+        foreach ([[1, 1], [2, 1], [2, 2], [3, 0], [3, 3]] as [$grant, $level]) {
+            $request = $this->request('en');
+            $request->context->threatLevel = $level;
+            $request->context->session->set('grant', $grant);
+
+            $response = $this->middleware()->process($request, static fn(): Response => new Response(204));
+
+            self::assertSame(204, $response->getStatus(), "grant $grant at level $level");
+        }
+    }
+
+    public function testEscalationAboveTheGrantServesTheChallengeAgain(): void
+    {
+        foreach ([[1, 2], [2, 3], [true, 2], [false, 1]] as [$grant, $level]) {
+            $request = $this->request('en');
+            $request->context->threatLevel = $level;
+            $request->context->session->set('grant', $grant);
+
+            $response = $this->middleware()->process($request, $this->failingNext());
+
+            self::assertSame(401, $response->getStatus(), \var_export($grant, true) . " grant at level $level");
+        }
+    }
+
     public function testUnwritableCacheStillServesThePage(): void
     {
         $blocker = \tempnam(\sys_get_temp_dir(), 'botlock-blocker');
@@ -154,15 +203,46 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('<html lang="de">', (string) $response->getBody());
     }
 
+    public function testSliderPuzzleIsPaidForWithTheGate(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertStringContainsString('await solveChallenge(challenge.gate)', $body);
+        self::assertStringContainsString("call('puzzle', 'POST', nonce", $body);
+        self::assertStringContainsString('response.status === 429', $body);
+        self::assertStringContainsString('throw new BlockedError(retryAfter(response))', $body);
+        self::assertStringContainsString('trans.blockedRetry.replace(', $body);
+    }
+
+    public function testBusyPuzzleRendersAreWaitedOut(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertStringContainsString('response.status === 503', $body);
+        self::assertStringContainsString('throw new BusyError(retryAfter(response))', $body);
+        self::assertStringContainsString('error instanceof BusyError && attempt < MAX_ATTEMPTS', $body);
+    }
+
+    public function testOnlyASliderMissShowsTheMissedMessage(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertStringContainsString('function handleFailure(error, attempt, interaction = null)', $body);
+        self::assertStringContainsString("botlock(attempt + 1, error instanceof RetryError && interaction === 'slider')", $body);
+        self::assertStringContainsString("handleFailure(error, attempt, 'click')", $body);
+        self::assertStringContainsString("handleFailure(error, attempt, 'slider')", $body);
+    }
+
     private function middleware(?string $template = null, ?RenderedPageCache $cache = null): ChallengeDocumentMiddleware
     {
-        return new ChallengeDocumentMiddleware(
+        return new ChallengeDocumentMiddleware(new LocalizedPage(
             new LanguageNegotiator($this->translations->supported()),
             $this->translations,
             new TemplateRenderer(),
             $cache ?? new RenderedPageCache($this->cacheDir, 'inst'),
+            'challenge',
             $template ?? self::ROOT . '/templates/challenge.php',
-        );
+        ));
     }
 
     private function request(?string $acceptLanguage): Request

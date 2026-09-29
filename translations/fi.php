@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Finnish challenge page strings. Keys must match TranslationLoader::KEYS.
+// Finnish page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Turvatarkistus',
     'mainHeading' => 'Tarkistamme, että olet ihminen…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Turvatarkistus',
     'confirmParagraph' => 'Vahvista, ettet ole robotti, jotta voit jatkaa.',
     'verifyButton' => 'Vahvista',
+    'sliderHeading' => 'Turvatarkistus',
+    'sliderParagraph' => 'Siirrä liukusäädintä, kunnes pala sopii samanmuotoiseen aukkoon.',
+    'sliderLabel' => 'Palan sijainti',
+    'sliderSubmit' => 'Vahvista',
+    'sliderRetry' => 'Pala ei sopinut. Yritä uudelleen uudella kuvalla.',
     'errorHeading' => 'Vahvistus epäonnistui',
     'errorMessage' => 'Emme voineet vahvistaa pyyntöäsi tällä hetkellä. Kyseessä voi olla väliaikainen ongelma.',
     'errorWidget' => 'Tapahtui virhe',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Sinut ohjataan pian uudelleen…',
     'noscriptHeading' => 'JavaScript tarvitaan turvatarkistusta varten.',
     'noscriptText' => 'Ota JavaScript käyttöön selaimen asetuksissa ja päivitä sivu.',
+    'blockedHeading' => 'Liian monta pyyntöä',
+    'blockedMessage' => 'Olemme vastaanottaneet yhteydestäsi liian monta pyyntöä lyhyessä ajassa, joten pääsy on tilapäisesti keskeytetty.',
+    'blockedWait' => 'Odota hetki ja lataa sivu sitten uudelleen.',
+    'blockedRetry' => 'Voit yrittää uudelleen {time}.',
+    'blockedFooter' => 'Tämä rajoitus suojaa palvelua automaattiselta liikenteeltä.',
 ];

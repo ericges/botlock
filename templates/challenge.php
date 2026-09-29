@@ -1,7 +1,9 @@
 <?php declare(strict_types=1);
 /**
- * Browser challenge page. Rendered by Template\TemplateRenderer from
+ * Browser challenge page. Rendered by Template\LocalizedPage for
  * Middleware\ChallengeDocumentMiddleware, once per language, then cached.
+ * The shared styles come from partials/style.css, relativeTime() from
+ * partials/relative-time.js.
  *
  * @var string                $lang      Language code, always one of I18n\TranslationLoader::LANGUAGES
  * @var array<string,string>  $trans     Strings for that language (keys: I18n\TranslationLoader::KEYS)
@@ -19,69 +21,10 @@ if (!isset($lang, $trans, $transJson, $e)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $e($trans['pageTitle']) ?></title>
+    <style><?php \readfile(__DIR__ . '/partials/style.css'); ?></style>
     <style>
-        :root {
-            --body-bg: #f0f0f0;
-            --card-bg: #fff;
-            --title-color: #4e4848;
-            --text-color: #686868;
-            --icon-color: #d9dbdd;
-            --spinner-color: var(--title-color);
-            --spinner-bg: rgba(0, 0, 0, 0.1);
-            --noscript-bg: rgba(216, 0, 12, .06);
-            --noscript-color: #d8000c;
-            --error-color: #d8000c;
-            --success-color: #28a745;
-        }
-
-        @media (prefers-color-scheme: dark) {
-            :root {
-                --body-bg: #141517;
-                --card-bg: #202124;
-                --title-color: #f8faff;
-                --text-color: #b0b2ba;
-                --icon-color: #757580;
-                --spinner-color: var(--title-color);
-                --spinner-bg: rgba(255, 255, 255, 0.1);
-                --noscript-color: #ff7076;
-                --error-color: #ff7076;
-                --success-color: #5cb85c;
-            }
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            background-color: var(--body-bg);
-            margin: 0;
-            color: var(--title-color);
-            hanging-punctuation: none;
-            text-wrap: pretty;
-        }
-
-        #security {
-            background-color: var(--card-bg);
-            padding: 2.5rem;
-            border-radius: .125rem;
-            box-shadow: 0 1rem 1.5rem -.5rem rgba(0, 0, 0, 0.1);
-            text-align: center;
-            max-width: 60ch;
-            width: 90%;
-        }
-
-        h1 {
-            color: var(--title-color);
-            margin-bottom: 1rem;
-            font-size: 1.8em;
-        }
-
-        p {
-            color: var(--text-color);
-            margin-bottom: 2rem;
-            line-height: 1.7;
+        #info-paragraph {
+            text-wrap: balance;
         }
 
         #bot-check-widget {
@@ -123,16 +66,6 @@ if (!isset($lang, $trans, $transJson, $e)) {
             margin-bottom: 5px;
         }
 
-        .status-icon {
-            width: 6rem;
-            height: 6rem;
-            color: var(--icon-color);
-        }
-
-        .icon-wrapper {
-            display: none;
-        }
-
         .status-message {
             font-size: 1.2em;
             color: var(--text-color);
@@ -166,6 +99,115 @@ if (!isset($lang, $trans, $transJson, $e)) {
             opacity: .85;
         }
 
+        .verify-button:disabled {
+            opacity: .4;
+            cursor: not-allowed;
+        }
+
+        .puzzle-error {
+            margin: -1rem 0 1rem;
+            color: var(--error-color);
+            text-wrap: balance;
+        }
+
+        .puzzle {
+            position: relative;
+            width: 100%;
+            max-width: 280px;
+            margin-bottom: 1rem;
+            border-radius: .25rem;
+            overflow: hidden;
+        }
+
+        .puzzle-bg {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .puzzle-piece {
+            position: absolute;
+            left: 0;
+            height: auto;
+            filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff) drop-shadow(0 1px 3px rgba(0, 0, 0, .75));
+        }
+
+        .puzzle-piece.is-hinting {
+            animation: puzzle-hint 1.1s ease-in-out .4s 2;
+        }
+
+        @keyframes puzzle-hint {
+            0%, 100% {
+                transform: translateX(0);
+            }
+
+            50% {
+                transform: translateX(14px);
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .puzzle-piece.is-hinting {
+                animation: none;
+            }
+        }
+
+        /* A drag that starts to pan the page is cancelled halfway. */
+        .puzzle-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            touch-action: none;
+            width: 100%;
+            max-width: 280px;
+            height: 28px;
+            margin: 0 0 1.5rem;
+            background: transparent;
+        }
+
+        .puzzle-slider::-webkit-slider-runnable-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--spinner-bg);
+        }
+
+        .puzzle-slider::-moz-range-track {
+            height: 6px;
+            border-radius: 3px;
+            background: var(--spinner-bg);
+        }
+
+        /* The page script assumes this thumb size (THUMB_SIZE). */
+        .puzzle-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            cursor: grab;
+            width: 28px;
+            height: 28px;
+            margin-top: -11px;
+            border-radius: 50%;
+            background: var(--title-color) var(--slider-arrow) center / 18px no-repeat;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+        }
+
+        .puzzle-slider::-moz-range-thumb {
+            cursor: grab;
+            width: 28px;
+            height: 28px;
+            border: 0;
+            border-radius: 50%;
+            background: var(--title-color) var(--slider-arrow) center / 18px no-repeat;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+        }
+
+        .puzzle-slider:focus {
+            outline: none;
+        }
+
+        .puzzle-slider:focus-visible {
+            outline: 2px solid var(--title-color);
+            outline-offset: 4px;
+            border-radius: 14px;
+        }
+
     </style>
 </head>
 <body>
@@ -185,7 +227,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
         </div>
     </noscript>
 
-    <p id="footer-note" style="font-size: 0.8em; color: #8a919c;"><?= $e($trans['footerNote']) ?></p>
+    <p id="footer-note"><?= $e($trans['footerNote']) ?></p>
 </div>
 
 <svg class="icon-wrapper" style="display: none;">
@@ -239,6 +281,27 @@ if (!isset($lang, $trans, $transJson, $e)) {
         return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     }
 
+    function toBase64(bytes) {
+        let binary = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+        }
+        return btoa(binary);
+    }
+
+    // Seals the interaction report with the challenge's key (AES-GCM, the
+    // challenge id as additional data), the only form the server accepts.
+    async function seal(challenge, report) {
+        const raw = Uint8Array.from(atob(challenge.key), (c) => c.charCodeAt(0));
+        const key = await crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt']);
+        const iv = crypto.getRandomValues(new Uint8Array(12));
+        const data = new TextEncoder().encode(JSON.stringify(report));
+        const additionalData = new TextEncoder().encode(challenge.cid);
+        const sealed = await crypto.subtle.encrypt({ name: 'AES-GCM', iv, additionalData }, key, data);
+
+        return { cid: challenge.cid, iv: toBase64(iv), ct: toBase64(new Uint8Array(sealed)) };
+    }
+
     function showError() {
         security.classList.add('status-fail');
         headingElement.textContent = trans.errorHeading;
@@ -249,6 +312,21 @@ if (!isset($lang, $trans, $transJson, $e)) {
             </svg>
         `;  // <span class="status-message">${currentTranslations.errorWidget}</span>
         footerElement.textContent = trans.errorFooter;
+    }
+
+<?php \readfile(__DIR__ . '/partials/relative-time.js'); ?>
+
+    // Too many requests or slider puzzles: the same words as the 429 page, no retry.
+    function showBlocked(seconds) {
+        security.classList.add('status-fail');
+        headingElement.textContent = trans.blockedHeading;
+        infoElement.textContent = trans.blockedMessage;
+
+        const note = document.createElement('p');
+        note.textContent = seconds === null ? trans.blockedWait : trans.blockedRetry.replace('{time}', relativeTime(seconds));
+        widgetElement.replaceChildren(note);
+
+        footerElement.textContent = trans.blockedFooter;
     }
 
     function showSuccess() {
@@ -263,24 +341,93 @@ if (!isset($lang, $trans, $transJson, $e)) {
         footerElement.textContent = trans.successFooter;
     }
 
+    const MAX_ATTEMPTS = 5;
+
+    // The threat level rose above the one the challenge was issued for: start over.
+    class RestartError extends Error {}
+
+    // A 403 "retry": the interaction was not accepted (a missed slider, or a
+    // report that did not open); the ticket is spent, a new challenge follows.
+    class RetryError extends Error {}
+
+    // The client used up its slider puzzles for now; Retry-After says for how long.
+    class BlockedError extends Error {
+        constructor(seconds) {
+            super('blocked');
+            this.seconds = seconds;
+        }
+    }
+
+    // Too many slider puzzles right now for everyone; Retry-After says when the next minute starts.
+    class BusyError extends Error {
+        constructor(seconds) {
+            super('busy');
+            this.seconds = seconds;
+        }
+    }
+
+    // Retry-After in whole seconds, or null when it is missing or not a number of seconds.
+    function retryAfter(response) {
+        const seconds = Number(response.headers.get('Retry-After'));
+        return Number.isInteger(seconds) && seconds >= 1 ? seconds : null;
+    }
+
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+    async function call(action, method, nonce, body) {
+        const headers = {
+            "Accept": "application/json",
+            "Botlock-Nonce": nonce,
+        };
+        const options = { method, headers };
+
+        if (body !== undefined) {
+            headers["Content-Type"] = "application/json";
+            options.body = JSON.stringify(body);
+        }
+
+        const response = await fetch(`?_botlock=${action}`, options);
+
+        if (response.status === 409) {
+            throw new RestartError();
+        }
+
+        if (response.status === 403) {
+            throw new RetryError();
+        }
+
+        if (response.status === 429) {
+            throw new BlockedError(retryAfter(response));
+        }
+
+        if (response.status === 503) {
+            throw new BusyError(retryAfter(response));
+        }
+
+        return response;
+    }
+
     async function getChallenge(nonce) {
-        try {
-            const response = await fetch('?_botlock=challenge', {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Accept": "application/json",
-                    "Botlock-Nonce": nonce,
-                }
-            });
-            if (!response.ok) {
-                return null;
-            }
-            return await response.json()
-        } catch (error) {
-            console.error(error.message);
+        const response = await call('challenge', 'GET', nonce);
+        return response.ok ? await response.json() : null;
+    }
+
+    // Reports the completed interaction; the answer carries the proof of work.
+    async function completeInteraction(challenge, nonce, report = {}) {
+        const response = await call('challenge', 'POST', nonce, await seal(challenge, report));
+        return response.ok ? await response.json() : null;
+    }
+
+    // Pays for the slider picture with the gate proof of work; the answer
+    // carries the puzzle, the key and the slider's own deadline.
+    async function openPuzzle(challenge, nonce) {
+        const solution = await solveChallenge(challenge.gate);
+        if (solution === null) {
             return null;
         }
+
+        const response = await call('puzzle', 'POST', nonce, { ...solution, cid: challenge.cid });
+        return response.ok ? await response.json() : null;
     }
 
     async function solveChallenge({
@@ -322,24 +469,49 @@ if (!isset($lang, $trans, $transJson, $e)) {
     }
 
     async function sendResult(result, nonce) {
-        try {
-            const response = await fetch("?_botlock=verify", {
-                method: "POST",
-                body: JSON.stringify(result),
-                headers: {
-                    "Content-Type": "application/json",
-                    "Botlock-Nonce": nonce,
-                }
-            });
-
-            return response.ok;
-        } catch (error) {
-            console.error(error.message);
-            return false;
-        }
+        const response = await call('verify', 'POST', nonce, result);
+        return response.ok;
     }
 
-    async function botlock() {
+    function showWorking() {
+        widgetElement.innerHTML = '<div class="spinner"></div>';
+        headingElement.textContent = trans.mainHeading;
+        infoElement.textContent = trans.infoParagraph;
+    }
+
+    // interaction: the one that failed ('click' or 'slider'), null when none had started.
+    function handleFailure(error, attempt, interaction = null) {
+        if (error instanceof BlockedError) {
+            showBlocked(error.seconds);
+            return;
+        }
+
+        if (error instanceof BusyError && attempt < MAX_ATTEMPTS) {
+            showWorking();
+            sleep(Math.min(60, error.seconds ?? 5) * 1000)
+                .then(() => botlock(attempt + 1))
+                .catch((error) => {
+                    console.error(error);
+                    showError();
+                });
+            return;
+        }
+
+        if ((error instanceof RestartError || error instanceof RetryError) && attempt < MAX_ATTEMPTS) {
+            showWorking();
+            // "Missed" belongs above a new puzzle only after a slider that missed.
+            botlock(attempt + 1, error instanceof RetryError && interaction === 'slider').catch((error) => {
+                console.error(error);
+                showError();
+            });
+            return;
+        }
+
+        console.error(error);
+        showError();
+    }
+
+    async function botlock(attempt = 0, retried = false) {
         if (typeof window.crypto?.subtle?.digest !== 'function') {
             showError();
             return;
@@ -351,22 +523,41 @@ if (!isset($lang, $trans, $transJson, $e)) {
             return;
         }
 
-        const challenge = await getChallenge(nonce);
-        if (!challenge) {
-            showError();
-            return;
-        }
+        try {
+            const challenge = await getChallenge(nonce);
+            if (!challenge) {
+                showError();
+                return;
+            }
 
-        const { auto_start: autoStart = false } = challenge;
-        if (!autoStart) {
-            showConfirm(challenge, nonce);
-            return;
-        }
+            // The server rejects solutions sooner than min_ms after issuing.
+            challenge.receivedAt = performance.now();
 
-        await runChallenge(challenge, nonce);
+            switch (challenge.int) {
+                case 'none':
+                    await runChallenge(challenge, challenge.pow, nonce);
+                    return;
+                case 'click':
+                    showConfirm(challenge, nonce, attempt);
+                    return;
+                case 'slider': {
+                    const puzzle = await openPuzzle(challenge, nonce);
+                    if (!puzzle) {
+                        showError();
+                        return;
+                    }
+                    showSlider({ ...challenge, ...puzzle }, nonce, attempt, retried);
+                    return;
+                }
+                default:
+                    showError();
+            }
+        } catch (error) {
+            handleFailure(error, attempt);
+        }
     }
 
-    function showConfirm(challenge, nonce) {
+    function showConfirm(challenge, nonce, attempt) {
         headingElement.textContent = trans.confirmHeading;
         infoElement.textContent = trans.confirmParagraph;
 
@@ -375,39 +566,220 @@ if (!isset($lang, $trans, $transJson, $e)) {
         button.className = 'verify-button';
         button.textContent = trans.verifyButton;
         button.addEventListener('click', () => {
-            widgetElement.innerHTML = '<div class="spinner"></div>';
-            headingElement.textContent = trans.mainHeading;
-            infoElement.textContent = trans.infoParagraph;
-            runChallenge(challenge, nonce);
+            showWorking();
+            completeInteraction(challenge, nonce)
+                .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
+                .catch((error) => handleFailure(error, attempt, 'click'));
         }, { once: true });
 
         widgetElement.replaceChildren(button);
         button.focus();
     }
 
-    async function runChallenge(challenge, nonce) {
-        try {
-            const res = await solveChallenge(challenge);
-            if (res === null) {
-                showError();
+    // Records how the slider was moved, for the server to judge: each drag
+    // as {k: 'p', pt, t0, pts: [[dt, value, dy], …], co}, each key press
+    // that moved it as {k: 'k', t, v, r}, and each press on the handle that
+    // barely dragged as {k: 'c', t, d, v}. Times are milliseconds since the
+    // puzzle was shown; dy is the pointer's vertical drift in puzzle pixels.
+    function recordTrack(slider, frame, width, signal) {
+        const MAX_SAMPLES = <?= \GES\Botlock\Challenge\SliderTrack::MAX_SAMPLES ?>;
+        const shownAt = performance.now();
+        const track = [];
+        let samples = 0;
+        let stroke = null;
+        let key = null;
+
+        const time = (event) => Math.round((event.timeStamp - shownAt) * 10) / 10;
+        const add = (entry, size = 1) => {
+            if (samples + size <= MAX_SAMPLES) {
+                samples += size;
+                track.push(entry);
+            }
+        };
+        const trusted = (listener) => (event) => event.isTrusted && listener(event);
+
+        slider.addEventListener('pointerdown', trusted((event) => {
+            if (!event.isPrimary || event.defaultPrevented) {
                 return;
             }
+            stroke = {
+                id: event.pointerId,
+                pt: event.pointerType,
+                t0: time(event),
+                y0: event.clientY,
+                dy: 0,
+                pts: [],
+                co: 0,
+                scale: width / frame.getBoundingClientRect().width,
+            };
+        }), { signal });
 
-            const success = await sendResult(res, nonce);
-            if (!success) {
-                showError();
+        document.addEventListener('pointermove', trusted((event) => {
+            if (stroke?.id === event.pointerId) {
+                stroke.co += event.getCoalescedEvents?.().length || 1;
+                stroke.dy = Math.round((event.clientY - stroke.y0) * stroke.scale * 10) / 10;
+            }
+        }), { signal });
+
+        const end = trusted((event) => {
+            if (stroke?.id !== event.pointerId) {
                 return;
             }
+            const { pt, t0, pts, co } = stroke;
+            stroke = null;
 
-            showSuccess();
+            if (pts.length > 2) {
+                add({ k: 'p', pt, t0, pts, co }, pts.length);
+            } else if (pts.length) {
+                add({ k: 'c', t: t0, d: Math.round((time(event) - t0) * 10) / 10, v: pts[pts.length - 1][1] });
+            }
+        });
+        document.addEventListener('pointerup', end, { signal });
+        document.addEventListener('pointercancel', end, { signal });
 
-            setTimeout(() => {
-                window.location.reload();
-            }, 600);
-        } catch (error) {
-            console.error(error);
-            showError();
+        // The value changes after keydown; the next input event records it.
+        slider.addEventListener('keydown', trusted((event) => {
+            key = { t: time(event), r: event.repeat };
+        }), { signal });
+
+        slider.addEventListener('input', trusted((event) => {
+            const v = Number(slider.value);
+
+            if (stroke) {
+                samples + stroke.pts.length < MAX_SAMPLES && stroke.pts.push([Math.round((time(event) - stroke.t0) * 10) / 10, v, stroke.dy]);
+            } else {
+                add({ k: 'k', t: key?.t ?? time(event), v, r: key?.r ?? false });
+                key = null;
+            }
+        }), { signal });
+
+        return track;
+    }
+
+    const THUMB_SIZE = 28;
+
+    // Only the handle moves the piece: a press elsewhere on the track would
+    // make the range input jump there, which the server takes for a script.
+    // Fingers get a wider margin than a mouse or pen.
+    function lockToThumb(slider, signal) {
+        const onThumb = (clientX, pointerType) => {
+            const rect = slider.getBoundingClientRect();
+            const center = rect.left + THUMB_SIZE / 2 + slider.value / slider.max * (rect.width - THUMB_SIZE);
+            const margin = pointerType === 'touch' ? 12 : 4;
+            return Math.abs(clientX - center) <= THUMB_SIZE / 2 + margin;
+        };
+        const block = (clientX, pointerType) => (event) => {
+            if (!onThumb(clientX(event), pointerType(event))) {
+                event.preventDefault();
+            }
+        };
+
+        slider.addEventListener('pointerdown', block((e) => e.clientX, (e) => e.pointerType), { signal });
+        slider.addEventListener('mousedown', block((e) => e.clientX, () => 'mouse'), { signal });
+        slider.addEventListener('touchstart', block((e) => e.touches[0].clientX, () => 'touch'), { signal, passive: false });
+    }
+
+    // The range input works by dragging its handle or by the arrow keys.
+    function showSlider(challenge, nonce, attempt, retried) {
+        const { puzzle } = challenge;
+
+        headingElement.textContent = trans.sliderHeading;
+        infoElement.textContent = trans.sliderParagraph;
+
+        const frame = document.createElement('div');
+        frame.className = 'puzzle';
+        frame.style.aspectRatio = `${puzzle.width} / ${puzzle.height}`;
+
+        const background = new Image();
+        background.className = 'puzzle-bg';
+        background.alt = '';
+        background.src = puzzle.bg;
+
+        const piece = new Image();
+        piece.className = 'puzzle-piece';
+        piece.alt = '';
+        piece.src = puzzle.piece;
+        piece.style.width = `${puzzle.size / puzzle.width * 100}%`;
+        piece.style.top = `${puzzle.y / puzzle.height * 100}%`;
+
+        // A short nudge shows what to move, until the visitor starts.
+        piece.classList.add('is-hinting');
+        const stopHint = () => piece.classList.remove('is-hinting');
+        piece.addEventListener('animationend', stopHint, { once: true });
+
+        frame.append(background, piece);
+
+        const slider = document.createElement('input');
+        slider.type = 'range';
+        slider.className = 'puzzle-slider';
+        slider.min = '0';
+        slider.max = String(puzzle.width - puzzle.size);
+        slider.step = '1';
+        slider.value = '0';
+        slider.setAttribute('aria-label', trans.sliderLabel);
+
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'verify-button';
+        button.textContent = trans.sliderSubmit;
+        const recording = new AbortController();
+        lockToThumb(slider, recording.signal);
+        const track = recordTrack(slider, frame, puzzle.width, recording.signal);
+
+        button.addEventListener('click', () => {
+            recording.abort();
+            showWorking();
+            completeInteraction(challenge, nonce, { pos: Number(slider.value), track })
+                .then((ready) => ready ? runChallenge(challenge, ready.pow, nonce) : showError())
+                .catch((error) => handleFailure(error, attempt, 'slider'));
+        }, { once: true });
+
+        // Nothing to confirm while the piece is still at its start.
+        const move = () => {
+            piece.style.left = `${slider.value / puzzle.width * 100}%`;
+            button.disabled = Number(slider.value) === 0;
+        };
+        slider.addEventListener('input', move);
+        for (const type of ['input', 'keydown', 'pointerdown']) {
+            slider.addEventListener(type, stopHint, { once: true });
         }
+        move();
+
+        widgetElement.replaceChildren(frame, slider, button);
+
+        // After a miss the instructions stay; the error sits above the new puzzle.
+        if (retried) {
+            const error = document.createElement('p');
+            error.className = 'puzzle-error';
+            error.setAttribute('role', 'alert');
+            error.textContent = trans.sliderRetry;
+            widgetElement.prepend(error);
+        }
+        slider.focus();
+    }
+
+    async function runChallenge(challenge, pow, nonce) {
+        const res = await solveChallenge(pow);
+        if (res === null) {
+            showError();
+            return;
+        }
+
+        const wait = challenge.min_ms - (performance.now() - challenge.receivedAt);
+        if (wait > 0) {
+            await sleep(wait);
+        }
+
+        if (!await sendResult({ ...res, cid: challenge.cid }, nonce)) {
+            showError();
+            return;
+        }
+
+        showSuccess();
+
+        setTimeout(() => {
+            window.location.reload();
+        }, 600);
     }
 
     document.addEventListener('DOMContentLoaded', () => botlock().catch((error) => {

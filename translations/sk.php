@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-// Slovak challenge page strings. Keys must match TranslationLoader::KEYS.
+// Slovak page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Bezpečnostná kontrola',
     'mainHeading' => 'Overujeme, že ste človek…',
@@ -9,6 +9,11 @@ return [
     'confirmHeading' => 'Bezpečnostná kontrola',
     'confirmParagraph' => 'Ak chcete pokračovať, potvrďte, že nie ste robot.',
     'verifyButton' => 'Overiť',
+    'sliderHeading' => 'Bezpečnostná kontrola',
+    'sliderParagraph' => 'Posuňte posúvač tak, aby dielik zapadol do medzery s rovnakým tvarom.',
+    'sliderLabel' => 'Poloha dielika',
+    'sliderSubmit' => 'Potvrdiť',
+    'sliderRetry' => 'Nepasovalo to. Skúste to prosím znova s novým obrázkom.',
     'errorHeading' => 'Overenie zlyhalo',
     'errorMessage' => 'Momentálne sa nám nepodarilo overiť vašu požiadavku. Môže ísť o dočasný problém.',
     'errorWidget' => 'Vyskytla sa chyba',
@@ -18,4 +23,9 @@ return [
     'successFooter' => 'Čoskoro budete presmerovaní…',
     'noscriptHeading' => 'Na bezpečnostnú kontrolu je potrebný JavaScript.',
     'noscriptText' => 'Povoľte JavaScript v nastaveniach prehliadača a obnovte stránku.',
+    'blockedHeading' => 'Príliš veľa požiadaviek',
+    'blockedMessage' => 'Za krátky čas sme z vášho pripojenia prijali príliš veľa požiadaviek, preto je prístup dočasne pozastavený.',
+    'blockedWait' => 'Chvíľu počkajte a potom stránku znova načítajte.',
+    'blockedRetry' => 'Znova to môžete skúsiť {time}.',
+    'blockedFooter' => 'Tento limit chráni službu pred automatizovanou prevádzkou.',
 ];
