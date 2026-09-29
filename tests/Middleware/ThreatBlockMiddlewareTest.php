@@ -127,7 +127,7 @@ final class ThreatBlockMiddlewareTest extends TestCase
         self::assertInstanceOf(JsonResponse::class, $response);
         self::assertSame(429, $response->getStatus());
         self::assertSame('60', $response->getHeader('Retry-After'));
-        self::assertSame(['ok' => false, 'error' => 'Too Many Requests'], \json_decode((string) $response->getBody(), true));
+        self::assertSame(['ok' => false, 'error' => 'Too Many Requests', 'code' => 429], \json_decode((string) $response->getBody(), true));
     }
 
     public function testOtherClientsKeepThePlainAnswer(): void

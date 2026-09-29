@@ -62,7 +62,7 @@ final readonly class PuzzleAction implements ActionHandlerInterface
         $result = $this->budget->reserve($context->clientIp, (string) $context->fingerprint);
 
         if ($result !== PuzzleBudgetResult::Granted) {
-            return self::refusal($result, $this->budget->retryAfter($result, $context->clientIp, (string) $context->fingerprint));
+            throw self::refusal($result, $this->budget->retryAfter($result, $context->clientIp, (string) $context->fingerprint));
         }
 
         // Rendered before reading the clock, so puzzleAt is the moment the picture exists.
@@ -78,17 +78,13 @@ final readonly class PuzzleAction implements ActionHandlerInterface
         ]);
     }
 
-    private static function refusal(PuzzleBudgetResult $result, int $retryAfter): JsonResponse
+    private static function refusal(PuzzleBudgetResult $result, int $retryAfter): JsonResponseException
     {
         [$status, $error] = match ($result) {
             PuzzleBudgetResult::ClientExhausted => [429, 'Too Many Requests'],
             PuzzleBudgetResult::GlobalExhausted => [503, 'Busy'],
         };
 
-        return new JsonResponse(
-            $status,
-            ['ok' => false, 'error' => $error, 'code' => $status],
-            ['Retry-After' => (string) $retryAfter],
-        );
+        return new JsonResponseException($error, $status, headers: ['Retry-After' => (string) $retryAfter]);
     }
 }

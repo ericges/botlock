@@ -25,7 +25,7 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
             return new Response\JsonResponse(
                 $exception->getCode() ?: 500,
                 $exception->getData(),
-                ['Botlock-Error' => self::headerSafe($exception->getMessage())]
+                ['Botlock-Error' => self::headerSafe($exception->getMessage())] + $exception->getHeaders()
             );
         }
         catch (\Throwable $throwable)
@@ -51,7 +51,8 @@ final readonly class ErrorMiddleware implements MiddlewareInterface
         ];
 
         if (\str_contains($accept, 'application/json')) {
-            return new Response\JsonResponse($statusCode, ['ok' => false, 'error' => $message], $headers);
+            // The same shape as JsonResponseException::getData().
+            return new Response\JsonResponse($statusCode, ['ok' => false, 'error' => $message, 'code' => $statusCode], $headers);
         }
 
         if (\str_contains($accept, 'text/html')) {

@@ -15,6 +15,7 @@ use GES\Botlock\Config\DetectionConfig;
 use GES\Botlock\Config\ProofOfWorkConfig;
 use GES\Botlock\Config\RateLimitConfig;
 use GES\Botlock\Exception\JsonResponseException;
+use GES\Botlock\Middleware\ErrorMiddleware;
 use GES\Botlock\Http\Request;
 use GES\Botlock\Http\Response;
 use GES\Botlock\Http\Session;
@@ -292,9 +293,10 @@ final class TicketFlowTest extends TestCase
         $this->sliderChallenge();
 
         $challenge = $this->challenge(level: 3);
-        $response = $this->puzzle($challenge['cid'], self::solve($challenge['gate']));
+        $response = $this->answer(fn() => $this->puzzle($challenge['cid'], self::solve($challenge['gate'])));
 
         self::assertSame(429, $response->getStatus());
+        self::assertSame('Too Many Requests', $response->getHeader('Botlock-Error'));
         self::assertSame('601', $response->getHeader('Retry-After'), 'both renders count until a full window has passed');
         self::assertSame(['ok' => false, 'error' => 'Too Many Requests', 'code' => 429], \json_decode((string) $response->getBody(), true));
         self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
@@ -306,9 +308,10 @@ final class TicketFlowTest extends TestCase
         $this->sliderChallenge();
 
         $challenge = $this->challenge(level: 3);
-        $response = $this->puzzle($challenge['cid'], self::solve($challenge['gate']));
+        $response = $this->answer(fn() => $this->puzzle($challenge['cid'], self::solve($challenge['gate'])));
 
         self::assertSame(503, $response->getStatus());
+        self::assertSame('Busy', $response->getHeader('Botlock-Error'));
         self::assertSame((string) (60 - (int) $this->now % 60), $response->getHeader('Retry-After'));
         self::assertSame(['ok' => false, 'error' => 'Busy', 'code' => 503], \json_decode((string) $response->getBody(), true));
         self::assertNull($this->store->find($challenge['cid']), 'the ticket is spent');
@@ -558,6 +561,14 @@ final class TicketFlowTest extends TestCase
         $request->context->session = $this->session;
 
         return $request;
+    }
+
+    /**
+     * What ErrorMiddleware answers with for an action's response or rejection.
+     */
+    private function answer(\Closure $call): Response
+    {
+        return (new ErrorMiddleware)->process($this->request('POST', 3), static fn(): Response => $call());
     }
 
     private function assertRejected(int $status, \Closure $call): void

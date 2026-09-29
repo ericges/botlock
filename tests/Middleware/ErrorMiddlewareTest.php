@@ -53,7 +53,7 @@ final class ErrorMiddlewareTest extends TestCase
         $response = (new ErrorMiddleware)->process($request, $this->throwing());
 
         self::assertSame(500, $response->getStatus());
-        self::assertSame(['ok' => false, 'error' => 'Internal Server Error'], \json_decode((string) $response->getBody(), true));
+        self::assertSame(['ok' => false, 'error' => 'Internal Server Error', 'code' => 500], \json_decode((string) $response->getBody(), true));
         self::assertStringNotContainsString('hunter2', (string) $response->getBody());
     }
 
@@ -78,6 +78,18 @@ final class ErrorMiddlewareTest extends TestCase
         self::assertSame(400, $response->getStatus());
         self::assertSame('Invalid  nonce', $response->getHeader('Botlock-Error'));
         self::assertSame(['ok' => false, 'error' => "Invalid\r\nnonce", 'code' => 400], \json_decode((string) $response->getBody(), true));
+    }
+
+    public function testJsonResponseExceptionCarriesItsHeaders(): void
+    {
+        $next = static function (): Response {
+            throw new JsonResponseException('Busy', 503, headers: ['Retry-After' => '42', 'Botlock-Error' => 'not this']);
+        };
+
+        $response = (new ErrorMiddleware)->process(Requests::make(), $next);
+
+        self::assertSame('42', $response->getHeader('Retry-After'));
+        self::assertSame('Busy', $response->getHeader('Botlock-Error'), 'the message names the error');
     }
 
     private function throwing(): callable
