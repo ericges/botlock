@@ -54,11 +54,9 @@ final class InMemoryThreatStateStore implements ThreatStateStore
 
     public function countIndividual(string $fingerprint, int $windowStart): ?int
     {
-        if ($this->failing || $this->failIndividualRead) {
-            return null;
-        }
+        $timestamps = $this->individualTimestamps($fingerprint, $windowStart);
 
-        return \count(\array_filter($this->individual[$fingerprint] ?? [], static fn(int $ts): bool => $ts >= $windowStart));
+        return $timestamps === null ? null : \count($timestamps);
     }
 
     public function individualTimestamps(string $fingerprint, int $windowStart): ?array
