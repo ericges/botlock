@@ -40,7 +40,7 @@ final readonly class ProofOfWorkConfig
             algorithm: \strtolower((string) Env::get('POW_ALGORITHM', 'sha256')),
             expire: (int) (Env::get('EXPIRE') ?: 3600),
             maxNumber: (int) (Env::get('MAX_NUMBER') ?: 50000),
-            crawlerFactor: (int) (Env::get('CRAWLER_FACTOR') ?: 15),
+            crawlerFactor: Env::int('CRAWLER_FACTOR', 15),
             minSolveMs: \max(0, Env::int('MIN_SOLVE_MS', 1000)),
             assistedFactor: Env::int('SLIDER_ASSISTED_FACTOR', 4),
         );
