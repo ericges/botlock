@@ -10,7 +10,8 @@ use GES\Botlock\Http\Response\JsonResponse;
 /**
  * POST ?_botlock=verify — redeems a ticket with its proof-of-work solution
  * (body {"cid": …, "num": …, "sig": …, "slt": …, "exp": …, "alg": …}) and
- * grants the session for the ticket's threat level on success.
+ * raises the session's grant to the ticket's threat level on success; a
+ * grant already higher, from another tab's solve, is kept.
  *
  * The ticket is consumed whatever the outcome. It is rejected when its
  * interaction was not completed, when it is redeemed sooner than
@@ -43,7 +44,7 @@ final readonly class VerifyAction implements ChallengeStepInterface
 
         if ($ok = $this->tickets->verifyProof($ticket, $data, $ticket->binding()))
         {
-            $session->set('grant', $ticket->level);
+            $session->set('grant', \max($request->context->grantLevel(), $ticket->level));
             $session->commit();
             $statusCode = 200;
         }

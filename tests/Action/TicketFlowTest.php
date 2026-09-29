@@ -435,6 +435,21 @@ final class TicketFlowTest extends TestCase
         self::assertSame(2, $this->session->get('grant'));
     }
 
+    public function testAnOlderLowerTicketKeepsTheHigherGrant(): void
+    {
+        $older = $this->challenge(level: 1);
+
+        $challenge = $this->challenge(level: 2);
+        $ready = $this->interact($challenge, level: 2);
+
+        $this->now += 1.5;
+        self::assertSame(200, $this->verify($challenge['cid'], self::solve($ready['pow']), level: 2));
+        self::assertSame(2, $this->session->get('grant'));
+
+        self::assertSame(200, $this->verify($older['cid'], self::solve($older['pow']), level: 1));
+        self::assertSame(2, $this->session->get('grant'));
+    }
+
     /**
      * A tab left open past its phase starts over quietly: the page restarts
      * on 409 as it does after an escalation.
