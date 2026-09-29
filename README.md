@@ -196,7 +196,8 @@ server judges that track with plain rules: a drag must take a plausible time,
 drift a little vertically, speed up and slow down instead of gliding evenly,
 and not jump, and the time it claims must fit into the time the server saw
 pass. Key presses say less about the visitor, so they pass
-looser checks and pay with a harder proof of work instead. A track that fails
+looser checks and pay with a harder proof of work instead; a pointer stroke
+that moves the handle farther than a key press can is always judged as a drag. A track that fails
 counts as a miss too, with the same answer, so a script cannot tell which
 check it tripped. It makes generic automation more expensive; like every self-hosted captcha it does
 not stop a determined attacker with image processing, and visitors who cannot

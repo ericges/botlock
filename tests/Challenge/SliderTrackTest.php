@@ -75,6 +75,26 @@ final class SliderTrackTest extends TestCase
         self::assertSame(SliderVerdict::Assisted, self::judge($track), 'neither drag covers most of the way');
     }
 
+    public function testSplittingAScriptedDragDoesNotMakeItPresses(): void
+    {
+        // Two scripted strokes 0→75→150: neither covers most of the way, but
+        // each moves farther than a key press can, so each is judged as a drag.
+        $track = [self::linearDragFrom(0, 75, 600.0)];
+        $track[] = self::linearDragFrom(75, 150, Tracks::end($track) + 500);
+
+        self::assertSame(SliderVerdict::Rejected, self::judge($track));
+    }
+
+    public function testShortStrokesSpacedLikePressesAreAssisted(): void
+    {
+        $track = [];
+        foreach ([300, 410, 350, 520, 290, 380] as $i => $gap) {
+            $track[] = self::nudge(25 * $i, 25 * ($i + 1), $track === [] ? 600.0 : Tracks::end($track) + $gap);
+        }
+
+        self::assertSame(SliderVerdict::Assisted, self::judge($track), 'no stroke moves farther than a key press can');
+    }
+
     public function testAScriptedLongDragIsNotExcusedByAnEarlierHumanOne(): void
     {
         // Human drag 0→140 (140 pixels, passes isHumanDrag; the main drag, ≥ 0.7×150 = 105)

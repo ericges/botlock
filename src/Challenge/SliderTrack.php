@@ -22,7 +22,8 @@ namespace GES\Botlock\Challenge;
  * plausible track; the rules raise the cost, they do not prove a person.
  * Key presses are judged by weaker rules and answered with a harder proof
  * of work instead of being refused, so the slider stays usable without a
- * pointer.
+ * pointer; a pointer stroke that moves farther than a key can is always
+ * judged as a drag, never as a press.
  */
 final readonly class SliderTrack
 {
@@ -163,6 +164,12 @@ final readonly class SliderTrack
             return $this->strokesAreHuman(self::DRAG_SHARE * $longest) ? SliderVerdict::Drag : SliderVerdict::Rejected;
         }
 
+        // No single stroke did the work: one that moved farther than a key
+        // can is judged as a drag, never counted as a press.
+        if (!$this->strokesAreHuman(self::page() + 1)) {
+            return SliderVerdict::Rejected;
+        }
+
         return $this->actionsArePlausible() ? SliderVerdict::Assisted : SliderVerdict::Rejected;
     }
 
@@ -175,7 +182,7 @@ final readonly class SliderTrack
     private function stepsArePlausible(): bool
     {
         $max = SliderPuzzle::WIDTH - SliderPuzzle::PIECE;
-        $page = (int) \ceil($max / 10) + 1;
+        $page = self::page();
 
         foreach ($this->entries as $entry) {
             $plausible = match ($entry['k']) {
@@ -190,6 +197,15 @@ final readonly class SliderTrack
         }
 
         return true;
+    }
+
+    /**
+     * The farthest one key press moves the slider short of an end: a page,
+     * a tenth of the range, rounded up, plus one.
+     */
+    private static function page(): int
+    {
+        return (int) \ceil((SliderPuzzle::WIDTH - SliderPuzzle::PIECE) / 10) + 1;
     }
 
     /**
