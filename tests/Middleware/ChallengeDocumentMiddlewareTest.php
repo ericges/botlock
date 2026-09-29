@@ -123,6 +123,14 @@ final class ChallengeDocumentMiddlewareTest extends TestCase
         self::assertStringContainsString('<p id="footer-note">', $body);
     }
 
+    public function testTouchDragsOnTheSliderDoNotPanThePage(): void
+    {
+        $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();
+
+        self::assertSame(1, \preg_match('#\.puzzle-slider \{([^}]*)\}#', $body, $rule));
+        self::assertStringContainsString('touch-action: none;', $rule[1]);
+    }
+
     public function testChallengeScriptGuardsCryptoBeforeUse(): void
     {
         $body = (string) $this->middleware()->process($this->request('en'), $this->failingNext())->getBody();

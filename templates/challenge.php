@@ -151,9 +151,11 @@ if (!isset($lang, $trans, $transJson, $e)) {
             }
         }
 
+        /* A drag that starts to pan the page is cancelled halfway. */
         .puzzle-slider {
             -webkit-appearance: none;
             appearance: none;
+            touch-action: none;
             width: 100%;
             max-width: 280px;
             height: 28px;
