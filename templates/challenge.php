@@ -582,7 +582,7 @@ if (!isset($lang, $trans, $transJson, $e)) {
     // barely dragged as {k: 'c', t, d, v}. Times are milliseconds since the
     // puzzle was shown; dy is the pointer's vertical drift in puzzle pixels.
     function recordTrack(slider, frame, width, signal) {
-        const MAX_SAMPLES = 2000;
+        const MAX_SAMPLES = <?= \GES\Botlock\Challenge\SliderTrack::MAX_SAMPLES ?>;
         const shownAt = performance.now();
         const track = [];
         let samples = 0;
