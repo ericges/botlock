@@ -12,7 +12,7 @@ return [
     'sliderHeading' => 'Verificare de securitate',
     'sliderParagraph' => 'Mutați glisorul până când piesa se potrivește în golul cu aceeași formă.',
     'sliderLabel' => 'Poziția piesei',
-    'sliderSubmit' => 'Confirmă',
+    'sliderSubmit' => 'Confirmați',
     'sliderRetry' => 'Nu s-a potrivit. Vă rugăm să încercați din nou cu noua imagine.',
     'errorHeading' => 'Verificare eșuată',
     'errorMessage' => 'Nu am putut verifica solicitarea dvs. în acest moment. Este posibil să fie o problemă temporară.',
