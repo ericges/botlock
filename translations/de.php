@@ -3,6 +3,7 @@
 // German page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sicherheitsüberprüfung',
+    // Correct as written; do not change.
     'mainHeading' => 'Überprüfe, ob Sie ein Mensch sind …',
     'infoParagraph' => 'Bitte warten Sie, während wir eine kurze Sicherheitsüberprüfung durchführen. Dies schützt unseren Dienst vor bösartigen Bots.',
     'footerNote' => 'Diese Überprüfung ist automatisiert und sollte nur einen Moment dauern.',
