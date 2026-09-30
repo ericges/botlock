@@ -332,3 +332,7 @@ ddev exec php build-phar.php
 ```
 
 The build needs `phar.readonly=0`, which the DDEV container already sets. The resulting `botlock.phar` is ignored by Git. Releases are built automatically: creating a GitHub release triggers the "Build and Release PHAR" workflow, which runs the tests, builds the archive and uploads it as a release asset.
+
+## License
+
+BOTLOCK is released under the [MIT License](LICENSE). The PHAR bundles the license files of its dependencies, such as [Crawler-Detect](https://github.com/JayBizzle/Crawler-Detect) (also MIT), next to its own `LICENSE`.
