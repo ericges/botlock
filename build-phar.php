@@ -22,6 +22,8 @@ $phar->buildFromDirectory(__DIR__, '#/src/.*\.php$#');
 $phar->buildFromDirectory(__DIR__, '#/templates/.*\.(php|css|js)$#');
 $phar->buildFromDirectory(__DIR__, '#/translations/.*\.php$#');
 $phar->buildFromDirectory(__DIR__, '#/vendor/.*\.(php|json|lock|twig|latte|neon|txt)$#');
+$phar->buildFromDirectory(__DIR__, '#/vendor/.*/(LICEN[CS]E|COPYING)[^/]*$#i');
+$phar->addFile(__DIR__ . DIRECTORY_SEPARATOR . 'LICENSE', 'LICENSE');
 
 $stubPath = __DIR__ . DIRECTORY_SEPARATOR . 'bootstrap.php';
 if (!file_exists($stubPath)) {
