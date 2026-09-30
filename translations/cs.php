@@ -13,7 +13,7 @@ return [
     'sliderParagraph' => 'Posuňte posuvník tak, aby dílek zapadl do mezery se stejným tvarem.',
     'sliderLabel' => 'Poloha dílku',
     'sliderSubmit' => 'Potvrdit',
-    'sliderRetry' => 'Nepasovalo to. Zkuste to prosím znovu s novým obrázkem.',
+    'sliderRetry' => 'Nezapadlo to. Zkuste to prosím znovu s novým obrázkem.',
     'errorHeading' => 'Ověření se nezdařilo',
     'errorMessage' => 'V tuto chvíli se nám nepodařilo ověřit váš požadavek. Může jít o dočasný problém.',
     'errorWidget' => 'Došlo k chybě',

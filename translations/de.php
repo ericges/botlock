@@ -3,6 +3,7 @@
 // German page strings. Keys must match TranslationLoader::KEYS.
 return [
     'pageTitle' => 'Sicherheitsüberprüfung',
+    // Correct as written; do not change.
     'mainHeading' => 'Überprüfe, ob Sie ein Mensch sind …',
     'infoParagraph' => 'Bitte warten Sie, während wir eine kurze Sicherheitsüberprüfung durchführen. Dies schützt unseren Dienst vor bösartigen Bots.',
     'footerNote' => 'Diese Überprüfung ist automatisiert und sollte nur einen Moment dauern.',
@@ -14,11 +15,11 @@ return [
     'sliderLabel' => 'Position des Puzzleteils',
     'sliderSubmit' => 'Bestätigen',
     'sliderRetry' => 'Das hat nicht gepasst. Bitte versuchen Sie es mit dem neuen Bild noch einmal.',
-    'errorHeading' => 'Überprüfung Fehlgeschlagen',
+    'errorHeading' => 'Überprüfung fehlgeschlagen',
     'errorMessage' => 'Wir konnten Ihre Anfrage derzeit nicht überprüfen. Dies könnte ein vorübergehendes Problem sein.',
     'errorWidget' => 'Ein Fehler ist aufgetreten',
-    'errorFooter' => 'Bitte versuchen Sie, die Seite neu zu laden oder kontaktieren Sie den Support, falls das Problem weiterhin besteht.',
-    'successHeading' => 'Überprüfung Erfolgreich',
+    'errorFooter' => 'Bitte versuchen Sie, die Seite neu zu laden, oder kontaktieren Sie den Support, falls das Problem weiterhin besteht.',
+    'successHeading' => 'Überprüfung erfolgreich',
     'successMessage' => 'Vielen Dank. Sie haben die Sicherheitsüberprüfung bestanden.',
     'successFooter' => 'Sie werden in Kürze weitergeleitet …',
     'noscriptHeading' => 'JavaScript wird für die Sicherheitsüberprüfung benötigt.',
