@@ -9,7 +9,7 @@ return [
     'confirmHeading' => 'Güvenlik kontrolü',
     'confirmParagraph' => 'Devam etmek için lütfen robot olmadığınızı doğrulayın.',
     'verifyButton' => 'Doğrula',
-    'sliderHeading' => 'Güvenlik Kontrolü',
+    'sliderHeading' => 'Güvenlik kontrolü',
     'sliderParagraph' => 'Parça aynı şekildeki boşluğa oturana kadar kaydırıcıyı hareket ettirin.',
     'sliderLabel' => 'Parçanın konumu',
     'sliderSubmit' => 'Onayla',

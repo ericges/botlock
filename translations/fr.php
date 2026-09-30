@@ -9,7 +9,7 @@ return [
     'confirmHeading' => 'Contrôle de sécurité',
     'confirmParagraph' => 'Veuillez confirmer que vous n’êtes pas un robot pour continuer.',
     'verifyButton' => 'Vérifier',
-    'sliderHeading' => 'Vérification de sécurité',
+    'sliderHeading' => 'Contrôle de sécurité',
     'sliderParagraph' => 'Déplacez le curseur jusqu\'à ce que la pièce s\'insère dans l\'espace de même forme.',
     'sliderLabel' => 'Position de la pièce',
     'sliderSubmit' => 'Confirmer',

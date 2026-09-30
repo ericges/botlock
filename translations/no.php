@@ -9,7 +9,7 @@ return [
     'confirmHeading' => 'Sikkerhetskontroll',
     'confirmParagraph' => 'Bekreft at du ikke er en robot for å fortsette.',
     'verifyButton' => 'Bekreft',
-    'sliderHeading' => 'Sikkerhetssjekk',
+    'sliderHeading' => 'Sikkerhetskontroll',
     'sliderParagraph' => 'Flytt glidebryteren til brikken passer inn i hullet med samme form.',
     'sliderLabel' => 'Brikkens posisjon',
     'sliderSubmit' => 'Bekreft',

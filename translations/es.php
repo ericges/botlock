@@ -9,7 +9,7 @@ return [
     'confirmHeading' => 'Comprobación de seguridad',
     'confirmParagraph' => 'Para continuar, confirma que no eres un robot.',
     'verifyButton' => 'Verificar',
-    'sliderHeading' => 'Control de seguridad',
+    'sliderHeading' => 'Comprobación de seguridad',
     'sliderParagraph' => 'Mueve el control deslizante hasta que la pieza encaje en el hueco con la misma forma.',
     'sliderLabel' => 'Posición de la pieza',
     'sliderSubmit' => 'Confirmar',
