@@ -13,7 +13,7 @@ return [
     'sliderParagraph' => 'Posuňte posúvač tak, aby dielik zapadol do medzery s rovnakým tvarom.',
     'sliderLabel' => 'Poloha dielika',
     'sliderSubmit' => 'Potvrdiť',
-    'sliderRetry' => 'Nepasovalo to. Skúste to prosím znova s novým obrázkom.',
+    'sliderRetry' => 'Nezapadlo to. Skúste to prosím znova s novým obrázkom.',
     'errorHeading' => 'Overenie zlyhalo',
     'errorMessage' => 'Momentálne sa nám nepodarilo overiť vašu požiadavku. Môže ísť o dočasný problém.',
     'errorWidget' => 'Vyskytla sa chyba',
